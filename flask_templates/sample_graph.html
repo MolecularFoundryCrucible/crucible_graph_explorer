@@ -1,0 +1,71 @@
+{% set s = self_info %}
+<html>
+
+<h1> Sample Graph for {{s['sample_name']}} <span style="color: gray;">{{s['unique_id'][:13]}}</h1>
+<ul>
+    <li><b>Description:</b> {{s['description']}}</li>
+    <li><b>Datasets:</b>
+        <ul>
+            {% for ds in s['datasets'] %}
+            <li>
+                <a href="/dataset/{{ds['unique_id']}}" style=" color: gray;">{{ds['unique_id'][:13]}}</a>
+                <b>{{ds['dataset_name']}}</b> {{datasets_by_id[ds['unique_id']]['scientific_metadata']|string|truncate(1000)}}
+            </li>
+            {% endfor %}
+        </ul>
+</ul>
+
+
+
+<h2>Ancestors</h2>
+{% for s in ancestors_info %}
+{% set name = s['sample_name'] %}
+<h3>{{name}}
+    <a href="/sample-graph/{{s['unique_id']}}" style="color: gray;">
+        {{s['unique_id'][:13]}}</a>
+</h3>
+<ul>
+    <li><b>Path:</b> {{" <- ".join(ancestors_path[name])}}</li>
+    <li><b>Description:</b> {{s['description']}}</li>
+    <li><b>Datasets:</b>
+        <ul>
+        {% for ds in s['datasets'] %}
+            <li>
+                <a href="/dataset/{{ds['unique_id']}}" style=" color: gray;">{{ds['unique_id']}}</a>
+                <b>{{ds['dataset_name']}}</b> {{datasets_by_id[ds['unique_id']]['scientific_metadata']|string|truncate(1000)}}
+            </li>
+        {% endfor %}
+        </ul>
+    </li>
+</ul>
+{% endfor %}
+
+<h2>Descendants</h2>
+{% if not descendants_info %}
+No Descendants
+{% endif %}
+
+{% for s in descendants_info %}
+{% set name = s['sample_name'] %}
+<h3>{{name}}
+    <a href="/sample-graph/{{s['unique_id']}}" style="color: gray;">
+        {{s['unique_id'][:13]}}</a>
+</h3>
+<ul>
+    <li><b>Path:</b> {{" -> ".join(descendants_path[name])}}</li>
+    <li><b>Description:</b> {{s['description']}}</li>
+    <li><b>Datasets:</b>
+        <ul>
+        {% for ds in s['datasets'] %}
+            <li>
+                <span style=" color: gray;">{{ds['unique_id']}}</span>
+                <b>{{ds['dataset_name']}}</b> {{datasets_by_id[ds['unique_id']]['scientific_metadata']|string|truncate(1000)}}
+            </li>
+        {% endfor %}
+        </ul>
+    </li>
+</ul>
+
+{% endfor %}
+
+</html>

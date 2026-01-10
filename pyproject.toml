@@ -1,0 +1,23 @@
+[project]
+name = "crucible-graph-explorer"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.1.2",
+    "ipykernel>=7.1.0",
+    "matplotlib>=3.10.8",
+    "nbformat>=5.10.4",
+    "networkx>=3.6.1",
+    "pandas>=2.3.3",
+    "plotly>=6.5.0",
+    "pretty-jupyter>=2.0.8",
+    "pycrucible",
+    "pydantic>=2.12.5",
+    "requests>=2.32.5",
+    "setuptools>=80.9.0",
+]
+
+[tool.uv.sources]
+pycrucible = { git = "https://github.com/MolecularFoundryCrucible/pycrucible" }

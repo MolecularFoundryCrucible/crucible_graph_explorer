@@ -1,0 +1,26 @@
+{% macro render_dict_recursive(d) %}
+    <ul>
+    {% for key, value in d.items() %}
+        <li>
+            <b>{{ key }}</b>: 
+            {% if value is mapping %}
+                {{ render_dict_recursive(value) }}
+            {% else %}
+                {{ value if value is not none else "N/A" }}
+            {% endif %}
+        </li>
+    {% endfor %}
+    </ul>
+{% endmacro %}
+
+<html>
+    <body>
+        <h1>Dataset {{ds['dataset_name']}} </h1>
+
+        {{ds}}
+
+        <h2>Scientific Metadata</h2>
+        {{ render_dict_recursive(ds['scientific_metadata']) }}
+
+    </body>
+</html>
