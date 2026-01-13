@@ -1,6 +1,11 @@
-<html>
+{% extends "base.html" %}
+{% block title %}Projects in Crucible{% endblock %}
 
-<body>
+{% block breadcrumb %}
+        <li class="breadcrumb-item active" aria-current="page">Projects</li>
+{% endblock %}
+
+{% block content %}
 
     <h1>Projects in Crucible</h1>
 
@@ -12,6 +17,4 @@
         {% endfor %}
     </ul>
 
-</body>
-
-</html>
+{% endblock %}

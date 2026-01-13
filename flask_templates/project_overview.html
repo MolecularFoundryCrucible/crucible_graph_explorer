@@ -1,15 +1,20 @@
-<html>
+{% extends "base.html" %}
+{% block title %}Projects in {{pc['project_id']}}{% endblock %}
 
-<body>
+{% block breadcrumb %}
+        <li class="breadcrumb-item active"><a href="/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a></li>
+{% endblock %}
+
+{% block content %}
 
     <h1>Project {{pc['project_id']}}</h1>
-    <h1>Sample Graphs </h1>
+    <h2>Samples</h2>
 
     <ul>
         {% for s in sample_info %}
         <li>
             {{s['sample_name']}}
-            <a href="/{{pc['project_id']}}/sample-graph/{{s['unique_id']}}" style="font-family: monospace;">{{s['unique_id'][:13]}}</a>
+            <a href="/{{pc['project_id']}}/sample-graph/{{s['unique_id']}}" class="mfid">{{s['unique_id'][:13]}}</a>
         </li>
         {% endfor %}
     </ul>
@@ -18,12 +23,10 @@
     <ul>
         {% for ds in pc['datasets'] %}
         <li>
-            <a href="/{{pc['project_id']}}/dataset/{{ds['unique_id']}}"  style="font-family: monospace; color: gray;">{{ds['unique_id'][:13]}}</a>
+            <a href="/{{pc['project_id']}}/dataset/{{ds['unique_id']}}"  class="mfid">{{ds['unique_id'][:13]}}</a>
             {{ds['dataset_name']}}
         </li>
         {% endfor %}
     </ul>    
 
-</body>
-
-</html>
+{% endblock %}
