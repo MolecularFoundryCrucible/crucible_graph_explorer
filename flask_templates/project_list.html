@@ -1,0 +1,17 @@
+<html>
+
+<body>
+
+    <h1>Projects in Crucible</h1>
+
+    <ul>
+        {% for p in projects %}
+        <li>
+            <a href="/{{p['project_id']}}/" style="font-family: monospace;">{{p['project_id']}}</a>
+        </li>
+        {% endfor %}
+    </ul>
+
+</body>
+
+</html>

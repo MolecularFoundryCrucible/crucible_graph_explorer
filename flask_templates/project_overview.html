@@ -1,0 +1,29 @@
+<html>
+
+<body>
+
+    <h1>Project {{pc['project_id']}}</h1>
+    <h1>Sample Graphs </h1>
+
+    <ul>
+        {% for s in sample_info %}
+        <li>
+            {{s['sample_name']}}
+            <a href="/{{pc['project_id']}}/sample-graph/{{s['unique_id']}}" style="font-family: monospace;">{{s['unique_id'][:13]}}</a>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <h2>Datasets</h2>
+    <ul>
+        {% for ds in pc['datasets'] %}
+        <li>
+            <a href="/{{pc['project_id']}}/dataset/{{ds['unique_id']}}"  style="font-family: monospace; color: gray;">{{ds['unique_id'][:13]}}</a>
+            {{ds['dataset_name']}}
+        </li>
+        {% endfor %}
+    </ul>    
+
+</body>
+
+</html>

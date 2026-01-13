@@ -8,7 +8,7 @@
         <ul>
             {% for ds in s['datasets'] %}
             <li>
-                <a href="/dataset/{{ds['unique_id']}}" style=" color: gray;">{{ds['unique_id'][:13]}}</a>
+                <a href="/{{pc['project_id']}}/dataset/{{ds['unique_id']}}" style=" color: gray;">{{ds['unique_id'][:13]}}</a>
                 <b>{{ds['dataset_name']}}</b> {{datasets_by_id[ds['unique_id']]['scientific_metadata']|string|truncate(1000)}}
             </li>
             {% endfor %}
@@ -21,7 +21,7 @@
 {% for s in ancestors_info %}
 {% set name = s['sample_name'] %}
 <h3>{{name}}
-    <a href="/sample-graph/{{s['unique_id']}}" style="color: gray;">
+    <a href="/{{pc['project_id']}}/sample-graph/{{s['unique_id']}}" style="color: gray;">
         {{s['unique_id'][:13]}}</a>
 </h3>
 <ul>
@@ -31,7 +31,7 @@
         <ul>
         {% for ds in s['datasets'] %}
             <li>
-                <a href="/dataset/{{ds['unique_id']}}" style=" color: gray;">{{ds['unique_id']}}</a>
+                <a href="/{{pc['project_id']}}/dataset/{{ds['unique_id']}}" style=" color: gray;">{{ds['unique_id'][:13]}}</a>
                 <b>{{ds['dataset_name']}}</b> {{datasets_by_id[ds['unique_id']]['scientific_metadata']|string|truncate(1000)}}
             </li>
         {% endfor %}
@@ -48,7 +48,7 @@ No Descendants
 {% for s in descendants_info %}
 {% set name = s['sample_name'] %}
 <h3>{{name}}
-    <a href="/sample-graph/{{s['unique_id']}}" style="color: gray;">
+    <a href="/{{pc['project_id']}}/sample-graph/{{s['unique_id']}}" style="color: gray;">
         {{s['unique_id'][:13]}}</a>
 </h3>
 <ul>
