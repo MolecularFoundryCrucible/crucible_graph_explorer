@@ -7,6 +7,8 @@ import os
 
 app = Flask(__name__, template_folder="flask_templates")
 
+from dotenv import load_dotenv
+load_dotenv()
 
 crucible_api_key = os.getenv("CRUCIBLE_API_KEY")
 app.crucible_client = CrucibleClient(

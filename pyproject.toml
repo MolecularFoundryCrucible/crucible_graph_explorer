@@ -15,6 +15,7 @@ dependencies = [
     "pretty-jupyter>=2.0.8",
     "pycrucible",
     "pydantic>=2.12.5",
+    "python-dotenv>=1.2.1",
     "requests>=2.32.5",
     "setuptools>=80.9.0",
 ]
