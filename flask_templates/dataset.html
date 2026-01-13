@@ -13,33 +13,56 @@
     </ul>
 {% endmacro %}
 
-<html>
-    <head>
+{% extends "base.html" %}
+{% block title %}{{ds['dataset_name']}}{% endblock %}
+{% block head %}
+    {{ super() }}
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/themes/default/style.min.css" />
+{% endblock %}
 
-    </head>
-    <body>
-        <h1>Dataset {{ds['dataset_name']}} </h1>
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page"><b>Dataset</b> {{ds['dataset_name']}}</li>
+{% endblock %}
 
-        <ul>
-        {% for k,v in ds.items()%} 
-        {% if k != "scientific_metadata" %}
-        <li>
-            <b>{{k}}</b>: {{v}}
-        </li>
-        {% endif %}
-        {% endfor %}
-        </ul>
 
-        <h2>Scientific Metadata</h2>
+{% block content %}
 
-        <input id="tree_search" type="text">
-        <div id="jstree">
-            {{ render_dict_recursive(ds['scientific_metadata']) }}
+    <h1>Dataset {{ds['dataset_name']}}</h1>
+
+    <span class="mfid">{{ds['unique_id']}}</span>
+
+    <ul>
+    {% for k,v in ds.items()%} 
+    {% if k != "scientific_metadata" %}
+    <li>
+        <b>{{k}}</b>: {{v}}
+    </li>
+    {% endif %}
+    {% endfor %}
+    </ul>
+
+    <h2>Samples</h2>
+    <div class="card-columns">
+    {% for sample in samples %}
+        <div class="card" style="width: 25em;">
+              <h3 class="card-header">{{sample['sample_name']}}</h5>
+              <div class="card-body">  
+                <a href="/{{pc['project_id']}}/sample-graph/{{sample['unique_id']}}" class="card-subtitle mb-2 text-muted mfid">
+                    {{sample['unique_id'][:13]}}</a>
+            <p class="card-text">{{sample['description']}} | {{sample['date_created']}}</p>
+            </div>
         </div>
+    {% endfor %}
+    </div>
+    
+    <h2>Scientific Metadata</h2>
 
-  <!-- 4 include the jQuery library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.1/jquery.min.js"></script>
+    <input id="tree_search" type="text">
+    <div id="jstree">
+        {{ render_dict_recursive(ds['scientific_metadata']) }}
+    </div>
+
   <!-- 5 include the minified jstree source -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/jstree.min.js"></script>
   <script>
@@ -76,5 +99,4 @@
   });
   </script>
 
-    </body>
-</html>
+{% endblock %}

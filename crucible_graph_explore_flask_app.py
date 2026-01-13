@@ -154,4 +154,6 @@ def sample_graph(project_id, sample_id):
 @app.route("/<project_id>/dataset/<dsid>")
 def dataset(project_id, dsid):
     pc = get_project(project_id)
-    return render_template("dataset.html", ds=pc['datasets_by_id'][dsid])
+    samples = app.crucible_client.list_samples(dataset_id=dsid)
+    return render_template("dataset.html", 
+                           pc=pc, ds=pc['datasets_by_id'][dsid], samples=samples)
