@@ -48,34 +48,35 @@ def generate_project_cache(project_id):
             ds['scientific_metadata'] = dict()
             print('sci meta data fail', dsid, ds, err)
 
-    # Generate directed graph of sample relationships
+    # Generate directed graph of sample relationships, using unique_id
     G = nx.DiGraph()
     # start with all samples in the project
-    queue = [s['sample_name'] for s in pc['samples']]
+    queue = [s['unique_id'] for s in pc['samples']]
+    print(queue)
+
     visited = set()
 
     while queue:
-        sample_name = queue.pop(0)
-        print("Graphing {sample_name}")
-        if sample_name in visited:
+        sample_id = queue.pop(0)
+        print(f"Graphing {sample_id}")
+        if sample_id in visited:
             continue # skip if already in graph
 
         try:
-            sample = pc['samples_by_name'][sample_name]
-
+            #sample = pc['samples_by_id'][sample_id]
             #print(sample_name, sample['unique_id'])
-            G.add_node(sample_name)
-            visited.add(sample_name)
+            G.add_node(sample_id)
+            visited.add(sample_id)
 
-            children_response = app.crucible_client.list_samples(parent_id=sample['unique_id'])
-            children = [r['sample_name'] for r in children_response]
+            children_response = app.crucible_client.list_samples(parent_id=sample_id)
+            children = [r['unique_id'] for r in children_response]
             #print(f"Children of {sample['sample_name']}: {children}")
             for child in children:
-                G.add_edge(sample_name, child)
+                G.add_edge(sample_id, child)
                 #if sample list incomplete, then recursvive search using a queue is required
                 queue.append(child) 
         except Exception as err:
-            print(f"Failed to read children of {sample_name}: {err}")
+            print(f"Failed to read children of {sample_id}: {err}")
 
 
     # save graph as a Node Link JSON
@@ -120,25 +121,25 @@ def project_overview(project_id):
 def sample_graph(project_id, sample_id):
     pc = get_project(project_id)
 
-    sample_name = pc['samples_by_id'][sample_id]['sample_name']
-    print(sample_name)
-    descendants = nx.descendants(pc['sample_graph'], sample_name)
-    ancestors = nx.ancestors(pc['sample_graph'], sample_name)
+    #sample_name = pc['samples_by_id'][sample_id]['sample_name']
+    #print(sample_name)
+    descendants = nx.descendants(pc['sample_graph'], sample_id)
+    ancestors = nx.ancestors(pc['sample_graph'], sample_id)
 
     descendants_path = {}
     for x in descendants:
-        paths = list(nx.all_simple_paths(pc['sample_graph'], sample_name, x))
+        paths = list(nx.all_simple_paths(pc['sample_graph'], sample_id, x))
         descendants_path[x] = paths[0]
 
     ancestors_path = {}
     for x in ancestors:
-        paths = list(nx.all_simple_paths(pc['sample_graph'], x, sample_name))
+        paths = list(nx.all_simple_paths(pc['sample_graph'], x, sample_id))
         ancestors_path[x] = paths[0]
 
     # time sort ancestors using the unique mfid  as a proxy for time
-    ancestors_info = sorted([pc['samples_by_name'][name] for name in ancestors], key=lambda x: x['unique_id'])
-    self_info = pc['samples_by_name'][sample_name]
-    descendants_info = sorted([pc['samples_by_name'][name] for name in descendants], key=lambda x: x['unique_id'])
+    ancestors_info = sorted([pc['samples_by_id'][sample_id] for sample_id in ancestors], key=lambda x: x['unique_id'])
+    self_info = pc['samples_by_id'][sample_id]
+    descendants_info = sorted([pc['samples_by_id'][sample_id] for sample_id in descendants], key=lambda x: x['unique_id'])
 
     return render_template('sample_graph.html',
                            pc=pc,
