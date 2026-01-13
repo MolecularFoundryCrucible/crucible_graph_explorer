@@ -14,13 +14,67 @@
 {% endmacro %}
 
 <html>
+    <head>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/themes/default/style.min.css" />
+
+    </head>
     <body>
         <h1>Dataset {{ds['dataset_name']}} </h1>
 
-        {{ds}}
+        <ul>
+        {% for k,v in ds.items()%} 
+        {% if k != "scientific_metadata" %}
+        <li>
+            <b>{{k}}</b>: {{v}}
+        </li>
+        {% endif %}
+        {% endfor %}
+        </ul>
 
         <h2>Scientific Metadata</h2>
-        {{ render_dict_recursive(ds['scientific_metadata']) }}
+
+        <input id="tree_search" type="text">
+        <div id="jstree">
+            {{ render_dict_recursive(ds['scientific_metadata']) }}
+        </div>
+
+  <!-- 4 include the jQuery library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.1/jquery.min.js"></script>
+  <!-- 5 include the minified jstree source -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/jstree.min.js"></script>
+  <script>
+  $(function () {
+    // 6 create an instance when the DOM is ready
+    $('#jstree').jstree({
+    'search': {
+            'case_insensitive': true,
+            'show_only_matches' : false
+        },
+        'plugins': ['search', 'wholerow']
+    }).on('search.jstree', function (nodes, str, res) {
+        if (str.nodes.length===0) {
+    $('#jstree').jstree(true).hide_all();
+        }
+    });
+
+    // 7 bind to events triggered on the tree
+    $('#jstree').on("changed.jstree", function (e, data) {
+      console.log(data.selected);
+    });
+    // 8 interact with the tree - either way is OK
+    $('button').on('click', function () {
+      $('#jstree').jstree(true).select_node('child_node_1');
+      $('#jstree').jstree('select_node', 'child_node_1');
+      $.jstree.reference('#jstree').select_node('child_node_1');
+    });
+
+    $('#tree_search').keyup(function(){
+        $('#jstree').jstree(true).show_all();
+        $('#jstree').jstree('search', $(this).val());
+    });
+    $("#jstree").jstree("open_all");
+  });
+  </script>
 
     </body>
 </html>
