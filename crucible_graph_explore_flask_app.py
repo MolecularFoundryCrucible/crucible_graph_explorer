@@ -6,13 +6,15 @@ import networkx as nx
 import networkx.readwrite
 import json
 import os
-from typing import List,Dict, Any
+from flask_qrcode import QRcode
 
 
 from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__, template_folder="flask_templates")
+QRcode(app)
+
 app.project_cache = {}
 
 crucible_api_key = os.getenv("CRUCIBLE_API_KEY")
@@ -156,5 +158,8 @@ def sample_graph(project_id, sample_id):
 def dataset(project_id, dsid):
     pc = get_project(project_id)
     samples = app.crucible_client.list_samples(dataset_id=dsid)
+
+    thumbnails = app.crucible_client.get_thumbnails(dsid)
+
     return render_template("dataset.html", 
-                           pc=pc, ds=pc['datasets_by_id'][dsid], samples=samples)
+                           pc=pc, ds=pc['datasets_by_id'][dsid], samples=samples, thumbnails=thumbnails)

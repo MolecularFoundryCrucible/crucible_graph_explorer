@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "flask>=3.1.2",
+    "flask-qrcode>=3.2.0",
     "ipykernel>=7.1.0",
     "matplotlib>=3.10.8",
     "nbformat>=5.10.4",

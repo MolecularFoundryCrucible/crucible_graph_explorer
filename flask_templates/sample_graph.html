@@ -18,6 +18,9 @@
 {% block content %}
 
 <h1><em>Sample</em> {{s['sample_name']}} <span class="mfid">{{s['unique_id'][:13]}}</h1>
+<div>
+    <img src="{{ qrcode(s['unique_id'], box_size=5, border=5) }}">
+</div>
 
 <div class="container card">
 
@@ -32,7 +35,7 @@
             </li>
             {% endfor %}
         </ul>
-</ul>
+    </ul>
 </div>
 
 
@@ -83,7 +86,7 @@ No Descendants
         <ul>
         {% for ds in s['datasets'] %}
             <li>
-                <span style=" color: gray;">{{ds['unique_id']}}</span>
+                <a href="/{{pc['project_id']}}/dataset/{{ds['unique_id']}}" class="mfid">{{ds['unique_id'][:13]}}</a>
                 <b>{{ds['dataset_name']}}</b> {{datasets_by_id[ds['unique_id']]['scientific_metadata']|string|truncate(1000)}}
             </li>
         {% endfor %}
