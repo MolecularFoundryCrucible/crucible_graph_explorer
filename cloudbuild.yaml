@@ -27,8 +27,8 @@ steps:
       - >-
         CRUCIBLE_API_KEY=crucible_admin_apikey:latest,
         PYOIDC_SECRET=pyoidc_secret_key:latest,
-        ORCID_CLIENT_ID=orcid_client_id:latest,
-        ORCID_CLIENT_SECRET=orcid_client_secret:latest
+        ORCID_CLIENT_ID=orcid_client_id_esb:latest,
+        ORCID_CLIENT_SECRET=orcid_client_secret_esb:latest
       - '--allow-unauthenticated'
 
 substitutions:
