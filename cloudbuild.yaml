@@ -34,7 +34,7 @@ steps:
 substitutions:
   _SERVICE_NAME: 'crucible-graph-explorer'
   _REGION: 'us-central1'
-  _IMAGE_PATH: 'us-central1-docker.pkg.dev/$PROJECT_ID/${REPO_NAME}-${BRANCH_NAME}/app'
+  _IMAGE_PATH: '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}-${BRANCH_NAME}/app'
   _SERVICE_URL: 'https://${REPO_NAME}-${PROJECT_NUMBER}.us-central1.run.app'
 
 images:
