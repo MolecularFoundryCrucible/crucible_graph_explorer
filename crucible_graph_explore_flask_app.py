@@ -29,7 +29,7 @@ app.crucible_client = CrucibleClient(
 )
 
 app.config.update(
-    OIDC_REDIRECT_URI = 'http://127.0.0.1:8000/redirect_uri',
+    OIDC_REDIRECT_URI = os.getenv("OIDC_REDIRECT_URI"), #'http://127.0.0.1:8000/redirect_uri',
     SECRET_KEY = os.getenv("PYOIDC_SECRET")
 )
 

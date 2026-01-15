@@ -1,0 +1,41 @@
+steps:
+  # Step 1: Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', '${_IMAGE_PATH}', '.']
+
+  # Step 2: Push the image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '${_IMAGE_PATH}']
+
+  # Step 3: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME}'
+      - '--image'
+      - '${_IMAGE_PATH}'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--set-env-vars'
+      - >-
+        OIDC_REDIRECT_URI=https://${_SERVICE_NAME}-${PROJECT_NUMBER}.${_REGION}.run.app/redirect_uri
+      - '--set-secrets'
+      - >-
+        CRUCIBLE_API_KEY=crucible_admin_apikey:latest,
+        PYOIDC_SECRET=pyoidc_secret_key:latest,
+        ORCID_CLIENT_ID=orcid_client_id:latest,
+        ORCID_CLIENT_SECRET=orcid_client_secret:latest
+      - '--allow-unauthenticated'
+
+substitutions:
+  _SERVICE_NAME: 'crucible-graph-explorer'
+  _REGION: 'us-central1'
+  _IMAGE_PATH: 'us-central1-docker.pkg.dev/$PROJECT_ID/${REPO_NAME}-${BRANCH_NAME}/app'
+  _SERVICE_URL: 'https://${REPO_NAME}-${PROJECT_NUMBER}.us-central1.run.app'
+
+images:
+  - '${_IMAGE_PATH}'
