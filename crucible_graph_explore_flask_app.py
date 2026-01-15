@@ -1,4 +1,5 @@
-from flask import Flask, render_template
+import flask
+from flask import Flask, render_template,jsonify, abort
 from pycrucible import CrucibleClient
 import json
 from networkx.readwrite import json_graph
@@ -7,6 +8,10 @@ import networkx.readwrite
 import json
 import os
 from flask_qrcode import QRcode
+
+from flask_pyoidc.user_session import UserSession
+from flask_pyoidc import OIDCAuthentication
+from flask_pyoidc.provider_configuration import ProviderConfiguration, ClientMetadata
 
 
 from dotenv import load_dotenv
@@ -22,6 +27,19 @@ app.crucible_client = CrucibleClient(
     api_url="https://crucible.lbl.gov/testapi",
     api_key=crucible_api_key # v3
 )
+
+app.config.update(
+    OIDC_REDIRECT_URI = 'http://127.0.0.1:8000/redirect_uri',
+    SECRET_KEY = os.getenv("PYOIDC_SECRET")
+)
+
+PROVIDER_NAME = 'orcid'
+CLIENT_META = ClientMetadata(client_id=os.getenv("ORCID_CLIENT_ID"), client_secret=os.getenv("ORCID_CLIENT_SECRET"))
+PROVIDER_CONFIG = ProviderConfiguration(issuer='https://orcid.org/', client_metadata=CLIENT_META)
+
+auth = OIDCAuthentication({PROVIDER_NAME: PROVIDER_CONFIG}, app)
+
+
 
 def generate_project_cache(project_id):
     """Creates and saves project cache (returns None)"""
@@ -108,19 +126,40 @@ def get_project(project_id):
         generate_project_cache(project_id)
         return load_project_cache(project_id)
 
+
+def is_user_in_project(project_id, orcid=None):
+    """Look up user from session unless orcid is defined"""
+    if not orcid:
+        user_session = UserSession(flask.session)
+        orcid=user_session.userinfo['sub']
+    projects=app.crucible_client.list_projects(orcid=orcid)
+    project_names = [p['project_id'] for p in projects]
+    return project_id in project_names
+
+
 @app.route("/")
+@auth.oidc_auth('orcid')
 def list_projects():
-    return render_template('project_list.html', projects=app.crucible_client.list_projects())
+    #return render_template('project_list.html', projects=app.crucible_client.list_projects())
+    user_session = UserSession(flask.session)
+    orcid=user_session.userinfo['sub']
+    return render_template('project_list.html', projects=app.crucible_client.list_projects(orcid=orcid))
 
 @app.route("/<project_id>/")
+@auth.oidc_auth('orcid')
 def project_overview(project_id):
+    if not is_user_in_project(project_id):
+        abort(403)
     pc = get_project(project_id)
     print(pc.keys())
     return render_template('project_overview.html', pc=pc,
-                           sample_info=sorted(pc['samples_by_name'].values(), key=lambda x:x['sample_name']))
+                        sample_info=sorted(pc['samples_by_name'].values(), key=lambda x:x['sample_name']))
 
 @app.route("/<project_id>/sample-graph/<sample_id>")
+@auth.oidc_auth('orcid')
 def sample_graph(project_id, sample_id):
+    if not is_user_in_project(project_id):
+        abort(403)
     pc = get_project(project_id)
 
     #sample_name = pc['samples_by_id'][sample_id]['sample_name']
@@ -155,7 +194,10 @@ def sample_graph(project_id, sample_id):
                            )
 
 @app.route("/<project_id>/dataset/<dsid>")
+@auth.oidc_auth('orcid')
 def dataset(project_id, dsid):
+    if not is_user_in_project(project_id):
+        abort(403)
     pc = get_project(project_id)
     samples = app.crucible_client.list_samples(dataset_id=dsid)
 
@@ -163,3 +205,11 @@ def dataset(project_id, dsid):
 
     return render_template("dataset.html", 
                            pc=pc, ds=pc['datasets_by_id'][dsid], samples=samples, thumbnails=thumbnails)
+
+@app.route("/auth-test/")
+@auth.oidc_auth('orcid')
+def auth_test():
+    user_session = UserSession(flask.session)
+    return jsonify(access_token=user_session.access_token,
+                   id_token=user_session.id_token,
+                   userinfo=user_session.userinfo)

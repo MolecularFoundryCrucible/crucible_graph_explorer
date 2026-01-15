@@ -1,0 +1,1 @@
+ uv run flask --app crucible_graph_explore_flask_app.py run --debug --port 8000
