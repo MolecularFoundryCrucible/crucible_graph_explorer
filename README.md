@@ -18,3 +18,9 @@ Run locally
 uv run flask --app crucible_graph_explore_flask_app.py run --debug --port 8000
 ```
 
+## Docker run locally
+
+```sh
+docker build -t crucible_graph_explorer . 
+docker run -p 8080:8080  --env-file .env --name crucible_graph_explorer crucible_graph_explorer 
+```
