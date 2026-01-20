@@ -8,11 +8,10 @@
 {% block content %}
 
     <h1>Projects in Crucible</h1>
-
     <ul>
         {% for p in projects %}
         <li>
-            <a href="/{{p['project_id']}}/" style="font-family: monospace;">{{p['project_id']}}</a>
+            <a href="/{{p['project_id']}}/" style="font-family: monospace;">{{p['project_id']}}</a> {{p['title']}}
         </li>
         {% endfor %}
     </ul>
