@@ -1705,9 +1705,11 @@ wheels = [
 [[package]]
 name = "pycrucible"
 version = "1.0.0"
-source = { git = "https://github.com/MolecularFoundryCrucible/pycrucible#e7040ae662a0cf40677592e74cb07dc60baf20ea" }
+source = { git = "https://github.com/MolecularFoundryCrucible/pycrucible#d34e4b452084d1ec042aa70007e4c9b08418bef7" }
 dependencies = [
     { name = "ipywidgets" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
     { name = "pytz" },
     { name = "requests" },
 ]
