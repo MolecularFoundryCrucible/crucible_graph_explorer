@@ -27,8 +27,8 @@ def generate_project_cache(project_id, crucible_client, include_metadata=False):
     pc = dict(project_id=project_id)
 
     print('getting samples and datasets from Crucible')
-    pc['samples'] = crucible_client.list_samples(project_id=project_id)
-    pc['datasets'] = crucible_client.list_datasets(project_id=project_id)
+    pc['samples'] = crucible_client.list_samples(project_id=project_id, limit=9999)
+    pc['datasets'] = crucible_client.list_datasets(project_id=project_id, limit=9999)
 
     pc['samples_by_id'] = {s['unique_id']:s for s in pc['samples']}
     pc['samples_by_name'] = {s['sample_name']:s for s in pc['samples']}
@@ -61,7 +61,7 @@ def generate_project_graph(project_id, crucible_client):
     # Generate directed graph of sample relationships, using unique_id
     G = nx.DiGraph()
     # start with all samples in the project
-    pc = get_project(project_id)
+    pc = get_project(project_id, crucible_client)
     queue = [s['unique_id'] for s in pc['samples']]
     print(queue)
 
@@ -79,7 +79,7 @@ def generate_project_graph(project_id, crucible_client):
             G.add_node(sample_id)
             visited.add(sample_id)
 
-            children_response = crucible_client.list_samples(parent_id=sample_id)
+            children_response = crucible_client.list_children_of_sample(sample_id) #list_samples(parent_id=sample_id)
             children = [r['unique_id'] for r in children_response]
             #print(f"Children of {sample['sample_name']}: {children}")
             for child in children:
@@ -92,7 +92,7 @@ def generate_project_graph(project_id, crucible_client):
 
     #save graph as a Node Link JSON
     node_link_data = nx.readwrite.json_graph.node_link_data(G)
-    with open(f'cache/{project_id}_project_sample_graph.json') as jsonf:
+    with open(f'cache/{project_id}_project_sample_graph.json','w') as jsonf:
        json.dump( node_link_data, jsonf)
     #pc['sample_graph_nodelink'] = node_link_data
     return G   
@@ -151,6 +151,14 @@ def generate_sample_graph(sample_id, crucible_client):
             print(f"Failed to read parents of {sample_id}: {err}")
 
     print(G)
+    return G
+
+def load_sample_graph(project_id):
+    """Loads existing project sample graph from cache"""
+    fname = f'cache/{project_id}_project_sample_graph.json'
+    with open(fname, 'r') as jsonf:
+        node_link_data = json.load(jsonf)
+    G = nx.readwrite.json_graph.node_link_graph(node_link_data)
     return G
 
 def load_project_cache(project_id):
