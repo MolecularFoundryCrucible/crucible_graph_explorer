@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Hello 10k</h1>
+
+<h2>Thin Films</h2>
+<!-- <ul>
+    {% for tf in tfs %}
+    <li>{{tf['sample_name']}} </li>
+    {% endfor %}
+</ul> -->
+
+
+<h2>Thin Film Table</h2>
+{{ df.to_html() | safe }}
+
+{% endblock %}

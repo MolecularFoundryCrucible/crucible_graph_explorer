@@ -22,13 +22,20 @@ def clear_project_cache(project_id):
     # if project_id in app.project_cache:
     #     del app.project_cache[project_id]    
 
-def generate_project_cache(project_id, crucible_client, include_metadata=False):
+def generate_project_cache(project_id, crucible_client, include_metadata=True):
     """Creates and saves project cache (returns None)"""
     pc = dict(project_id=project_id)
 
     print('getting samples and datasets from Crucible')
     pc['samples'] = crucible_client.list_samples(project_id=project_id, limit=9999)
-    pc['datasets'] = crucible_client.list_datasets(project_id=project_id, limit=9999)
+    pc['datasets'] = crucible_client.list_datasets(project_id=project_id, limit=9999, include_metadata=include_metadata)
+
+    # fix double nesting in scientific metadata:
+    for ds in pc['datasets']:
+        if 'scientific_metadata' in ds:
+            if ds['scientific_metadata'] and 'scientific_metadata' in ds['scientific_metadata']:
+                ds['scientific_metadata'] = ds['scientific_metadata']['scientific_metadata']
+
 
     pc['samples_by_id'] = {s['unique_id']:s for s in pc['samples']}
     pc['samples_by_name'] = {s['sample_name']:s for s in pc['samples']}
@@ -41,23 +48,23 @@ def generate_project_cache(project_id, crucible_client, include_metadata=False):
                 pc['datasets_by_id'][ds['unique_id']] = ds
                 pc['datasets'].append(ds)
 
-    # load scientific metadata
-    if include_metadata:
-        print('loading scientific metadata')
-        for dsid, ds in pc['datasets_by_id'].items():
-                resp = crucible_client.get_scientific_metadata(ds['unique_id'])
-                if resp:
-                    ds['scientific_metadata'] = resp['scientific_metadata']
-                else:
-                    print('sci meta data missing', dsid, resp)
+    # load scientific metadata (should now be handled via list_datasets include_metadata flag)
+    # if include_metadata:
+    #     print('loading scientific metadata')
+    #     for dsid, ds in pc['datasets_by_id'].items():
+    #             resp = crucible_client.get_scientific_metadata(ds['unique_id'])
+    #             if resp:
+    #                 ds['scientific_metadata'] = resp['scientific_metadata']
+    #             else:
+    #                 print('sci meta data missing', dsid, resp)
 
-        print('done')
+    #     print('done')
     # save cache
     fname = cache_filename(project_id)
     with open(fname,'w') as jsonf:
         json.dump( pc, jsonf, indent=4)
 
-def generate_project_graph(project_id, crucible_client):
+def generate_project_sample_graph(project_id, crucible_client):
     # Generate directed graph of sample relationships, using unique_id
     G = nx.DiGraph()
     # start with all samples in the project
@@ -168,6 +175,20 @@ def load_project_cache(project_id):
         pc = json.load(jsonf)
     #pc['sample_graph'] = nx.readwrite.json_graph.node_link_graph(pc['sample_graph_nodelink'])
     return pc
+
+def load_project_sample_graph(project_id):
+    """Returns a NetworkX directed graph object, G"""
+    with open(cache_sample_graph_filename(project_id),'r') as jsonf:
+       node_link_data = json.load(jsonf)
+    G = nx.readwrite.json_graph.node_link_graph(node_link_data)
+    return G
+
+
+def cache_sample_graph_filename(project_id):
+    # clean up to make a filename
+    proj_name = str(project_id).replace('.','-').replace('/','-')
+    fname = f'cache/{proj_name}_project_sample_graph.json'
+    return fname
 
 def cache_filename(project_id):
     # clean up to make a filename

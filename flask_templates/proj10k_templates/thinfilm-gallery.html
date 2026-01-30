@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+
+{% block content %}
+
+    <h1>Thin Film Gallery</h1>
+
+    <div class="container">
+    <div class="row row-cols-xl-4">
+    {% for thumb in tf_thumbs %}
+    <div class="card" style="width: 10em;">
+        <h6 class="card-header"><a href={{thumb['sample_url']}}>{{thumb['sample_name']}}</a></h6>
+        <img class="card-img-top" src="data:image/png;base64, {{thumb['thumbnail_b64str']}}" alt="{{thumb['thumbnail_name']}}"/>
+    </div>
+    {% endfor %}
+    </div>
+    </div>
+{% endblock %}
