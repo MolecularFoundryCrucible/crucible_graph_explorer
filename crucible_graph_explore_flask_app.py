@@ -191,8 +191,17 @@ def dataset(project_id, dsid):
 
     thumbnails = app.crucible_client.get_thumbnails(dsid)
 
+    associated_files = app.crucible_client.get_associated_files(dsid)
+    print(associated_files)
+
+    download_links = app.crucible_client.get_dataset_download_links(dsid)
+
     return render_template("dataset.html", 
-                           pc=pc, ds=ds, samples=samples, thumbnails=thumbnails)
+                           pc=pc, ds=ds, 
+                           samples=samples,
+                            files=associated_files,
+                            download_links=download_links,
+                           thumbnails=thumbnails)
 
 @app.route("/auth-test/")
 @auth.oidc_auth('orcid')

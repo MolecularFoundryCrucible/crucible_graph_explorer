@@ -112,4 +112,21 @@
   });
   </script>
 
+  <h2>Files</h2>
+    <ul>
+    {% for file in files %}
+        <li>
+            <a href="/file/{{file['file_id']}}" class="mfid">{{file['file_id']}}</a> : {{file['filename']}} ({{file['size']}} bytes)
+        </li>
+    {% endfor %}
+    </ul>
+
+    <h2>Download Links</h2>
+    <ul>
+    {% for fname,link in download_links.items() %}
+        <li>
+            <a href="{{link}}" target="_blank">{{fname}}</a>
+        </li>
+    {% endfor %}
+
 {% endblock %}
