@@ -26,7 +26,7 @@ def generate_project_cache(project_id, crucible_client, include_metadata=True, s
     """Creates and saves project cache (returns None)"""
     pc = dict(project_id=project_id)
 
-    print('getting samples and datasets from Crucible')
+    print(f'getting samples and datasets from Crucible {project_id=} {include_metadata=} {save=}', )
     pc['samples'] = crucible_client.list_samples(project_id=project_id, limit=9999)
     pc['datasets'] = crucible_client.list_datasets(project_id=project_id, limit=9999, include_metadata=include_metadata)
 

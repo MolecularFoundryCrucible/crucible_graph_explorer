@@ -48,8 +48,8 @@ from crucible_project_graph import \
 #    generate_sample_graph, load_project_sample_graph,\
 #    generate_project_sample_graph
 
-def get_project(project_id):
-    return generate_project_cache(project_id, app.crucible_client, save=False)
+def get_project(project_id,  include_metadata=False):
+    return generate_project_cache(project_id, app.crucible_client,include_metadata=include_metadata, save=False)
     if project_id in app.project_cache:
         return app.project_cache[project_id]
     try:
@@ -234,7 +234,7 @@ project_id = "10k_perovskites"
 @app.route(f"/10k_perovskites/view/overview")
 @auth.oidc_auth('orcid')
 def overview10k():
-    pc = get_project(project_id)
+    pc = get_project(project_id, include_metadata=True)
     G = get_project_sample_graph(project_id)
 
     if not is_user_in_project(project_id):
