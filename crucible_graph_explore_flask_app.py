@@ -42,12 +42,14 @@ auth = OIDCAuthentication({PROVIDER_NAME: PROVIDER_CONFIG}, app)
 
 
 from crucible_project_graph import \
-    load_project_cache, \
-    generate_project_cache, cache_filename, cache_sample_graph_filename,\
-    generate_sample_graph, load_project_sample_graph,\
-    generate_project_sample_graph
+     generate_project_cache
+    #load_project_cache, \
+#, cache_filename, cache_sample_graph_filename,\
+#    generate_sample_graph, load_project_sample_graph,\
+#    generate_project_sample_graph
 
 def get_project(project_id):
+    return generate_project_cache(project_id, app.crucible_client, save=False)
     if project_id in app.project_cache:
         return app.project_cache[project_id]
     try:
@@ -58,15 +60,18 @@ def get_project(project_id):
         return load_project_cache(project_id)
     
 def get_project_sample_graph(project_id):
-    if project_id in app.project_cache:
-        return app.project_sample_graphs[project_id]
-    try:
-        return load_project_sample_graph(project_id)
-    except Exception as err:
-        print(f"failed to load project cache for {project_id}, regenerating...")
-        G = generate_project_sample_graph(project_id,app.crucible_client)
-        app.project_sample_graphs[project_id] = G
-        return G
+    node_link_data = app.crucible_client._request("GET",f"/projects/{project_id}/sample_graph")
+    G = nx.node_link_graph(node_link_data)
+    return G
+    # if project_id in app.project_cache:
+    #     return app.project_sample_graphs[project_id]
+    # try:
+    #     return load_project_sample_graph(project_id)
+    # except Exception as err:
+    #     print(f"failed to load project cache for {project_id}, regenerating...")
+    #     G = generate_project_sample_graph(project_id,app.crucible_client)
+    #     app.project_sample_graphs[project_id] = G
+    #     return G
 
     
 def clear_project_cache(project_id):
@@ -108,21 +113,21 @@ def list_projects():
 def project_overview(project_id):
     if not is_user_in_project(project_id):
         abort(403)
-    pc = generate_project_cache(project_id, app.crucible_client, include_metadata=True)
+    #pc = generate_project_cache(project_id, app.crucible_client, include_metadata=True)
     pc = get_project(project_id)
     return render_template('project_overview.html', pc=pc,
                         sample_info=sorted(pc['samples_by_name'].values(), key=lambda x:x['sample_name']))
 
-@app.route("/<project_id>/update-cache")
-@auth.oidc_auth('orcid')
-def regen_project_cache(project_id):
-    if not is_user_in_project(project_id):
-        abort(403)
-    clear_project_cache(project_id)
-    generate_project_cache(project_id, app.crucible_client)
-    pc = get_project(project_id)
-    #return (f"Regenerated Cache for {project_id}. {len(pc['samples'])} Samples and {len(pc['datasets'])} Datasets")
-    return redirect(f"/{project_id}/")
+# @app.route("/<project_id>/update-cache")
+# @auth.oidc_auth('orcid')
+# def regen_project_cache(project_id):
+#     if not is_user_in_project(project_id):
+#         abort(403)
+#     clear_project_cache(project_id)
+#     generate_project_cache(project_id, app.crucible_client)
+#     pc = get_project(project_id)
+#     #return (f"Regenerated Cache for {project_id}. {len(pc['samples'])} Samples and {len(pc['datasets'])} Datasets")
+#     return redirect(f"/{project_id}/")
 
 @app.route("/<project_id>/sample-graph/<sample_id>")
 @auth.oidc_auth('orcid')
@@ -132,22 +137,22 @@ def sample_graph(project_id, sample_id):
     pc = get_project(project_id)
 
     print(f"sample_graph")
-    G = generate_sample_graph(sample_id, app.crucible_client)
+    #G = generate_sample_graph(sample_id, app.crucible_client)
+    #Gproject = generate_project_sample_graph(project_id, app.crucible_client)
+    G = get_project_sample_graph(project_id)
+    #G = nx.ego_graph(Gproject,sample_id)
+    #print(G)
 
     #sample_name = pc['samples_by_id'][sample_id]['sample_name']
     #print(sample_name)
     descendants = nx.descendants(G, sample_id)
     ancestors = nx.ancestors(G, sample_id)
 
-    # find any samples not in cache:
-    for sid in G.nodes:
-        if not ( sid in pc['samples_by_id']):
-            print(f"found missing sample in graph {sid}")
-            pc['samples_by_id'][sid] = app.crucible_client.get_sample(sid)
-
-    # find any dataset metadata not in cache:
-#    for sid in G.nodes:
-#        sid.get_
+    # # find any samples not in cache:
+    # for sid in G.nodes:
+    #     if not ( sid in pc['samples_by_id']):
+    #         print(f"found missing sample in graph {sid}")
+    #         pc['samples_by_id'][sid] = app.crucible_client.get_sample(sid)
 
 
     # need to translate these to names from ids
