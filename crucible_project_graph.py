@@ -22,7 +22,7 @@ def clear_project_cache(project_id):
     # if project_id in app.project_cache:
     #     del app.project_cache[project_id]    
 
-def generate_project_cache(project_id, crucible_client, include_metadata=True):
+def generate_project_cache(project_id, crucible_client, include_metadata=True, save=True):
     """Creates and saves project cache (returns None)"""
     pc = dict(project_id=project_id)
 
@@ -60,9 +60,11 @@ def generate_project_cache(project_id, crucible_client, include_metadata=True):
 
     #     print('done')
     # save cache
-    fname = cache_filename(project_id)
-    with open(fname,'w') as jsonf:
-        json.dump( pc, jsonf, indent=4)
+    if save:
+        fname = cache_filename(project_id)
+        with open(fname,'w') as jsonf:
+            json.dump( pc, jsonf, indent=4)
+    return pc
 
 def generate_project_sample_graph(project_id, crucible_client):
     # Generate directed graph of sample relationships, using unique_id
