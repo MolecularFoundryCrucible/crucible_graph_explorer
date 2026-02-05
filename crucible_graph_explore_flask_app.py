@@ -74,18 +74,18 @@ def get_project_sample_graph(project_id):
     #     return G
 
     
-def clear_project_cache(project_id):
-    fname = cache_filename(project_id)
-    if os.path.exists(fname):
-        os.remove(fname)
-    fname = cache_sample_graph_filename(project_id)
-    if os.path.exists(fname):
-        os.remove(fname)
-    # remove in memory cache
-    if project_id in app.project_cache:
-        del app.project_cache[project_id]
-    if project_id in app.project_sample_graphs:
-        del app.project_sample_graphs[project_id]
+# def clear_project_cache(project_id):
+#     fname = cache_filename(project_id)
+#     if os.path.exists(fname):
+#         os.remove(fname)
+#     fname = cache_sample_graph_filename(project_id)
+#     if os.path.exists(fname):
+#         os.remove(fname)
+#     # remove in memory cache
+#     if project_id in app.project_cache:
+#         del app.project_cache[project_id]
+#     if project_id in app.project_sample_graphs:
+#         del app.project_sample_graphs[project_id]
 
 def is_user_in_project(project_id, orcid=None):
     """Look up user from session unless orcid is defined"""
