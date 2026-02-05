@@ -21,7 +21,7 @@
 {% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a></li>
+    <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
     <li class="breadcrumb-item active" aria-current="page"><b>Dataset</b> {{ds['dataset_name']}}</li>
 {% endblock %}
 
@@ -61,7 +61,7 @@
         <div class="card" style="width: 25em;">
               <h3 class="card-header">{{sample['sample_name']}}</h5>
               <div class="card-body">  
-                <a href="/{{pc['project_id']}}/sample-graph/{{sample['unique_id']}}" class="card-subtitle mb-2 text-muted mfid">
+                <a href="/{{project_id}}/sample-graph/{{sample['unique_id']}}" class="card-subtitle mb-2 text-muted mfid">
                     {{sample['unique_id'][:13]}}</a>
             <p class="card-text">{{sample['description']}} | {{sample['date_created']}}</p>
             </div>

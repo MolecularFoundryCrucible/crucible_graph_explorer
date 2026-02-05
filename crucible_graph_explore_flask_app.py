@@ -189,7 +189,7 @@ def sample_graph(project_id, sample_id):
 def dataset(project_id, dsid):
     if not is_user_in_project(project_id):
         abort(403)
-    pc = get_project(project_id)
+    #pc = get_project(project_id)
     ds = app.crucible_client.get_dataset(dsid, include_metadata=True)
     #ds = pc['datasets_by_id'][dsid] #cache
     samples = app.crucible_client.list_samples(dataset_id=dsid)
@@ -202,7 +202,7 @@ def dataset(project_id, dsid):
     download_links = app.crucible_client.get_dataset_download_links(dsid)
 
     return render_template("dataset.html", 
-                           pc=pc, ds=ds, 
+                           project_id=project_id, ds=ds, 
                            samples=samples,
                             files=associated_files,
                             download_links=download_links,
