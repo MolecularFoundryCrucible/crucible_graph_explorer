@@ -13,16 +13,43 @@
 
     <h2>Samples</h2>
 
+    {% for stype, s_list in samples_by_type.items() %}
+    <h3>{{stype}}</h3>
+        <ul>
+            {% for s in s_list %}
+            <li>
+                {{s['sample_name']}}
+                <a href="/{{pc['project_id']}}/sample-graph/{{s['unique_id']}}" class="mfid">{{s['unique_id']}}</a>
+            </li>
+            {% endfor %}
+        </ul> 
+    {% endfor %}
+
+
     <ul>
         {% for s in sample_info %}
         <li>
             {{s['sample_name']}}
-            <a href="/{{pc['project_id']}}/sample-graph/{{s['unique_id']}}" class="mfid">{{s['unique_id'][:13]}}</a>
+            <a href="/{{pc['project_id']}}/sample-graph/{{s['unique_id']}}" class="mfid">{{s['unique_id']}}</a>
         </li>
         {% endfor %}
     </ul>
 
     <h2>Datasets</h2>
+    
+    {% for mtype, ds_list in datasets_by_type.items() %}
+    <h3>{{mtype}}</h3>
+        <ul>
+            {% for ds in ds_list %}
+            <li>
+                <a href="/{{pc['project_id']}}/dataset/{{ds['unique_id']}}"  class="mfid">{{ds['unique_id'][:13]}}</a>
+                {{ds['dataset_name']}}
+            </li>
+            {% endfor %}
+        </ul> 
+    {% endfor %}
+
+    <h3>All Datasets</h3>
     <ul>
         {% for ds in pc['datasets'] %}
         <li>

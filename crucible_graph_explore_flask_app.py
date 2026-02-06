@@ -115,8 +115,29 @@ def project_overview(project_id):
         abort(403)
     #pc = generate_project_cache(project_id, app.crucible_client, include_metadata=True)
     pc = get_project(project_id)
+
+    # samples by type
+    samples_by_type = dict()
+    for s in pc['samples']:
+        stype = s['sample_type']
+        if not stype in samples_by_type:
+            samples_by_type[stype] = []
+        samples_by_type[stype].append(s)
+
+    # datasets by type
+    #measurement_types = set([ds['measurement'] for ds in pc['datasets']])
+    datasets_by_type = dict()
+    for ds in pc['datasets']:
+        mtype = ds['measurement']
+        if not mtype in datasets_by_type:
+            datasets_by_type[mtype] = []
+        datasets_by_type[mtype].append(ds)
+
     return render_template('project_overview.html', pc=pc,
-                        sample_info=sorted(pc['samples_by_name'].values(), key=lambda x:x['sample_name']))
+                        sample_info=sorted(pc['samples_by_name'].values(), key=lambda x:x['sample_name']),
+                        samples_by_type=samples_by_type,
+                        datasets_by_type=datasets_by_type,
+                        )
 
 # @app.route("/<project_id>/update-cache")
 # @auth.oidc_auth('orcid')
