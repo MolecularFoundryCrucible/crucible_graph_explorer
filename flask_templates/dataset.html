@@ -68,6 +68,26 @@
         </div>
     {% endfor %}
     </div>
+
+    
+    <h2>Parent Datasets</h2>
+    <ul>
+        {% for ds in parent_datasets %}
+        <li>
+            <a href="/{{project_id}}/dataset/{{ds['unique_id']}}"  class="mfid">{{ds['unique_id'][:13]}}</a>
+            {{ds['dataset_name']}}
+        </li>
+        {% endfor %}        
+    </ul>
+    <h2>Child Datasets</h2>
+    <ul>
+        {% for ds in child_datasets %}
+        <li>
+            <a href="/{{project_id}}/dataset/{{ds['unique_id']}}"  class="mfid">{{ds['unique_id'][:13]}}</a>
+            {{ds['dataset_name']}}
+        </li>
+        {% endfor %}        
+    </ul>
     
     <h2>Scientific Metadata</h2>
 

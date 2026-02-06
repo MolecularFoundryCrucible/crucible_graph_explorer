@@ -222,8 +222,14 @@ def dataset(project_id, dsid):
 
     download_links = app.crucible_client.get_dataset_download_links(dsid)
 
+    child_datasets = app.crucible_client.list_children_of_dataset(dsid)
+    parent_datasets = app.crucible_client.list_parents_of_dataset(dsid)
+
+
     return render_template("dataset.html", 
                            project_id=project_id, ds=ds, 
+                           child_datasets = child_datasets,
+                           parent_datasets = parent_datasets,
                            samples=samples,
                             files=associated_files,
                             download_links=download_links,
