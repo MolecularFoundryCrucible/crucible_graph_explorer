@@ -18,6 +18,11 @@ Run locally
 uv run flask --app crucible_graph_explore_flask_app.py run --debug --port 8000
 ```
 
+Running Flask-Vite frontend components for development
+```sh
+uv run flask --app crucible_graph_explore_flask_app.py vite start
+```
+
 ## Docker run locally
 
 ```sh

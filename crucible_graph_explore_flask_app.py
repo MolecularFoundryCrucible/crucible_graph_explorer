@@ -5,6 +5,7 @@ import flask
 import pandas
 from flask import Flask, render_template,jsonify, abort, redirect
 from flask_qrcode import QRcode
+from flask_vite import Vite
 from flask_pyoidc.user_session import UserSession
 from flask_pyoidc import OIDCAuthentication
 from flask_pyoidc.provider_configuration import ProviderConfiguration, ClientMetadata
@@ -14,6 +15,7 @@ load_dotenv()
 
 app = Flask(__name__, template_folder="flask_templates")
 QRcode(app)
+vite = Vite(app)
 
 # import project_views.proj10k_perovskite_views
 

@@ -361,6 +361,7 @@ dependencies = [
     { name = "flask" },
     { name = "flask-pyoidc" },
     { name = "flask-qrcode" },
+    { name = "flask-vite" },
     { name = "gunicorn" },
     { name = "ipykernel" },
     { name = "matplotlib" },
@@ -382,6 +383,7 @@ requires-dist = [
     { name = "flask", specifier = ">=3.1.2" },
     { name = "flask-pyoidc", specifier = ">=3.14.3" },
     { name = "flask-qrcode", specifier = ">=3.2.0" },
+    { name = "flask-vite", specifier = ">=0.6.1" },
     { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "ipykernel", specifier = ">=7.1.0" },
     { name = "matplotlib", specifier = ">=3.10.8" },
@@ -580,6 +582,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/06/6f/abfeb033c1d47bc10a56272f307388ddd93b5ffe147285b1b7dccc81af81/flask_qrcode-3.2.0.tar.gz", hash = "sha256:2f7cd50193b877daa61db8764bf5ed34a23818d6a18d306bf50d5bb334f24584", size = 39909, upload-time = "2024-06-02T14:55:20.821Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cd/1c/ffa7c9e611f74ccec15d01c1134565903135be61e42d30f24e692e8cbcb9/Flask_QRcode-3.2.0-py3-none-any.whl", hash = "sha256:91a51675e14a182f9480cda9f2ff7bb478637823af8d56dd7d415c61a56ae2ac", size = 40740, upload-time = "2024-06-02T14:55:19.487Z" },
+]
+
+[[package]]
+name = "flask-vite"
+version = "0.6.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "flask" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b9/46/519974e78a45b05822fc3505d7b0fed02f1145fdc24bd955b091c29d5ccf/flask_vite-0.6.1.tar.gz", hash = "sha256:1681765668fa9dc7ca985f5ee395b1f7ed1d4db861407cccbcfdaf0346d4112c", size = 50029, upload-time = "2025-09-12T15:04:29.751Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/9a/6dc7d80acd2c5ecf57d563f925f03cffe3ffb2f400d280eacab2ecf4a94e/flask_vite-0.6.1-py3-none-any.whl", hash = "sha256:5267abdd0bb4c8c9bb5b1a44b1260dc015a3f7e39befcf120babedc386d43558", size = 49606, upload-time = "2025-09-12T15:04:28.412Z" },
 ]
 
 [[package]]
