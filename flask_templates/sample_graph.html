@@ -5,8 +5,16 @@
 
 {% block head %}
     {{ super() }}
+    {{ vite_tags() }}
     <style type="text/css">
         .important { color: #336699; }
+        #cy {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 2rem;
+        }
     </style>
 {% endblock %}
 
@@ -31,13 +39,40 @@
             {% for ds in s['datasets'] %}
             <li>
                 <a href="/{{pc['project_id']}}/dataset/{{ds['unique_id']}}" class="mfid">{{ds['unique_id'][:13]}}</a>
-                <b>{{ds['dataset_name']}}</b> 
+                <b>{{ds['dataset_name']}}</b>
                 <!-- {{datasets_by_id[ds['unique_id']]['scientific_metadata']|string|truncate(1000)}} -->
             </li>
             {% endfor %}
         </ul>
     </ul>
 </div>
+
+<h2>Sample Graph</h2>
+<div id="cy" data-project-id="{{pc['project_id']}}"></div>
+
+<script type="module">
+  // Wait for the page to load and for the initSampleGraph function to be available
+  async function initGraph() {
+    // Fetch the graph data from the API
+    const response = await fetch('/{{pc["project_id"]}}/api/sample-graph-data/{{s["unique_id"]}}');
+    const graphData = await response.json();
+
+    // Initialize the graph when window.initSampleGraph is available
+    if (window.initSampleGraph) {
+      window.initSampleGraph('cy', graphData);
+    } else {
+      // If not immediately available, wait for it
+      setTimeout(initGraph, 100);
+    }
+  }
+
+  // Start initialization when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGraph);
+  } else {
+    initGraph();
+  }
+</script>
 
 
 

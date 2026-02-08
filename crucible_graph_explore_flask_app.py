@@ -207,6 +207,49 @@ def sample_graph(project_id, sample_id):
                            datasets_by_id = pc['datasets_by_id']
                            )
 
+@app.route("/<project_id>/api/sample-graph-data/<sample_id>")
+@auth.oidc_auth('orcid')
+def sample_graph_data(project_id, sample_id):
+    """API endpoint that returns graph data as JSON for visualization"""
+    if not is_user_in_project(project_id):
+        abort(403)
+
+    pc = get_project(project_id)
+    G = get_project_sample_graph(project_id)
+
+    # Get the subgraph containing the sample and all its ancestors and descendants
+    descendants = nx.descendants(G, sample_id)
+    ancestors = nx.ancestors(G, sample_id)
+    all_nodes = ancestors | descendants | {sample_id}
+
+    # Create subgraph with only relevant nodes
+    subgraph = G.subgraph(all_nodes)
+
+    # Build nodes list
+    nodes = []
+    for node_id in subgraph.nodes():
+        sample = pc['samples_by_id'].get(node_id, {})
+        nodes.append({
+            'id': node_id,
+            'label': sample.get('sample_name', node_id),
+            'name': sample.get('sample_name', node_id),
+            'description': sample.get('description', '')
+        })
+
+    # Build edges list
+    edges = []
+    for source, target in subgraph.edges():
+        edges.append({
+            'source': source,
+            'target': target
+        })
+
+    return jsonify({
+        'nodes': nodes,
+        'edges': edges,
+        'centerNodeId': sample_id
+    })
+
 @app.route("/<project_id>/dataset/<dsid>")
 @auth.oidc_auth('orcid')
 def dataset(project_id, dsid):
