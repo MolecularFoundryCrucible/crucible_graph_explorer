@@ -126,6 +126,10 @@ def project_overview(project_id):
             samples_by_type[stype] = []
         samples_by_type[stype].append(s)
 
+    # Sort samples within each type by sample_name
+    for stype in samples_by_type:
+        samples_by_type[stype].sort(key=lambda x: x['sample_name'])
+
     # datasets by type
     #measurement_types = set([ds['measurement'] for ds in pc['datasets']])
     datasets_by_type = dict()
