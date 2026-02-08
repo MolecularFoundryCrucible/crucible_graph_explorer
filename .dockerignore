@@ -1,2 +1,4 @@
 .venv
 .env
+vite/node_modules
+vite/dist

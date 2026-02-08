@@ -27,5 +27,5 @@ uv run flask --app crucible_graph_explore_flask_app.py vite start
 
 ```sh
 docker build -t crucible_graph_explorer . 
-docker run -p 8080:8080  --env-file .env --name crucible_graph_explorer crucible_graph_explorer 
+docker run -p 8000:8000  --env-file .env --name crucible_graph_explorer crucible_graph_explorer 
 ```
