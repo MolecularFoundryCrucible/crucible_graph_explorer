@@ -48,9 +48,17 @@
 </div>
 
 <h2>Sample Graph</h2>
+<div class="mb-2">
+  <button id="toggleLayoutBtn" class="btn btn-sm btn-secondary">
+    Switch to Vertical Layout
+  </button>
+</div>
 <div id="cy" data-project-id="{{pc['project_id']}}"></div>
 
 <script type="module">
+  let cyInstance = null;
+  let currentLayout = 'LR';
+
   // Wait for the page to load and for the initSampleGraph function to be available
   async function initGraph() {
     // Fetch the graph data from the API
@@ -59,12 +67,21 @@
 
     // Initialize the graph when window.initSampleGraph is available
     if (window.initSampleGraph) {
-      window.initSampleGraph('cy', graphData);
+      cyInstance = window.initSampleGraph('cy', graphData);
     } else {
       // If not immediately available, wait for it
       setTimeout(initGraph, 100);
     }
   }
+
+  // Toggle layout button handler
+  document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
+    if (cyInstance && cyInstance.toggleLayout) {
+      const newLayout = cyInstance.toggleLayout();
+      currentLayout = newLayout;
+      this.textContent = newLayout === 'LR' ? 'Switch to Vertical Layout' : 'Switch to Horizontal Layout';
+    }
+  });
 
   // Start initialization when DOM is ready
   if (document.readyState === 'loading') {
