@@ -56,12 +56,14 @@ export function initSampleGraph(containerId, graphData) {
         }
       },
       {
-        selector: 'node[isCenterNode]',
+        selector: 'node[?isCenterNode]',
         style: {
-          'background-color': '#336699',
+          'background-color': '#4a7ba7',
           'border-width': 3,
           'border-color': '#003366',
-          'font-weight': 'bold'
+          'font-weight': 'bold',
+          'font-size': '13px',
+          'shape': 'octagon'
         }
       },
       {
