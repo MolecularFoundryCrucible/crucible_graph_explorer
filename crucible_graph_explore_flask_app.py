@@ -288,6 +288,7 @@ def dataset(project_id, dsid):
         if md_file:
             # Transform filename to download link key: dataset_unique_id/basename
             import os
+            import re
             md_basename = os.path.basename(md_file['filename'])
             download_key = f"{ds['unique_id']}/{md_basename}"
 
@@ -297,8 +298,36 @@ def dataset(project_id, dsid):
                     import requests
                     response = requests.get(download_links[download_key])
                     if response.status_code == 200:
-                        # Convert markdown to HTML
                         md_content = response.text
+
+                        # Convert wiki-style links to proper markdown links
+                        # [[dataset:ID|Name]] -> [Name](/<project_id>/dataset/ID)
+                        # [[dataset:ID]] -> [Dataset ID](/<project_id>/dataset/ID)
+                        def replace_dataset_link(match):
+                            dataset_id = match.group(1)
+                            name = match.group(2) if match.group(2) else f'Dataset-{dataset_id}'
+                            return f'[{name}](/{project_id}/dataset/{dataset_id})'
+
+                        md_content = re.sub(
+                            r'\[\[dataset:([^\]|]+)(?:\|([^\]]+))?\]\]',
+                            replace_dataset_link,
+                            md_content
+                        )
+
+                        # [[sample:ID|Name]] -> [Name](/<project_id>/sample-graph/ID)
+                        # [[sample:ID]] -> [Sample-ID](/<project_id>/sample-graph/ID)
+                        def replace_sample_link(match):
+                            sample_id = match.group(1)
+                            name = match.group(2) if match.group(2) else f'Sample-{sample_id}'
+                            return f'[{name}](/{project_id}/sample-graph/{sample_id})'
+
+                        md_content = re.sub(
+                            r'\[\[sample:([^\]|]+)(?:\|([^\]]+))?\]\]',
+                            replace_sample_link,
+                            md_content
+                        )
+
+                        # Convert markdown to HTML
                         markdown_html = markdown.markdown(md_content, extensions=['extra', 'codehilite', 'tables'])
                 except Exception as err:
                     print(f"Failed to fetch/render markdown for {dsid}: {err}")
