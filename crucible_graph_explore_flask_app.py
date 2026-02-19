@@ -3,6 +3,7 @@ import os
 import networkx as nx
 import flask
 import pandas
+import markdown
 from flask import Flask, render_template,jsonify, abort, redirect
 from flask_qrcode import QRcode
 from flask_vite import Vite
@@ -274,15 +275,43 @@ def dataset(project_id, dsid):
     child_datasets = app.crucible_client.list_children_of_dataset(dsid)
     parent_datasets = app.crucible_client.list_parents_of_dataset(dsid)
 
+    # Handle MDNote measurement type
+    markdown_html = None
+    if ds.get('measurement') == 'MDNote':
+        # Find markdown file in associated files
+        md_file = None
+        for file in associated_files:
+            if file['filename'].endswith('.md'):
+                md_file = file
+                break
 
-    return render_template("dataset.html", 
-                           project_id=project_id, ds=ds, 
+        if md_file:
+            # Transform filename to download link key: dataset_unique_id/basename
+            import os
+            md_basename = os.path.basename(md_file['filename'])
+            download_key = f"{ds['unique_id']}/{md_basename}"
+
+            if download_key in download_links:
+                try:
+                    # Fetch the markdown content from the download link
+                    import requests
+                    response = requests.get(download_links[download_key])
+                    if response.status_code == 200:
+                        # Convert markdown to HTML
+                        md_content = response.text
+                        markdown_html = markdown.markdown(md_content, extensions=['extra', 'codehilite', 'tables'])
+                except Exception as err:
+                    print(f"Failed to fetch/render markdown for {dsid}: {err}")
+
+    return render_template("dataset.html",
+                           project_id=project_id, ds=ds,
                            child_datasets = child_datasets,
                            parent_datasets = parent_datasets,
                            samples=samples,
                             files=associated_files,
                             download_links=download_links,
-                           thumbnails=thumbnails)
+                           thumbnails=thumbnails,
+                           markdown_html=markdown_html)
 
 @app.route("/auth-test/")
 @auth.oidc_auth('orcid')

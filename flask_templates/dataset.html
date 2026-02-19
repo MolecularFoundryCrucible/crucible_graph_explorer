@@ -18,6 +18,69 @@
 {% block head %}
     {{ super() }}
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/themes/default/style.min.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+        <style>
+            .markdown-content {
+                line-height: 1.6;
+                margin: 20px 0;
+            }
+            .markdown-content h1, .markdown-content h2, .markdown-content h3,
+            .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+                margin-top: 24px;
+                margin-bottom: 16px;
+                font-weight: 600;
+            }
+            .markdown-content h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+            .markdown-content h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+            .markdown-content h3 { font-size: 1.25em; }
+            .markdown-content h4 { font-size: 1em; }
+            .markdown-content p { margin-bottom: 16px; }
+            .markdown-content ul, .markdown-content ol {
+                margin-bottom: 16px;
+                padding-left: 2em;
+            }
+            .markdown-content li { margin-bottom: 4px; }
+            .markdown-content code {
+                background-color: rgba(175, 184, 193, 0.2);
+                padding: 0.2em 0.4em;
+                border-radius: 6px;
+                font-size: 85%;
+            }
+            .markdown-content pre {
+                background-color: #f6f8fa;
+                border-radius: 6px;
+                padding: 16px;
+                overflow: auto;
+                margin-bottom: 16px;
+            }
+            .markdown-content pre code {
+                background-color: transparent;
+                padding: 0;
+            }
+            .markdown-content blockquote {
+                border-left: 4px solid #dfe2e5;
+                padding-left: 16px;
+                margin-left: 0;
+                color: #6a737d;
+            }
+            .markdown-content table {
+                border-collapse: collapse;
+                width: 100%;
+                margin-bottom: 16px;
+            }
+            .markdown-content table th, .markdown-content table td {
+                border: 1px solid #dfe2e5;
+                padding: 6px 13px;
+            }
+            .markdown-content table th {
+                background-color: #f6f8fa;
+                font-weight: 600;
+            }
+            .markdown-content img {
+                max-width: 100%;
+                height: auto;
+            }
+        </style>
 {% endblock %}
 
 {% block breadcrumb %}
@@ -37,7 +100,7 @@
     <span class="mfid">{{ds['unique_id']}}</span>
 
     <ul>
-    {% for k,v in ds.items()%} 
+    {% for k,v in ds.items()%}
     {% if k != "scientific_metadata" %}
     <li>
         <b>{{k}}</b>: {{v}}
@@ -45,6 +108,15 @@
     {% endif %}
     {% endfor %}
     </ul>
+
+    {% if markdown_html %}
+    <h2>Note Content</h2>
+    <div class="markdown-content card">
+        <div class="card-body">
+            {{ markdown_html|safe }}
+        </div>
+    </div>
+    {% endif %}
 
     <h2>Thumbnails</h2>
     <div class="card-columns">
