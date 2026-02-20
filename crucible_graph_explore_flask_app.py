@@ -28,7 +28,7 @@ app.project_sample_graphs = {}
 
 crucible_api_key = os.getenv("CRUCIBLE_API_KEY")
 app.crucible_client = CrucibleClient(
-    api_url="https://crucible.lbl.gov/testapi",
+    api_url="https://crucible.lbl.gov/api/v1",
     api_key=crucible_api_key # v3
 )
 
