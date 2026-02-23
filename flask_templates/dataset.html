@@ -91,7 +91,12 @@
 
 {% block content %}
 
-    <h1><em>Dataset</em> {{ds['dataset_name']}}</h1>
+    <div class="d-flex justify-content-between align-items-start">
+        <h1><em>Dataset</em> {{ds['dataset_name']}}</h1>
+        {% if ds['measurement'] == 'MDNote' %}
+        <a href="/{{project_id}}/dataset/{{ds['unique_id']}}/mdnote-edit" class="btn btn-outline-primary">Edit Note</a>
+        {% endif %}
+    </div>
 
     <div>
     <img src="{{ qrcode(ds['unique_id'], box_size=5, border=5) }}">

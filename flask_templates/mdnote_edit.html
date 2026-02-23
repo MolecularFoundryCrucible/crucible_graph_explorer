@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ds['dataset_name']}}{% endblock %}
+
+{% block head %}
+    {{ super() }}
+    {{ vite_tags() }}
+    <style>
+        #mdnote-editor-container {
+            display: flex;
+            gap: 1rem;
+            height: 70vh;
+        }
+        #mdnote-editor {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .cm-editor {
+            height: 100%;
+        }
+        #mdnote-preview {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem 1.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            line-height: 1.6;
+        }
+        #mdnote-preview h1, #mdnote-preview h2, #mdnote-preview h3,
+        #mdnote-preview h4, #mdnote-preview h5, #mdnote-preview h6 {
+            margin-top: 1.2em;
+            margin-bottom: 0.5em;
+            font-weight: 600;
+        }
+        #mdnote-preview h1, #mdnote-preview h2 {
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: 0.3em;
+        }
+        #mdnote-preview p { margin-bottom: 1em; }
+        #mdnote-preview ul, #mdnote-preview ol {
+            margin-bottom: 1em;
+            padding-left: 2em;
+        }
+        #mdnote-preview code {
+            background: rgba(175,184,193,0.2);
+            padding: 0.15em 0.4em;
+            border-radius: 4px;
+            font-size: 85%;
+        }
+        #mdnote-preview pre {
+            background: #f6f8fa;
+            border-radius: 6px;
+            padding: 1em;
+            overflow: auto;
+            margin-bottom: 1em;
+        }
+        #mdnote-preview pre code { background: transparent; padding: 0; }
+        #mdnote-preview blockquote {
+            border-left: 4px solid #dfe2e5;
+            padding-left: 1em;
+            margin-left: 0;
+            color: #6a737d;
+        }
+        #mdnote-preview table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 1em;
+        }
+        #mdnote-preview th, #mdnote-preview td {
+            border: 1px solid #dfe2e5;
+            padding: 6px 13px;
+        }
+        #mdnote-preview th { background: #f6f8fa; font-weight: 600; }
+        .wiki-link-sample { color: #2d6a4f; font-weight: 500; }
+        .wiki-link-dataset { color: #1d3557; font-weight: 500; }
+    </style>
+{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
+    <li class="breadcrumb-item"><a href="/{{project_id}}/dataset/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Edit Note</li>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="mb-0"><em>Edit Note</em> {{ds['dataset_name']}}</h1>
+        <span class="mfid">{{ds['unique_id']}}</span>
+    </div>
+    <div>
+        <button id="mdnote-save-btn" class="btn btn-primary">Save</button>
+        <a href="/{{project_id}}/dataset/{{ds['unique_id']}}" class="btn btn-outline-secondary ms-2">Cancel</a>
+    </div>
+</div>
+
+<p class="text-muted small mb-2">
+    Link to samples: <code>[[sample:ID]]</code> or <code>[[sample:ID|Display Name]]</code> &mdash;
+    Link to datasets: <code>[[dataset:ID]]</code> or <code>[[dataset:ID|Display Name]]</code>.
+    Autocomplete triggers after <code>[[sample:</code> or <code>[[dataset:</code>.
+</p>
+
+<div id="mdnote-editor-container">
+    <div id="mdnote-editor"></div>
+    <div id="mdnote-preview"></div>
+</div>
+
+<script type="module">
+    const initialContent = {{ md_content | tojson }};
+
+    function init() {
+        if (window.initMDNoteEditor) {
+            window.initMDNoteEditor({
+                containerId: 'mdnote-editor',
+                previewId: 'mdnote-preview',
+                projectId: '{{ project_id }}',
+                initialContent,
+                saveUrl: '/{{ project_id }}/dataset/{{ ds["unique_id"] }}/mdnote-edit'
+            });
+        } else {
+            setTimeout(init, 50);
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+</script>
+
+{% endblock %}
