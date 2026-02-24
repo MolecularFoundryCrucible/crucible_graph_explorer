@@ -38,6 +38,7 @@
 
 <div class="d-flex align-items-center gap-3 mb-2">
     <button id="toggleLayoutBtn" class="btn btn-sm btn-secondary">Switch to Vertical Layout</button>
+    <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary">Hide Thumbnails</button>
     <span class="text-muted small">
         <span class="legend-dot" style="background:#4a7ba7;"></span>Sample
         &nbsp;
@@ -68,6 +69,13 @@
     if (cyInstance && cyInstance.toggleLayout) {
       const newLayout = cyInstance.toggleLayout();
       this.textContent = newLayout === 'LR' ? 'Switch to Vertical Layout' : 'Switch to Horizontal Layout';
+    }
+  });
+
+  document.getElementById('toggleThumbnailsBtn').addEventListener('click', function() {
+    if (cyInstance && cyInstance.toggleThumbnails) {
+      const visible = cyInstance.toggleThumbnails();
+      this.textContent = visible ? 'Hide Thumbnails' : 'Show Thumbnails';
     }
   });
 

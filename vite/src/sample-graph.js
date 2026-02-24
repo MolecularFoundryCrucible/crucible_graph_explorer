@@ -13,6 +13,7 @@ export function initEntityGraph(containerId, graphData) {
       label: node.label,
       type: node.type,
       url: node.url,
+      ...(node.thumbnail ? { thumbnail: node.thumbnail } : {}),
       isCenterNode: node.id === centerNodeId
     }
   }));
@@ -59,6 +60,23 @@ export function initEntityGraph(containerId, graphData) {
           'shape': 'rectangle',
           'text-wrap': 'wrap',
           'text-max-width': '120px'
+        }
+      },
+      {
+        selector: 'node[type="dataset"][thumbnail]',
+        style: {
+          'background-image': 'data(thumbnail)',
+          'background-fit': 'contain',
+          'background-color': '#f8f9fa',
+          'border-width': 3,
+          'border-color': '#5a9e6f',
+          'color': '#333',
+          'width': 100,
+          'height': 80,
+          'text-valign': 'bottom',
+          'text-halign': 'center',
+          'text-margin-y': 6,
+          'font-size': '10px',
         }
       },
       {
@@ -133,6 +151,26 @@ export function initEntityGraph(containerId, graphData) {
       animationDuration: 500
     }).run();
     return currentRankDir;
+  };
+
+  let thumbnailsVisible = true;
+  cy.toggleThumbnails = function() {
+    thumbnailsVisible = !thumbnailsVisible;
+    const thumbNodes = cy.nodes('[type="dataset"][thumbnail]');
+    if (thumbnailsVisible) {
+      thumbNodes.removeStyle();
+    } else {
+      thumbNodes.style({
+        'background-image': 'none',
+        'background-color': '#5a9e6f',
+        'color': '#fff',
+        'width': node => Math.max(node.data('label').length * 6, 60),
+        'height': 32,
+        'text-valign': 'center',
+        'text-margin-y': 0
+      });
+    }
+    return thumbnailsVisible;
   };
 
   return cy;

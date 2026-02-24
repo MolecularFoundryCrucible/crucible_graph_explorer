@@ -416,11 +416,19 @@ def entity_graph_data(project_id, entity_type, entity_id):
             if dsid not in seen:
                 seen.add(dsid)
                 ds = pc['datasets_by_id'].get(dsid, ds_ref)
+                thumbnail = None
+                try:
+                    thumbs = app.crucible_client.get_thumbnails(dsid)
+                    if thumbs:
+                        thumbnail = f"data:image/png;base64,{thumbs[0]['thumbnail_b64str']}"
+                except Exception:
+                    pass
                 nodes.append({
                     'id': dsid,
                     'label': ds.get('dataset_name', dsid[:13]),
                     'type': 'dataset',
-                    'url': f'/{project_id}/dataset/{dsid}'
+                    'url': f'/{project_id}/dataset/{dsid}',
+                    'thumbnail': thumbnail
                 })
             edges.append({'source': sid, 'target': dsid})
 
