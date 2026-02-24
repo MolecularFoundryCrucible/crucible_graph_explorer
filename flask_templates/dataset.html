@@ -1,25 +1,48 @@
 {% macro render_dict_recursive(d) %}
-    <ul>
-    {% for key, value in d.items() %}
-        <li>
-            <b>{{ key }}</b>: 
-            {% if value is mapping %}
-                {{ render_dict_recursive(value) }}
-            {% else %}
-                {{ value if value is not none else "N/A" }}
-            {% endif %}
-        </li>
-    {% endfor %}
-    </ul>
+<div class="metadata-tree">
+{% for key, value in d.items() %}
+    {% if value is mapping %}
+    <details class="tree-node" open>
+        <summary class="tree-summary"><b>{{ key }}</b></summary>
+        <div class="tree-children">{{ render_dict_recursive(value) }}</div>
+    </details>
+    {% else %}
+    <div class="tree-leaf"><b>{{ key }}</b>: {{ value if value is not none else "N/A" }}</div>
+    {% endif %}
+{% endfor %}
+</div>
 {% endmacro %}
 
 {% extends "base.html" %}
 {% block title %}{{ds['dataset_name']}}{% endblock %}
 {% block head %}
     {{ super() }}
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/themes/default/style.min.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
         <style>
+            .metadata-tree { font-family: monospace; font-size: 0.9rem; }
+            .tree-node { margin: 1px 0; }
+            .tree-summary {
+                cursor: pointer;
+                padding: 2px 4px;
+                border-radius: 3px;
+                list-style: none;
+                user-select: none;
+            }
+            .tree-summary::-webkit-details-marker { display: none; }
+            .tree-summary::before {
+                content: '▶';
+                display: inline-block;
+                width: 1em;
+                font-size: 0.75em;
+                transition: transform 0.15s;
+                color: #6c757d;
+            }
+            details[open] > .tree-summary::before { transform: rotate(90deg); }
+            .tree-summary:hover { background-color: #f0f4f8; }
+            .tree-children { padding-left: 1.5em; border-left: 1px solid #dee2e6; margin-left: 0.5em; }
+            .tree-leaf { padding: 2px 4px; margin: 1px 0; }
+            .tree-leaf:hover { background-color: #f0f4f8; border-radius: 3px; }
+            mark { background-color: #f8d7da; color: #842029; border-radius: 2px; padding: 0 2px; font-weight: bold; }
             .markdown-content {
                 line-height: 1.6;
                 margin: 20px 0;
@@ -163,44 +186,53 @@
     
     <h2>Scientific Metadata</h2>
 
-    <input id="tree_search" type="text">
-    <div id="jstree">
+    <input id="tree_search" type="text" class="form-control form-control-sm mb-2" placeholder="Search metadata...">
+    <div id="metadata-tree-root">
         {{ render_dict_recursive(ds['scientific_metadata']) }}
     </div>
 
-  <!-- 5 include the minified jstree source -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/jstree.min.js"></script>
   <script>
-  $(function () {
-    // 6 create an instance when the DOM is ready
-    $('#jstree').jstree({
-    'search': {
-            'case_insensitive': true,
-            'show_only_matches' : false
-        },
-        'plugins': ['search', 'wholerow']
-    }).on('search.jstree', function (nodes, str, res) {
-        if (str.nodes.length===0) {
-            $('#jstree').jstree(true).hide_all();
-        }
+  function highlightTextNodes(el, query) {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    let node;
+    while (node = walker.nextNode()) textNodes.push(node);
+    textNodes.forEach(textNode => {
+      const lower = textNode.textContent.toLowerCase();
+      const idx = lower.indexOf(query);
+      if (idx === -1) return;
+      const before = textNode.textContent.slice(0, idx);
+      const match  = textNode.textContent.slice(idx, idx + query.length);
+      const after  = textNode.textContent.slice(idx + query.length);
+      const frag = document.createDocumentFragment();
+      if (before) frag.appendChild(document.createTextNode(before));
+      const mark = document.createElement('mark');
+      mark.textContent = match;
+      frag.appendChild(mark);
+      if (after) frag.appendChild(document.createTextNode(after));
+      textNode.parentNode.replaceChild(frag, textNode);
     });
+  }
 
-    // 7 bind to events triggered on the tree
-    $('#jstree').on("changed.jstree", function (e, data) {
-      console.log(data.selected);
-    });
-    // 8 interact with the tree - either way is OK
-    $('button').on('click', function () {
-      $('#jstree').jstree(true).select_node('child_node_1');
-      $('#jstree').jstree('select_node', 'child_node_1');
-      $.jstree.reference('#jstree').select_node('child_node_1');
-    });
+  document.getElementById('tree_search').addEventListener('input', function () {
+    const query = this.value.trim().toLowerCase();
+    const root = document.getElementById('metadata-tree-root');
 
-    $('#tree_search').keyup(function(){
-        $('#jstree').jstree(true).show_all();
-        $('#jstree').jstree('search', $(this).val());
+    // Restore original HTML for all labelled elements
+    root.querySelectorAll('.tree-leaf, .tree-summary').forEach(el => {
+      if (el.dataset.originalHtml !== undefined)
+        el.innerHTML = el.dataset.originalHtml;
     });
-    $("#jstree").jstree("open_all");
+    root.querySelectorAll('details').forEach(d => { d.open = true; });
+
+    if (!query) return;
+
+    root.querySelectorAll('.tree-leaf, .tree-summary').forEach(el => {
+      if (el.dataset.originalHtml === undefined)
+        el.dataset.originalHtml = el.innerHTML;
+      if (el.textContent.toLowerCase().includes(query))
+        highlightTextNodes(el, query);
+    });
   });
   </script>
 
