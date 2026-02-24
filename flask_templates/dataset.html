@@ -119,6 +119,10 @@
         <img src="{{ qrcode(ds['unique_id'], box_size=5, border=5) }}">
     </div>
 
+    {% if ds['measurement'] == 'MDNote' %}
+    <a href="/{{project_id}}/dataset/{{ds['unique_id']}}/mdnote-edit" class="btn btn-outline-primary btn-sm mb-2">Edit Note</a>
+    {% endif %}
+
     <span class="mfid">{{ds['unique_id']}}</span>
 
     <ul>

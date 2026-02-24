@@ -1,10 +1,13 @@
 import json
 import os
+import re
+import tempfile
 import networkx as nx
 import flask
 import pandas
 import markdown
-from flask import Flask, render_template,jsonify, abort, redirect
+import requests
+from flask import Flask, render_template, jsonify, abort, redirect, request
 from flask_qrcode import QRcode
 from flask_vite import Vite
 from flask_pyoidc.user_session import UserSession
@@ -287,15 +290,12 @@ def dataset(project_id, dsid):
 
         if md_file:
             # Transform filename to download link key: dataset_unique_id/basename
-            import os
-            import re
             md_basename = os.path.basename(md_file['filename'])
             download_key = f"{ds['unique_id']}/{md_basename}"
 
             if download_key in download_links:
                 try:
                     # Fetch the markdown content from the download link
-                    import requests
                     response = requests.get(download_links[download_key])
                     if response.status_code == 200:
                         md_content = response.text
@@ -341,6 +341,79 @@ def dataset(project_id, dsid):
                             download_links=download_links,
                            thumbnails=thumbnails,
                            markdown_html=markdown_html)
+
+@app.route("/<project_id>/api/samples")
+@auth.oidc_auth('orcid')
+def api_samples(project_id):
+    if not is_user_in_project(project_id):
+        abort(403)
+    q = request.args.get('q', '').lower()
+    pc = get_project(project_id)
+    samples = pc['samples']
+    if q:
+        samples = [s for s in samples if q in s['sample_name'].lower() or q in s['unique_id'].lower()]
+    return jsonify([{'id': s['unique_id'], 'name': s['sample_name']} for s in samples[:20]])
+
+
+@app.route("/<project_id>/api/datasets")
+@auth.oidc_auth('orcid')
+def api_datasets(project_id):
+    if not is_user_in_project(project_id):
+        abort(403)
+    q = request.args.get('q', '').lower()
+    pc = get_project(project_id)
+    datasets = pc['datasets']
+    if q:
+        datasets = [d for d in datasets if q in d['dataset_name'].lower() or q in d['unique_id'].lower()]
+    return jsonify([{'id': d['unique_id'], 'name': d['dataset_name']} for d in datasets[:20]])
+
+
+@app.route("/<project_id>/dataset/<dsid>/mdnote-edit", methods=['GET', 'POST'])
+@auth.oidc_auth('orcid')
+def mdnote_edit(project_id, dsid):
+    if not is_user_in_project(project_id):
+        abort(403)
+    ds = app.crucible_client.get_dataset(dsid, include_metadata=True)
+
+    if request.method == 'POST':
+        md_content = request.json.get('content', '')
+        associated_files = app.crucible_client.get_associated_files(dsid)
+        md_filename = 'note.md'
+        for file in associated_files:
+            if file['filename'].endswith('.md'):
+                md_filename = os.path.basename(file['filename'])
+                break
+        tmp_dir = tempfile.mkdtemp()
+        tmp_path = os.path.join(tmp_dir, md_filename)
+        try:
+            with open(tmp_path, 'w', encoding='utf-8') as f:
+                f.write(md_content)
+            result = app.crucible_client.upload_dataset_file(dsid, tmp_path, verbose=True)
+            print("Upload result:", result)
+        finally:
+            os.unlink(tmp_path)
+            os.rmdir(tmp_dir)
+        return jsonify({'status': 'ok'})
+
+    # GET: load current markdown content
+    associated_files = app.crucible_client.get_associated_files(dsid)
+    download_links = app.crucible_client.get_dataset_download_links(dsid)
+    md_content = ''
+    for file in associated_files:
+        if file['filename'].endswith('.md'):
+            md_basename = os.path.basename(file['filename'])
+            download_key = f"{ds['unique_id']}/{md_basename}"
+            if download_key in download_links:
+                response = requests.get(download_links[download_key])
+                if response.status_code == 200:
+                    md_content = response.text
+            break
+
+    return render_template('mdnote_edit.html',
+                           project_id=project_id,
+                           ds=ds,
+                           md_content=md_content)
+
 
 @app.route("/auth-test/")
 @auth.oidc_auth('orcid')
