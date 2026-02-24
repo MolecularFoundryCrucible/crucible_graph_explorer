@@ -8,7 +8,7 @@ steps:
     args: ['push', '${_IMAGE_PATH}']
 
   # Step 3: Deploy to Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:stable'
     entrypoint: gcloud
     args:
       - 'run'
