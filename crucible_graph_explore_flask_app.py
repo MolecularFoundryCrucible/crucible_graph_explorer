@@ -342,6 +342,96 @@ def dataset(project_id, dsid):
                            thumbnails=thumbnails,
                            markdown_html=markdown_html)
 
+@app.route("/<project_id>/entity-graph/<entity_type>/<entity_id>")
+@auth.oidc_auth('orcid')
+def entity_graph(project_id, entity_type, entity_id):
+    if entity_type not in ('sample', 'dataset'):
+        abort(400)
+    if not is_user_in_project(project_id):
+        abort(403)
+    pc = get_project(project_id)
+    if entity_type == 'sample':
+        entity = pc['samples_by_id'].get(entity_id, {})
+        entity_name = entity.get('sample_name', entity_id[:13])
+    else:
+        entity = pc['datasets_by_id'].get(entity_id, {})
+        entity_name = entity.get('dataset_name', entity_id[:13])
+    return render_template('entity_graph.html',
+                           pc=pc,
+                           entity_type=entity_type,
+                           entity_id=entity_id,
+                           entity_name=entity_name)
+
+
+@app.route("/<project_id>/api/entity-graph-data/<entity_type>/<entity_id>")
+@auth.oidc_auth('orcid')
+def entity_graph_data(project_id, entity_type, entity_id):
+    if entity_type not in ('sample', 'dataset'):
+        abort(400)
+    if not is_user_in_project(project_id):
+        abort(403)
+
+    pc = get_project(project_id)
+    G = get_project_sample_graph(project_id)
+
+    # Determine focal sample(s)
+    if entity_type == 'sample':
+        focal_sample_ids = {entity_id}
+    else:
+        focal_sample_ids = {s['unique_id'] for s in app.crucible_client.list_samples(dataset_id=entity_id)}
+
+    # Expand to ancestors + descendants for each focal sample
+    all_sample_ids = set()
+    for sid in focal_sample_ids:
+        if sid in G:
+            all_sample_ids |= nx.ancestors(G, sid) | nx.descendants(G, sid) | {sid}
+        else:
+            all_sample_ids.add(sid)
+
+    subgraph = G.subgraph(all_sample_ids)
+    nodes = []
+    edges = []
+    seen = set()
+
+    # Sample nodes
+    for sid in all_sample_ids:
+        seen.add(sid)
+        sample = pc['samples_by_id'].get(sid, {})
+        nodes.append({
+            'id': sid,
+            'label': sample.get('sample_name', sid[:13]),
+            'type': 'sample',
+            'url': f'/{project_id}/sample-graph/{sid}'
+        })
+
+    # Sample-sample edges
+    for source, target in subgraph.edges():
+        edges.append({'source': source, 'target': target})
+
+    # Dataset nodes and sample→dataset edges
+    for sid in all_sample_ids:
+        sample = pc['samples_by_id'].get(sid, {})
+        for ds_ref in sample.get('datasets', []):
+            dsid = ds_ref['unique_id']
+            if dsid not in seen:
+                seen.add(dsid)
+                ds = pc['datasets_by_id'].get(dsid, ds_ref)
+                nodes.append({
+                    'id': dsid,
+                    'label': ds.get('dataset_name', dsid[:13]),
+                    'type': 'dataset',
+                    'url': f'/{project_id}/dataset/{dsid}'
+                })
+            edges.append({'source': sid, 'target': dsid})
+
+    return jsonify({
+        'nodes': nodes,
+        'edges': edges,
+        'centerNodeId': entity_id,
+        'centerNodeType': entity_type
+    })
+
+
 @app.route("/<project_id>/api/samples")
 @auth.oidc_auth('orcid')
 def api_samples(project_id):

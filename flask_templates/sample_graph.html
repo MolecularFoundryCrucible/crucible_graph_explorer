@@ -48,10 +48,13 @@
 </div>
 
 <h2>Sample Graph</h2>
-<div class="mb-2">
+<div class="d-flex gap-2 mb-2">
   <button id="toggleLayoutBtn" class="btn btn-sm btn-secondary">
     Switch to Vertical Layout
   </button>
+  <a href="/{{pc['project_id']}}/entity-graph/sample/{{s['unique_id']}}" class="btn btn-sm btn-outline-success">
+    View with Datasets
+  </a>
 </div>
 <div id="cy" data-project-id="{{pc['project_id']}}"></div>
 

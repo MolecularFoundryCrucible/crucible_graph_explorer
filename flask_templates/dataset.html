@@ -119,9 +119,12 @@
         <img src="{{ qrcode(ds['unique_id'], box_size=5, border=5) }}">
     </div>
 
-    {% if ds['measurement'] == 'MDNote' %}
-    <a href="/{{project_id}}/dataset/{{ds['unique_id']}}/mdnote-edit" class="btn btn-outline-primary btn-sm mb-2">Edit Note</a>
-    {% endif %}
+    <div class="d-flex gap-2 mb-2">
+        <a href="/{{project_id}}/entity-graph/dataset/{{ds['unique_id']}}" class="btn btn-outline-success btn-sm">View Entity Graph</a>
+        {% if ds['measurement'] == 'MDNote' %}
+        <a href="/{{project_id}}/dataset/{{ds['unique_id']}}/mdnote-edit" class="btn btn-outline-primary btn-sm">Edit Note</a>
+        {% endif %}
+    </div>
 
     <span class="mfid">{{ds['unique_id']}}</span>
 

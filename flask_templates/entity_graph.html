@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Graph – {{entity_name}}{% endblock %}
+
+{% block head %}
+    {{ super() }}
+    {{ vite_tags() }}
+    <style>
+        #cy {
+            width: 100%;
+            height: 700px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 2rem;
+        }
+        .legend-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            margin-right: 4px;
+        }
+    </style>
+{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a></li>
+    {% if entity_type == 'sample' %}
+    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/sample-graph/{{entity_id}}"><b>Sample</b> {{entity_name}}</a></li>
+    {% else %}
+    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/dataset/{{entity_id}}"><b>Dataset</b> {{entity_name}}</a></li>
+    {% endif %}
+    <li class="breadcrumb-item active" aria-current="page">Entity Graph</li>
+{% endblock %}
+
+{% block content %}
+
+<h1>Entity Graph – <em>{{entity_name}}</em></h1>
+
+<div class="d-flex align-items-center gap-3 mb-2">
+    <button id="toggleLayoutBtn" class="btn btn-sm btn-secondary">Switch to Vertical Layout</button>
+    <span class="text-muted small">
+        <span class="legend-dot" style="background:#4a7ba7;"></span>Sample
+        &nbsp;
+        <span class="legend-dot" style="background:#5a9e6f;"></span>Dataset
+    </span>
+</div>
+
+<div id="cy"
+     data-project-id="{{pc['project_id']}}"
+     data-entity-type="{{entity_type}}"
+     data-entity-id="{{entity_id}}"></div>
+
+<script type="module">
+  let cyInstance = null;
+
+  async function initGraph() {
+    const response = await fetch('/{{pc["project_id"]}}/api/entity-graph-data/{{entity_type}}/{{entity_id}}');
+    const graphData = await response.json();
+
+    if (window.initEntityGraph) {
+      cyInstance = window.initEntityGraph('cy', graphData);
+    } else {
+      setTimeout(initGraph, 100);
+    }
+  }
+
+  document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
+    if (cyInstance && cyInstance.toggleLayout) {
+      const newLayout = cyInstance.toggleLayout();
+      this.textContent = newLayout === 'LR' ? 'Switch to Vertical Layout' : 'Switch to Horizontal Layout';
+    }
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGraph);
+  } else {
+    initGraph();
+  }
+</script>
+
+{% endblock %}
