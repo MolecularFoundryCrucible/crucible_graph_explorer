@@ -401,6 +401,7 @@ def entity_graph_data(project_id, entity_type, entity_id):
             'id': sid,
             'label': sample.get('sample_name', sid[:13]),
             'type': 'sample',
+            'description': sample.get('description', ''),
             'url': f'/{project_id}/sample-graph/{sid}'
         })
 
@@ -427,6 +428,7 @@ def entity_graph_data(project_id, entity_type, entity_id):
                     'id': dsid,
                     'label': ds.get('dataset_name', dsid[:13]),
                     'type': 'dataset',
+                    'measurement': ds.get('measurement', ''),
                     'url': f'/{project_id}/dataset/{dsid}',
                     'thumbnail': thumbnail
                 })

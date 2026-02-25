@@ -3,6 +3,78 @@ import dagre from 'cytoscape-dagre';
 
 cytoscape.use(dagre);
 
+function createNodePopup() {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;display:none;z-index:1050;max-width:280px;pointer-events:auto;';
+  el.innerHTML = `
+    <div class="card shadow" style="font-size:0.85em;">
+      <div class="card-body p-3">
+        <button class="popup-close btn-close float-end" style="margin-top:-2px;margin-left:8px;"></button>
+        <span class="popup-badge badge mb-1" style="font-size:0.75em;display:block;width:fit-content;"></span>
+        <h6 class="popup-title mb-1" style="word-break:break-word;margin-top:4px;"></h6>
+        <div class="popup-img mb-2" style="display:none;">
+          <img style="max-width:100%;max-height:120px;object-fit:contain;border:2px solid #5a9e6f;border-radius:3px;">
+        </div>
+        <p class="popup-desc text-muted mb-2" style="display:none;font-size:0.8em;"></p>
+        <a class="popup-link btn btn-sm btn-outline-primary" href="#">View Details →</a>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+
+  let ignoreNextClick = false;
+
+  el.querySelector('.popup-close').addEventListener('click', hide);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
+  document.addEventListener('click', e => {
+    if (ignoreNextClick) { ignoreNextClick = false; return; }
+    if (!el.contains(e.target)) hide();
+  });
+
+  function show(node, clientX, clientY) {
+    ignoreNextClick = true;
+    const label    = node.data('label') || node.data('name') || '';
+    const type     = node.data('type') || 'sample';
+    const desc     = node.data('description') || '';
+    const measure  = node.data('measurement') || '';
+    const thumb    = node.data('thumbnail');
+    const url      = node.data('url') || '#';
+
+    const badge = el.querySelector('.popup-badge');
+    badge.textContent = measure || (type === 'dataset' ? 'Dataset' : 'Sample');
+    badge.className = `popup-badge badge mb-1 ${type === 'dataset' ? 'bg-success' : 'bg-primary'}`;
+
+    el.querySelector('.popup-title').textContent = label;
+
+    const descEl = el.querySelector('.popup-desc');
+    descEl.textContent = desc;
+    descEl.style.display = desc ? '' : 'none';
+
+    const imgDiv = el.querySelector('.popup-img');
+    if (thumb) {
+      imgDiv.querySelector('img').src = thumb;
+      imgDiv.style.display = '';
+    } else {
+      imgDiv.style.display = 'none';
+    }
+
+    el.querySelector('.popup-link').href = url;
+
+    el.style.display = 'block';
+    const rect = el.getBoundingClientRect();
+    let x = clientX + 12;
+    let y = clientY - rect.height / 2;
+    if (x + rect.width > window.innerWidth - 8)  x = clientX - rect.width - 12;
+    if (y < 8)                                    y = 8;
+    if (y + rect.height > window.innerHeight - 8) y = window.innerHeight - rect.height - 8;
+    el.style.left = x + 'px';
+    el.style.top  = y + 'px';
+  }
+
+  function hide() { el.style.display = 'none'; }
+
+  return { show, hide };
+}
+
 export function initEntityGraph(containerId, graphData) {
   const { nodes, edges, centerNodeId } = graphData;
   let currentRankDir = 'LR';
@@ -13,6 +85,8 @@ export function initEntityGraph(containerId, graphData) {
       label: node.label,
       type: node.type,
       url: node.url,
+      description: node.description || '',
+      measurement: node.measurement || '',
       ...(node.thumbnail ? { thumbnail: node.thumbnail } : {}),
       isCenterNode: node.id === centerNodeId
     }
@@ -120,16 +194,24 @@ export function initEntityGraph(containerId, graphData) {
     maxZoom: 3
   });
 
+  const popup = createNodePopup();
+
+  cy.on('tap', evt => { if (evt.target === cy) popup.hide(); });
+
   cy.on('tap', 'node', function(evt) {
     const node = evt.target;
-    const url = node.data('url');
-    if (url) {
-      cy.nodes().style('opacity', 0.3);
-      node.style('opacity', 1);
-      node.style('background-color', '#ff6b6b');
-      document.body.style.cursor = 'wait';
-      window.location.href = url;
+    const orig = evt.originalEvent;
+    if (orig.ctrlKey || orig.metaKey) {
+      const url = node.data('url');
+      if (url) {
+        cy.nodes().style('opacity', 0.3);
+        node.style('opacity', 1);
+        document.body.style.cursor = 'wait';
+        window.location.href = url;
+      }
+      return;
     }
+    popup.show(node, orig.clientX, orig.clientY);
   });
 
   cy.on('mouseover', 'node', () => {
@@ -183,6 +265,8 @@ export function initSampleGraph(containerId, graphData) {
   // Track current layout direction
   let currentRankDir = 'LR';
 
+  const projectId = document.getElementById(containerId).dataset.projectId;
+
   // Transform nodes and edges to Cytoscape format
   const cyNodes = nodes.map(node => ({
     data: {
@@ -190,6 +274,8 @@ export function initSampleGraph(containerId, graphData) {
       label: node.label,
       name: node.name,
       description: node.description,
+      type: 'sample',
+      url: `/${projectId}/sample-graph/${node.id}`,
       isCenterNode: node.id === centerNodeId
     }
   }));
@@ -275,28 +361,24 @@ export function initSampleGraph(containerId, graphData) {
 
   console.log('Cytoscape instance created, nodes:', cy.nodes().length, 'edges:', cy.edges().length);
 
-  // Add click handler to nodes
+  const samplePopup = createNodePopup();
+
+  cy.on('tap', evt => { if (evt.target === cy) samplePopup.hide(); });
+
   cy.on('tap', 'node', function(evt) {
     const node = evt.target;
-    const nodeId = node.data('id');
-    const nodeName = node.data('name');
-
-    // Get project_id from the page (we'll add this as a data attribute)
-    const projectId = document.getElementById(containerId).dataset.projectId;
-
-    console.log('Node clicked:', { nodeId, nodeName, projectId });
-
-    // Add visual feedback - highlight the clicked node
-    cy.nodes().style('opacity', 0.3);
-    node.style('opacity', 1);
-    node.style('background-color', '#ff6b6b');
-
-    // Show loading cursor
-    document.body.style.cursor = 'wait';
-    document.getElementById(containerId).style.cursor = 'wait';
-
-    // Navigate to the sample graph page for this node
-    window.location.href = `/${projectId}/sample-graph/${nodeId}`;
+    const orig = evt.originalEvent;
+    if (orig.ctrlKey || orig.metaKey) {
+      const url = node.data('url');
+      if (url) {
+        cy.nodes().style('opacity', 0.3);
+        node.style('opacity', 1);
+        document.body.style.cursor = 'wait';
+        window.location.href = url;
+      }
+      return;
+    }
+    samplePopup.show(node, orig.clientX, orig.clientY);
   });
 
   // Add hover effects
