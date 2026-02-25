@@ -1,4 +1,3 @@
-import json
 import os
 import re
 import tempfile
@@ -342,6 +341,49 @@ def dataset(project_id, dsid):
                             download_links=download_links,
                            thumbnails=thumbnails,
                            markdown_html=markdown_html)
+
+def flatten_metadata(obj, path=''):
+    """Recursively flatten a nested dict to 'dotted.key: value' lines."""
+    lines = []
+    if not isinstance(obj, dict):
+        return lines
+    for key, val in obj.items():
+        full_path = f"{path}.{key}" if path else key
+        if isinstance(val, dict):
+            lines.extend(flatten_metadata(val, full_path))
+        else:
+            lines.append(f"{full_path}: {val}")
+    return lines
+
+
+@app.route("/<project_id>/search")
+@auth.oidc_auth('orcid')
+def project_search(project_id):
+    if not is_user_in_project(project_id):
+        abort(403)
+    pc = get_project(project_id, include_metadata=True)
+
+    samples_index = [{
+        'id': s['unique_id'],
+        'name': s['sample_name'],
+        'description': s.get('description', ''),
+        'type': s.get('sample_type', ''),
+        'url': f'/{project_id}/sample-graph/{s["unique_id"]}'
+    } for s in pc['samples']]
+
+    datasets_index = [{
+        'id': d['unique_id'],
+        'name': d['dataset_name'],
+        'measurement': d.get('measurement', ''),
+        'metadata_str': '\n'.join(flatten_metadata(d.get('scientific_metadata') or {})),
+        'url': f'/{project_id}/dataset/{d["unique_id"]}'
+    } for d in pc['datasets']]
+
+    return render_template('search.html',
+                           pc=pc,
+                           samples_index=samples_index,
+                           datasets_index=datasets_index)
+
 
 @app.route("/<project_id>/entity-graph/<entity_type>/<entity_id>")
 @auth.oidc_auth('orcid')

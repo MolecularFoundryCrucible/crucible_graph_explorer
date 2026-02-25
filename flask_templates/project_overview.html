@@ -7,7 +7,10 @@
 
 {% block content %}
 
-    <h1>Project {{pc['project_id']}}</h1>
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <h1 class="mb-0">Project {{pc['project_id']}}</h1>
+        <a href="/{{pc['project_id']}}/search" class="btn btn-outline-secondary btn-sm">Search</a>
+    </div>
 
     <!-- <a class="btn btn-outline-primary btn-sm" href="/{{pc['project_id']}}/update-cache">Update Cache</a> -->
 

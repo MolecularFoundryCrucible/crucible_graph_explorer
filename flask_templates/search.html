@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Search – {{pc['project_id']}}{% endblock %}
+
+{% block head %}
+    {{ super() }}
+    <style>
+        .result-card { transition: background 0.1s; }
+        .result-card:hover { background: #f8f9fa; }
+        mark { background: #fff3cd; border-radius: 2px; padding: 0 2px; }
+        .result-meta { font-size: 0.8em; color: #6c757d; }
+        #results-summary { font-size: 0.85em; color: #6c757d; min-height: 1.4em; }
+    </style>
+{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Search</li>
+{% endblock %}
+
+{% block content %}
+
+<h1>Search <em>{{pc['project_id']}}</em></h1>
+
+<div class="mb-3">
+    <input id="search-input" type="text" class="form-control form-control-lg"
+           placeholder="Search samples and datasets…" autofocus autocomplete="off">
+</div>
+<div id="results-summary" class="mb-3"></div>
+
+<div class="row">
+    <div class="col-md-6">
+        <h5>Samples <span id="sample-count" class="badge bg-secondary"></span></h5>
+        <div id="sample-results"></div>
+    </div>
+    <div class="col-md-6">
+        <h5>Datasets <span id="dataset-count" class="badge bg-secondary"></span></h5>
+        <div id="dataset-results"></div>
+    </div>
+</div>
+
+<script>
+const SAMPLES  = {{ samples_index  | tojson }};
+const DATASETS = {{ datasets_index | tojson }};
+
+function highlight(text, query) {
+    if (!query) return escHtml(text);
+    const re = new RegExp(escRegex(query), 'gi');
+    return escHtml(text).replace(re, m => `<mark>${m}</mark>`);
+}
+
+function escHtml(s) {
+    return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function escRegex(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function matches(item, fields, q) {
+    return fields.some(f => (item[f] || '').toLowerCase().includes(q));
+}
+
+function renderSample(s, q) {
+    return `<a href="${s.url}" class="d-block text-decoration-none text-reset result-card rounded p-2 mb-1">
+        <div class="fw-semibold">${highlight(s.name, q)}</div>
+        <div class="result-meta">
+            ${s.type ? highlight(s.type, q) + ' &nbsp;·&nbsp; ' : ''}
+            <span class="mfid">${s.id.slice(0,13)}</span>
+        </div>
+        ${s.description ? `<div class="result-meta mt-1">${highlight(s.description, q)}</div>` : ''}
+    </a>`;
+}
+
+function renderDataset(d, q) {
+    const ql = q.toLowerCase();
+    let metaHtml = '';
+    if (d.metadata_str) {
+        const hits = d.metadata_str.split('\n')
+            .filter(line => line.toLowerCase().includes(ql))
+            .slice(0, 3);
+        metaHtml = hits.map(line => {
+            const sep = line.indexOf(': ');
+            const key = sep === -1 ? line : line.slice(0, sep);
+            const val = sep === -1 ? '' : line.slice(sep + 2);
+            return `<div class="result-meta mt-1" style="font-family:monospace;">
+                <span class="text-secondary">${escHtml(key)}:</span> ${highlight(val, q)}
+            </div>`;
+        }).join('');
+    }
+    return `<a href="${d.url}" class="d-block text-decoration-none text-reset result-card rounded p-2 mb-1">
+        <div class="fw-semibold">${highlight(d.name, q)}</div>
+        <div class="result-meta">
+            ${d.measurement ? highlight(d.measurement, q) + ' &nbsp;·&nbsp; ' : ''}
+            <span class="mfid">${d.id.slice(0,13)}</span>
+        </div>
+        ${metaHtml}
+    </a>`;
+}
+
+function search(q) {
+    const sampleEl   = document.getElementById('sample-results');
+    const datasetEl  = document.getElementById('dataset-results');
+    const sampleCnt  = document.getElementById('sample-count');
+    const datasetCnt = document.getElementById('dataset-count');
+    const summary    = document.getElementById('results-summary');
+
+    if (!q) {
+        sampleEl.innerHTML = datasetEl.innerHTML = '';
+        sampleCnt.textContent = datasetCnt.textContent = '';
+        summary.textContent = '';
+        return;
+    }
+
+    const ql = q.toLowerCase();
+    const matchedSamples  = SAMPLES.filter(s  => matches(s,  ['name','description','type','id'], ql));
+    const matchedDatasets = DATASETS.filter(d => matches(d, ['name','measurement','id','metadata_str'], ql));
+
+    sampleEl.innerHTML  = matchedSamples.map(s => renderSample(s, q)).join('') || '<p class="text-muted small">No matches</p>';
+    datasetEl.innerHTML = matchedDatasets.map(d => renderDataset(d, q)).join('') || '<p class="text-muted small">No matches</p>';
+
+    sampleCnt.textContent  = matchedSamples.length;
+    datasetCnt.textContent = matchedDatasets.length;
+    summary.textContent    = `${matchedSamples.length + matchedDatasets.length} results for "${q}"`;
+}
+
+document.getElementById('search-input').addEventListener('input', function() {
+    search(this.value.trim());
+});
+</script>
+
+{% endblock %}
