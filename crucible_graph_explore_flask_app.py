@@ -2,6 +2,7 @@ import json
 import os
 import re
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 import networkx as nx
 import flask
 import pandas
@@ -409,30 +410,43 @@ def entity_graph_data(project_id, entity_type, entity_id):
     for source, target in subgraph.edges():
         edges.append({'source': source, 'target': target})
 
-    # Dataset nodes and sample→dataset edges
+    # Collect unique dataset IDs and edges in one pass
+    dataset_meta = {}  # dsid -> ds dict
     for sid in all_sample_ids:
         sample = pc['samples_by_id'].get(sid, {})
         for ds_ref in sample.get('datasets', []):
             dsid = ds_ref['unique_id']
+            edges.append({'source': sid, 'target': dsid})
             if dsid not in seen:
                 seen.add(dsid)
-                ds = pc['datasets_by_id'].get(dsid, ds_ref)
-                thumbnail = None
-                try:
-                    thumbs = app.crucible_client.get_thumbnails(dsid)
-                    if thumbs:
-                        thumbnail = f"data:image/png;base64,{thumbs[0]['thumbnail_b64str']}"
-                except Exception:
-                    pass
-                nodes.append({
-                    'id': dsid,
-                    'label': ds.get('dataset_name', dsid[:13]),
-                    'type': 'dataset',
-                    'measurement': ds.get('measurement', ''),
-                    'url': f'/{project_id}/dataset/{dsid}',
-                    'thumbnail': thumbnail
-                })
-            edges.append({'source': sid, 'target': dsid})
+                dataset_meta[dsid] = pc['datasets_by_id'].get(dsid, ds_ref)
+
+    # Fetch all thumbnails in parallel
+    def fetch_thumbnail(dsid):
+        try:
+            thumbs = app.crucible_client.get_thumbnails(dsid)
+            if thumbs:
+                return dsid, f"data:image/png;base64,{thumbs[0]['thumbnail_b64str']}"
+        except Exception:
+            pass
+        return dsid, None
+
+    thumbnails = {}
+    if dataset_meta:
+        with ThreadPoolExecutor(max_workers=min(len(dataset_meta), 10)) as executor:
+            for dsid, thumb in executor.map(fetch_thumbnail, dataset_meta):
+                thumbnails[dsid] = thumb
+
+    # Build dataset nodes
+    for dsid, ds in dataset_meta.items():
+        nodes.append({
+            'id': dsid,
+            'label': ds.get('dataset_name', dsid[:13]),
+            'type': 'dataset',
+            'measurement': ds.get('measurement', ''),
+            'url': f'/{project_id}/dataset/{dsid}',
+            'thumbnail': thumbnails.get(dsid)
+        })
 
     return jsonify({
         'nodes': nodes,
