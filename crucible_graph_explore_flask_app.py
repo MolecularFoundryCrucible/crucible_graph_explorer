@@ -465,6 +465,12 @@ def entity_graph_data(project_id, entity_type, entity_id):
 
     # Collect unique dataset IDs and edges in one pass
     dataset_meta = {}  # dsid -> ds dict
+
+    # Always include the focal dataset itself (handles datasets with no associated samples)
+    if entity_type == 'dataset' and entity_id not in seen:
+        seen.add(entity_id)
+        dataset_meta[entity_id] = pc['datasets_by_id'].get(entity_id, {'unique_id': entity_id})
+
     for sid in all_sample_ids:
         sample = pc['samples_by_id'].get(sid, {})
         for ds_ref in sample.get('datasets', []):
