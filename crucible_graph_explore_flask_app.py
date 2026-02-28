@@ -490,6 +490,27 @@ def entity_graph_data(project_id, entity_type, entity_id):
         seen.add(entity_id)
         dataset_meta[entity_id] = pc['datasets_by_id'].get(entity_id, {'unique_id': entity_id})
 
+    # Add parent and child datasets with their edges
+    if entity_type == 'dataset':
+        try:
+            for parent in app.crucible_client.list_parents_of_dataset(entity_id) or []:
+                pid = parent['unique_id']
+                if pid not in seen:
+                    seen.add(pid)
+                    dataset_meta[pid] = parent
+                edges.append({'source': pid, 'target': entity_id})
+        except Exception:
+            pass
+        try:
+            for child in app.crucible_client.list_children_of_dataset(entity_id) or []:
+                cid = child['unique_id']
+                if cid not in seen:
+                    seen.add(cid)
+                    dataset_meta[cid] = child
+                edges.append({'source': entity_id, 'target': cid})
+        except Exception:
+            pass
+
     for sid in all_sample_ids:
         sample = pc['samples_by_id'].get(sid, {})
         for ds_ref in sample.get('datasets', []):
