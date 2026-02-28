@@ -125,6 +125,25 @@ def list_projects():
     user_projects = app.crucible_client.list_projects(orcid=orcid)
     return render_template('project_list.html', projects=user_projects)
 
+@app.route("/users")
+@auth.oidc_auth('orcid')
+def users_overview():
+    user_session = UserSession(flask.session)
+    orcid = user_session.userinfo['sub']
+    user_projects = app.crucible_client.list_projects(orcid=orcid)
+
+    projects_with_users = []
+    for p in user_projects:
+        pid = p['project_id']
+        try:
+            members = app.crucible_client.get_project_users(pid) or []
+        except Exception:
+            members = []
+        projects_with_users.append({'project': p, 'members': members})
+
+    return render_template('users.html', projects_with_users=projects_with_users)
+
+
 @app.route("/<project_id>/")
 @auth.oidc_auth('orcid')
 def project_overview(project_id):

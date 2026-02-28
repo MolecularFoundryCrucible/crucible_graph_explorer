@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item active" aria-current="page">Users</li>
+{% endblock %}
+
+{% block content %}
+
+<h1>Users by Project</h1>
+
+{% for entry in projects_with_users %}
+{% set p = entry['project'] %}
+{% set members = entry['members'] %}
+
+<h2>
+    <a href="/{{p['project_id']}}/" class="text-decoration-none" style="font-family:monospace;">{{p['project_id']}}</a>
+    {% if p.get('title') %}<small class="text-muted fw-normal fs-6 ms-2">{{p['title']}}</small>{% endif %}
+</h2>
+
+{% if members %}
+<table class="table table-sm table-hover mb-4" style="max-width:700px;">
+    <thead class="table-light">
+        <tr>
+            <th>Name</th>
+            <th>ORCID</th>
+            <th>Email</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in members %}
+        <tr>
+            <td>{{ m.get('name') or '—' }}</td>
+            <td><span class="mfid">{{ m.get('orcid') or '—' }}</span></td>
+            <td>{{ m.get('email') or m.get('lbl_email') or '—' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="text-muted small mb-4">No member information available.</p>
+{% endif %}
+
+{% endfor %}
+
+{% endblock %}

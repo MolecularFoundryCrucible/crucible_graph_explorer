@@ -7,7 +7,10 @@
 
 {% block content %}
 
-    <h1>Projects in Crucible</h1>
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <h1 class="mb-0">Projects in Crucible</h1>
+        <a href="/users" class="btn btn-outline-secondary btn-sm">Users</a>
+    </div>
     <ul>
         {% for p in projects %}
         <li>
