@@ -679,6 +679,17 @@ CHAT_TOOL_DEFS = [
             "required": ["entity_type", "entity_id"]
         }
     },
+    {
+        "name": "get_thumbnail",
+        "description": "Retrieve and display a thumbnail image for a dataset. Use this when the user asks to see an image, photo, or thumbnail of a dataset.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "dataset_id": {"type": "string", "description": "The unique_id of the dataset"}
+            },
+            "required": ["dataset_id"]
+        }
+    },
 ]
 
 
@@ -855,7 +866,23 @@ def project_chat_api(project_id):
                     for block in response.content:
                         if block.type == 'tool_use':
                             yield f"data: {json.dumps({'type': 'tool_call', 'name': block.name, 'input': block.input})}\n\n"
-                            result_text = execute_chat_tool(block.name, block.input, app.crucible_client, pc)
+
+                            if block.name == 'get_thumbnail':
+                                dsid = block.input['dataset_id']
+                                try:
+                                    thumbs = app.crucible_client.get_thumbnails(dsid)
+                                    if thumbs:
+                                        src = f"data:image/png;base64,{thumbs[0]['thumbnail_b64str']}"
+                                        label = pc['datasets_by_id'].get(dsid, {}).get('dataset_name', dsid[:13])
+                                        yield f"data: {json.dumps({'type': 'image', 'src': src, 'label': label})}\n\n"
+                                        result_text = f"Thumbnail for '{label}' retrieved and displayed to the user."
+                                    else:
+                                        result_text = "No thumbnail available for this dataset."
+                                except Exception as e:
+                                    result_text = f"Failed to retrieve thumbnail: {e}"
+                            else:
+                                result_text = execute_chat_tool(block.name, block.input, app.crucible_client, pc)
+
                             yield f"data: {json.dumps({'type': 'tool_result', 'name': block.name, 'result': result_text})}\n\n"
                             tool_results.append({
                                 'type': 'tool_result',

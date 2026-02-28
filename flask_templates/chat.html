@@ -196,7 +196,7 @@ function addToolPill(bubble, name, inputObj) {
 
 let _rawText = '';
 let _currentBubble = null;
-let _currentToolPillMap = {};   // tool_use_id -> resultEl (keyed by order)
+let _textEl = null;             // dedicated text div inside _currentBubble
 let _pendingToolPills = [];     // ordered list of resultEls for tool_result events
 
 function scrollToBottom() {
@@ -219,6 +219,7 @@ async function sendMessage() {
 
     _rawText = '';
     _currentBubble = null;
+    _textEl = null;
     _pendingToolPills = [];
 
     try {
@@ -267,8 +268,26 @@ function handleEvent(event) {
         if (!_currentBubble) {
             _currentBubble = createAssistantBubble();
         }
+        if (!_textEl) {
+            _textEl = document.createElement('div');
+            _currentBubble.appendChild(_textEl);
+        }
         _rawText += event.delta;
-        _currentBubble.innerHTML = marked.parse(_rawText);
+        _textEl.innerHTML = marked.parse(_rawText);
+        scrollToBottom();
+
+    } else if (event.type === 'image') {
+        removeTypingIndicator();
+        if (!_currentBubble) {
+            _currentBubble = createAssistantBubble();
+        }
+        const img = document.createElement('img');
+        img.src = event.src;
+        img.alt = event.label || 'thumbnail';
+        img.title = event.label || '';
+        img.style.cssText = 'max-width:220px;max-height:180px;object-fit:contain;border:1px solid #dee2e6;border-radius:4px;display:block;margin:6px 0;cursor:pointer;';
+        img.addEventListener('click', () => window.open(event.src, '_blank'));
+        _currentBubble.appendChild(img);
         scrollToBottom();
 
     } else if (event.type === 'tool_call') {
