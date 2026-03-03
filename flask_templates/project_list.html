@@ -1,33 +1,254 @@
 {% extends "base.html" %}
-{% block title %}Projects in Crucible{% endblock %}
+{% block title %}Dashboard{% endblock %}
 
 {% block breadcrumb %}
-        <li class="breadcrumb-item active" aria-current="page">Projects</li>
+        <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
 {% endblock %}
+
+{% block sidebar %}{% endblock %}
+{% block main_col_class %}col-12{% endblock %}
 
 {% block content %}
 
-    <div class="d-flex align-items-center justify-content-between mb-2">
-        <h1 class="mb-0">Projects in Crucible</h1>
-        <a href="/users" class="btn btn-outline-secondary btn-sm">Users</a>
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h1 class="mb-0">Welcome to Crucible{% if user_name %}, {{ user_name }}{% endif %}</h1>
+            <span class="text-muted small" id="projectCount"></span>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <input type="search" class="form-control form-control-sm" id="filterInput"
+                   placeholder="Filter projects…" oninput="applyFilter()" style="width: 16rem;">
+            <!-- card-mode sort controls (hidden in list mode) -->
+            <div class="input-group input-group-sm" id="cardSortControls">
+                <label class="input-group-text">Sort</label>
+                <select class="form-select form-select-sm" id="sortSelect" onchange="setSortKey(this.value)">
+                    <option value="id">ID</option>
+                    <option value="name">Name</option>
+                    <option value="org">Organization</option>
+                    <option value="lead">Lead</option>
+                </select>
+                <button class="btn btn-outline-secondary" id="sortDir" onclick="toggleDir()">▲</button>
+            </div>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-secondary" id="btnCards" onclick="setLayout('cards')" title="Card view">&#x229E;</button>
+                <button class="btn btn-outline-secondary" id="btnList"  onclick="setLayout('list')"  title="List view">&#x2630;</button>
+            </div>
+            <a href="/users" class="btn btn-outline-secondary btn-sm">Users</a>
+        </div>
     </div>
-    <ul>
-        {% for p in projects %}
-        <li>
-            <a href="/{{p['project_id']}}/" style="font-family: monospace;">{{p['project_id']}}</a> {{p['title']}}
-        </li>
-        {% endfor %}
-    </ul>
 
+    <!-- list-mode column headers (hidden in card mode) -->
+    <!-- px-3 matches Bootstrap's default list-group-item padding-x (1rem) -->
+    <div class="d-flex align-items-center gap-3 px-3 py-1 mb-0 small fw-semibold text-uppercase border-bottom border-top bg-body-tertiary text-muted"
+         id="listHeader" style="display:none!important; position:sticky; top:56px; z-index:10;">
+        <span id="lhdr-id"   onclick="sortBy('id')"   style="min-width:21rem; cursor:pointer; user-select:none;">ID   <span class="lsort-icon">▲</span></span>
+        <span id="lhdr-name" onclick="sortBy('name')" style="min-width:0; flex:1; cursor:pointer; user-select:none;">Name <span class="lsort-icon opacity-25">⇅</span></span>
+        <span id="lhdr-org"  onclick="sortBy('org')"  style="min-width:10rem; cursor:pointer; user-select:none;">Organization <span class="lsort-icon opacity-25">⇅</span></span>
+        <span id="lhdr-lead" onclick="sortBy('lead')" style="min-width:16rem; cursor:pointer; user-select:none;">Lead <span class="lsort-icon opacity-25">⇅</span></span>
+        <span style="min-width:9rem;"></span>
+    </div>
 
-    <h2>10k Perovskite Project Views</h2>
-    <ul>
-        <li>
-            <a href="/10k_perovskites/view/overview">Overview</a>
-        </li>
-        <li>
-            <a href="/10k_perovskites/view/thinfilm-gallery">Thinfilm Gallery (slow!)</a>
-        </li>
-    </ul>
-        
+    <div id="projectList" class="mb-4"></div>
+
+    <div id="emptyState" class="text-center text-muted py-5" style="display:none;">
+        No projects match your filter.
+    </div>
+
+    <script>
+        const PROJECTS = {{ projects | tojson }};
+        let currentLayout = localStorage.getItem('crucible-layout') || 'list';
+        let currentSortKey = 'id';
+        let sortAsc = true;
+        let currentFilter = '';
+
+        const DASH = '<em class="text-muted">—</em>';
+
+        const AVATAR_COLORS = [
+            '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
+            '#b07aa1','#9c755f','#6b6ecf','#e05c5c','#3a9e7e'
+        ];
+
+        function esc(s) {
+            return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function hashColor(str) {
+            let h = 0;
+            for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+            return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+        }
+
+        function avatarHTML(id) {
+            const initials = id.replace(/_/g,' ').split(' ')
+                               .filter(Boolean).slice(0, 2)
+                               .map(w => w[0].toUpperCase()).join('');
+            const bg = hashColor(id);
+            return `<div style="width:2.25rem;height:2.25rem;min-width:2.25rem;border-radius:50%;`
+                 + `background:${bg};color:#fff;display:flex;align-items:center;justify-content:center;`
+                 + `font-size:0.7rem;font-weight:700;letter-spacing:0.05em;">${esc(initials)}</div>`;
+        }
+
+        // Navigate on click but not if the user is selecting text or clicked a button/link
+        function navIfNoSelection(event, url) {
+            if (window.getSelection().toString()) return;
+            if (event.target.closest('a, button')) return;
+            window.location.href = url;
+        }
+
+        function sortedFiltered() {
+            const fieldMap = { id: 'project_id', name: 'title', org: 'organization', lead: 'project_lead_email' };
+            const field = fieldMap[currentSortKey];
+            return PROJECTS
+                .filter(p => {
+                    if (!currentFilter) return true;
+                    return (p.project_id         || '').toLowerCase().includes(currentFilter)
+                        || (p.title              || '').toLowerCase().includes(currentFilter)
+                        || (p.organization       || '').toLowerCase().includes(currentFilter)
+                        || (p.project_lead_email || '').toLowerCase().includes(currentFilter);
+                })
+                .sort((a, b) => {
+                    const va = a[field] || '', vb = b[field] || '';
+                    if (!va && !vb) return 0;
+                    if (!va) return 1;
+                    if (!vb) return -1;
+                    return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+                });
+        }
+
+        function cardHTML(p) {
+            return `
+            <div class="col">
+              <div class="card h-100 shadow-sm" style="cursor:pointer;"
+                   onmouseup="navIfNoSelection(event,'/${esc(p.project_id)}/')">
+                <div class="card-body">
+                  <div class="d-flex align-items-center gap-3 mb-2">
+                    ${avatarHTML(p.project_id)}
+                    <div style="min-width:0;">
+                      <h6 class="mb-0 fw-semibold text-primary" style="font-family:monospace;">${esc(p.project_id)}</h6>
+                      <p class="mb-0 text-truncate small" title="${esc(p.title)}">${esc(p.title) || DASH}</p>
+                    </div>
+                  </div>
+                  ${p.organization ? `<p class="mb-0 small text-muted">${esc(p.organization)}</p>` : ''}
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between py-2">
+                  <small class="text-muted text-truncate" style="min-width:0;">
+                    ${p.project_lead_email ? 'Lead: ' + esc(p.project_lead_email) : DASH}
+                  </small>
+                  <div class="d-flex gap-2 ms-2 flex-shrink-0">
+                    <a href="/${esc(p.project_id)}/search" class="btn btn-sm btn-outline-secondary">Search</a>
+                    <a href="/${esc(p.project_id)}/chat"   class="btn btn-sm btn-outline-primary">Chat</a>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+        }
+
+        function listRowHTML(p) {
+            return `
+            <div class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-2"
+                 style="cursor:pointer;"
+                 onmouseup="navIfNoSelection(event,'/${esc(p.project_id)}/')">
+              <span class="fw-semibold text-nowrap text-primary" style="font-family:monospace;min-width:21rem;">${esc(p.project_id)}</span>
+              <span class="flex-grow-1 text-truncate" style="min-width:0;" title="${esc(p.title)}">${esc(p.title) || DASH}</span>
+              <span class="text-muted small text-truncate" style="min-width:10rem;">${esc(p.organization) || DASH}</span>
+              <span class="text-muted small text-nowrap" style="min-width:16rem;">${esc(p.project_lead_email) || DASH}</span>
+              <div class="d-flex gap-2 flex-shrink-0" style="min-width:9rem;justify-content:flex-end;">
+                <a href="/${esc(p.project_id)}/search" class="btn btn-sm btn-outline-secondary">Search</a>
+                <a href="/${esc(p.project_id)}/chat"   class="btn btn-sm btn-outline-primary">Chat</a>
+              </div>
+            </div>`;
+        }
+
+        function updateListHeaders() {
+            ['id', 'name', 'org', 'lead'].forEach(key => {
+                const hdr = document.getElementById(`lhdr-${key}`);
+                if (!hdr) return;
+                const icon = hdr.querySelector('.lsort-icon');
+                if (key === currentSortKey) {
+                    icon.textContent = sortAsc ? '▲' : '▼';
+                    icon.classList.remove('opacity-25');
+                    hdr.classList.add('text-dark');
+                } else {
+                    icon.textContent = '⇅';
+                    icon.classList.add('opacity-25');
+                    hdr.classList.remove('text-dark');
+                }
+            });
+        }
+
+        function render() {
+            const items = sortedFiltered();
+            const container = document.getElementById('projectList');
+            const listHeader = document.getElementById('listHeader');
+            const cardSortControls = document.getElementById('cardSortControls');
+
+            if (currentLayout === 'cards') {
+                container.className = 'row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-4';
+                container.innerHTML = items.map(cardHTML).join('');
+                listHeader.style.setProperty('display', 'none', 'important');
+                cardSortControls.style.display = '';
+            } else {
+                container.className = 'list-group list-group-flush mb-2';
+                container.innerHTML = items.map(listRowHTML).join('');
+                listHeader.style.removeProperty('display');
+                cardSortControls.style.display = 'none';
+                updateListHeaders();
+            }
+
+            document.getElementById('emptyState').style.display = items.length === 0 ? '' : 'none';
+            const total = PROJECTS.length;
+            document.getElementById('projectCount').textContent = items.length === total
+                ? `${total} project${total !== 1 ? 's' : ''}`
+                : `${items.length} of ${total} projects`;
+        }
+
+        function applyFilter() {
+            currentFilter = document.getElementById('filterInput').value.toLowerCase();
+            render();
+        }
+
+        function setSortKey(key) {
+            currentSortKey = key;
+            render();
+        }
+
+        function sortBy(key) {
+            if (currentSortKey === key) {
+                sortAsc = !sortAsc;
+            } else {
+                currentSortKey = key;
+                sortAsc = true;
+            }
+            render();
+        }
+
+        function toggleDir() {
+            sortAsc = !sortAsc;
+            document.getElementById('sortDir').textContent = sortAsc ? '▲' : '▼';
+            render();
+        }
+
+        function setLayout(layout) {
+            currentLayout = layout;
+            localStorage.setItem('crucible-layout', layout);
+            document.getElementById('btnCards').classList.toggle('active', layout === 'cards');
+            document.getElementById('btnList').classList.toggle('active', layout === 'list');
+            render();
+        }
+
+        setLayout(currentLayout);
+    </script>
+
+    <div class="mt-5 pt-4 border-top">
+        <p class="text-muted small fw-semibold text-uppercase mb-2">Project-specific views</p>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/10k_perovskites/view/overview" class="btn btn-sm btn-outline-secondary">
+                10k Perovskites &mdash; Overview
+            </a>
+            <a href="/10k_perovskites/view/thinfilm-gallery" class="btn btn-sm btn-outline-secondary">
+                10k Perovskites &mdash; Thin Film Gallery <span class="text-muted">(slow)</span>
+            </a>
+        </div>
+    </div>
+
 {% endblock %}

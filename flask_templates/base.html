@@ -44,11 +44,13 @@
     <div class="container-fluid mt-3 px-4" id="content">
       <div class="row">
         <!-- sidebar, which will move to the top on a small screen -->
+        {% block sidebar %}
         <div class="col-sm-3">
             <nav id="toc" data-toggle="toc" class="sticky-top" style="top: 5em;"></nav>
         </div>
+        {% endblock %}
         <!-- main content area -->
-        <div class="col-sm-9 pe-4">  {% block content %}{% endblock %}</div>
+        <div class="{% block main_col_class %}col-sm-9{% endblock %} pe-4">  {% block content %}{% endblock %}</div>
       </div>
     </div>
     <div id="footer">

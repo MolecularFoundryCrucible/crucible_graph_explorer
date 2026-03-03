@@ -119,11 +119,12 @@ def is_user_in_project(project_id, orcid=None):
 @app.route("/")
 @auth.oidc_auth('orcid')
 def list_projects():
-    #return render_template('project_list.html', projects=app.crucible_client.list_projects())
     user_session = UserSession(flask.session)
-    orcid=user_session.userinfo['sub']
+    orcid = user_session.userinfo['sub']
     user_projects = app.crucible_client.list_projects(orcid=orcid)
-    return render_template('project_list.html', projects=user_projects)
+    info = user_session.userinfo
+    user_name = info.get('name') or info.get('given_name') or orcid
+    return render_template('project_list.html', projects=user_projects, user_name=user_name)
 
 @app.route("/users")
 @auth.oidc_auth('orcid')
