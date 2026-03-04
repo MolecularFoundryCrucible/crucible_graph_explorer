@@ -148,33 +148,31 @@ def users_overview():
 @app.route("/<project_id>/")
 @auth.oidc_auth('orcid')
 def project_overview(project_id):
-    if not is_user_in_project(project_id):
+    user_session = UserSession(flask.session)
+    orcid = user_session.userinfo['sub']
+    user_projects = app.crucible_client.list_projects(orcid=orcid)
+    project_meta = next((p for p in user_projects if p['project_id'] == project_id), None)
+    if project_meta is None:
         abort(403)
-    #pc = generate_project_cache(project_id, app.crucible_client, include_metadata=True)
+
     pc = get_project(project_id)
 
-    # samples by type
+    # samples by type — types sorted alphabetically, samples within each type by unique_id
     samples_by_type = dict()
     for s in pc['samples']:
-        stype = s['sample_type']
-        if not stype in samples_by_type:
-            samples_by_type[stype] = []
-        samples_by_type[stype].append(s)
+        samples_by_type.setdefault(s['sample_type'], []).append(s)
+    samples_by_type = {k: sorted(v, key=lambda x: x['sample_name'] or '')
+                       for k, v in sorted(samples_by_type.items(), key=lambda item: item[0] or '')}
 
-    # Sort samples within each type by sample_name
-    for stype in samples_by_type:
-        samples_by_type[stype].sort(key=lambda x: x['sample_name'])
-
-    # datasets by type
-    #measurement_types = set([ds['measurement'] for ds in pc['datasets']])
+    # datasets by type — types sorted alphabetically, datasets within each type by name
     datasets_by_type = dict()
     for ds in pc['datasets']:
-        mtype = ds['measurement']
-        if not mtype in datasets_by_type:
-            datasets_by_type[mtype] = []
-        datasets_by_type[mtype].append(ds)
+        datasets_by_type.setdefault(ds['measurement'], []).append(ds)
+    datasets_by_type = {k: sorted(v, key=lambda x: x['dataset_name'] or '')
+                        for k, v in sorted(datasets_by_type.items(), key=lambda item: item[0] or '')}
 
     return render_template('project_overview.html', pc=pc,
+                        project_meta=project_meta,
                         sample_info=sorted(pc['samples_by_name'].values(), key=lambda x:x['sample_name']),
                         samples_by_type=samples_by_type,
                         datasets_by_type=datasets_by_type,
@@ -235,6 +233,19 @@ def sample_graph(project_id, sample_id):
     self_info = pc['samples_by_id'][sample_id]
     descendants_info = sorted([pc['samples_by_id'][sample_id] for sample_id in descendants], key=lambda x: x['unique_id'])
 
+    # Sibling navigation: all samples of the same type, sorted by name
+    sample_type = self_info.get('sample_type')
+    if sample_type:
+        siblings = sorted(
+            [s for s in pc['samples'] if s.get('sample_type') == sample_type],
+            key=lambda x: x.get('sample_name') or ''
+        )
+    else:
+        siblings = [self_info]
+    sibling_idx = next((i for i, s in enumerate(siblings) if s['unique_id'] == sample_id), 0)
+    prev_sibling = siblings[sibling_idx - 1] if sibling_idx > 0 else None
+    next_sibling = siblings[sibling_idx + 1] if sibling_idx < len(siblings) - 1 else None
+
     return render_template('sample_graph.html',
                            pc=pc,
                            ancestors_info=ancestors_info,
@@ -243,7 +254,11 @@ def sample_graph(project_id, sample_id):
                            ancestors_path=ancestors_path,
                            descendants_path = descendants_path,
                            client=app.crucible_client,
-                           datasets_by_id = pc['datasets_by_id']
+                           datasets_by_id = pc['datasets_by_id'],
+                           prev_sibling=prev_sibling,
+                           next_sibling=next_sibling,
+                           sibling_index=sibling_idx + 1,
+                           sibling_count=len(siblings),
                            )
 
 @app.route("/<project_id>/api/sample-graph-data/<sample_id>")
@@ -294,7 +309,7 @@ def sample_graph_data(project_id, sample_id):
 def dataset(project_id, dsid):
     if not is_user_in_project(project_id):
         abort(403)
-    #pc = get_project(project_id)
+    pc = get_project(project_id)
     ds = app.crucible_client.get_dataset(dsid, include_metadata=True)
     #ds = pc['datasets_by_id'][dsid] #cache
     samples = app.crucible_client.list_samples(dataset_id=dsid)
@@ -363,15 +378,33 @@ def dataset(project_id, dsid):
                 except Exception as err:
                     print(f"Failed to fetch/render markdown for {dsid}: {err}")
 
+    # Sibling navigation: all datasets of the same measurement type, sorted by name
+    measurement = ds.get('measurement')
+    if measurement:
+        ds_siblings = sorted(
+            [d for d in pc['datasets'] if d.get('measurement') == measurement],
+            key=lambda x: x.get('dataset_name') or ''
+        )
+    else:
+        ds_siblings = [ds]
+    ds_sibling_idx = next((i for i, d in enumerate(ds_siblings) if d['unique_id'] == dsid), 0)
+    prev_sibling = ds_siblings[ds_sibling_idx - 1] if ds_sibling_idx > 0 else None
+    next_sibling = ds_siblings[ds_sibling_idx + 1] if ds_sibling_idx < len(ds_siblings) - 1 else None
+
     return render_template("dataset.html",
-                           project_id=project_id, ds=ds,
+                           project_id=project_id, pc=pc, ds=ds,
                            child_datasets = child_datasets,
                            parent_datasets = parent_datasets,
                            samples=samples,
                             files=associated_files,
                             download_links=download_links,
                            thumbnails=thumbnails,
-                           markdown_html=markdown_html)
+                           markdown_html=markdown_html,
+                           prev_sibling=prev_sibling,
+                           next_sibling=next_sibling,
+                           sibling_index=ds_sibling_idx + 1,
+                           sibling_count=len(ds_siblings),
+                           )
 
 def flatten_metadata(obj, path=''):
     """Recursively flatten a nested dict to 'dotted.key: value' lines."""

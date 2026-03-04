@@ -7,8 +7,8 @@
     <style>
         #cy {
             width: 100%;
-            height: 700px;
-            border: 1px solid #ddd;
+            min-height: 65vh;
+            border: 1px solid var(--bs-border-color);
             border-radius: 4px;
             margin-bottom: 2rem;
         }
@@ -37,8 +37,12 @@
 <h1>Entity Graph – <em>{{entity_name}}</em></h1>
 
 <div class="d-flex align-items-center gap-3 mb-2">
-    <button id="toggleLayoutBtn" class="btn btn-sm btn-secondary">Switch to Vertical Layout</button>
-    <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary">Hide Thumbnails</button>
+    <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left-right me-1"></i>Switch to Vertical Layout
+    </button>
+    <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-image me-1"></i>Hide Thumbnails
+    </button>
     <span class="text-muted small">
         <span class="legend-dot" style="background:#4a7ba7;"></span>Sample
         &nbsp;
@@ -68,14 +72,18 @@
   document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
     if (cyInstance && cyInstance.toggleLayout) {
       const newLayout = cyInstance.toggleLayout();
-      this.textContent = newLayout === 'LR' ? 'Switch to Vertical Layout' : 'Switch to Horizontal Layout';
+      this.innerHTML = newLayout === 'LR'
+        ? '<i class="bi bi-arrow-left-right me-1"></i>Switch to Vertical Layout'
+        : '<i class="bi bi-arrow-down me-1"></i>Switch to Horizontal Layout';
     }
   });
 
   document.getElementById('toggleThumbnailsBtn').addEventListener('click', function() {
     if (cyInstance && cyInstance.toggleThumbnails) {
       const visible = cyInstance.toggleThumbnails();
-      this.textContent = visible ? 'Hide Thumbnails' : 'Show Thumbnails';
+      this.innerHTML = visible
+        ? '<i class="bi bi-image me-1"></i>Hide Thumbnails'
+        : '<i class="bi bi-image me-1"></i>Show Thumbnails';
     }
   });
 

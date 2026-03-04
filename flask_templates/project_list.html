@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 
+{% block head %}{{ super() }}{% endblock %}
+
 {% block breadcrumb %}
         <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
 {% endblock %}
@@ -10,34 +12,37 @@
 
 {% block content %}
 
-    <div class="d-flex align-items-center justify-content-between mb-4">
-        <div>
-            <h1 class="mb-0">Welcome to Crucible{% if user_name %}, {{ user_name }}{% endif %}</h1>
-        </div>
-        <div class="d-flex gap-2 align-items-center">
+    <div class="d-flex flex-wrap align-items-center gap-2 justify-content-between mb-4">
+        <h1 class="mb-0">Welcome to Crucible{% if user_name %}, {{ user_name }}{% endif %}</h1>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
             <span class="text-muted small text-nowrap" id="projectCount"></span>
             <input type="search" class="form-control form-control-sm" id="filterInput"
-                   placeholder="Filter projects…" oninput="applyFilter()" style="width: 16rem;">
-            <div class="input-group input-group-sm" id="cardSortControls">
-                <label class="input-group-text">Sort</label>
-                <select class="form-select form-select-sm" id="sortSelect" onchange="setSortKey(this.value)">
-                    <option value="id">ID</option>
-                    <option value="name">Name</option>
-                    <option value="org">Organization</option>
-                    <option value="lead">Lead</option>
-                </select>
-                <button class="btn btn-outline-secondary" id="sortDir" onclick="toggleDir()">▲</button>
+                   placeholder="Filter projects…" oninput="applyFilter()" style="width:16rem; max-width:100%;">
+            <!-- sort + layout toggle: hidden on mobile, list view doesn't work on narrow screens -->
+            <div class="d-none d-md-flex gap-2 align-items-center" id="desktopControls">
+                <div class="input-group input-group-sm" id="cardSortControls">
+                    <label class="input-group-text">Sort</label>
+                    <select class="form-select form-select-sm" id="sortSelect" onchange="setSortKey(this.value)">
+                        <option value="id">ID</option>
+                        <option value="name">Name</option>
+                        <option value="org">Organization</option>
+                        <option value="lead">Lead</option>
+                    </select>
+                    <button class="btn btn-outline-secondary" id="sortDir" onclick="toggleDir()">▲</button>
+                </div>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" id="btnCards" onclick="setLayout('cards')" title="Card view">&#x229E;</button>
+                    <button class="btn btn-outline-secondary" id="btnList"  onclick="setLayout('list')"  title="List view">&#x2630;</button>
+                </div>
             </div>
-            <div class="btn-group btn-group-sm">
-                <button class="btn btn-outline-secondary" id="btnCards" onclick="setLayout('cards')" title="Card view">&#x229E;</button>
-                <button class="btn btn-outline-secondary" id="btnList"  onclick="setLayout('list')"  title="List view">&#x2630;</button>
-            </div>
-            <a href="/users" class="btn btn-outline-secondary btn-sm">Users</a>
+            <a href="/users" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-people me-1"></i>Users
+            </a>
         </div>
     </div>
 
     <div class="d-flex align-items-center gap-3 px-3 py-1 mb-0 small fw-semibold text-uppercase border-bottom border-top bg-body-tertiary text-muted"
-         id="listHeader" style="display:none!important; position:sticky; top:56px; z-index:10;">
+         id="listHeader" style="display:none!important;">
         <span style="min-width:1.25rem;"></span>
         <span id="lhdr-id"   onclick="sortBy('id')"   style="min-width:21rem; cursor:pointer; user-select:none;">ID   <span class="lsort-icon">▲</span></span>
         <span id="lhdr-name" onclick="sortBy('name')" style="min-width:0; flex:1; cursor:pointer; user-select:none;">Name <span class="lsort-icon opacity-25">⇅</span></span>
@@ -53,6 +58,7 @@
     <!-- archived section -->
     <div id="archivedSection" style="display:none;" class="mt-4 pt-3 border-top">
         <div class="d-flex align-items-center gap-2 mb-2" style="cursor:pointer;" onclick="toggleArchivedView()">
+            <i class="bi bi-archive text-muted small"></i>
             <span class="text-muted small fw-semibold text-uppercase">Archived</span>
             <span class="badge bg-secondary rounded-pill" id="archivedCount"></span>
             <span class="text-muted small" id="archivedToggleLabel">Show ▸</span>
@@ -61,16 +67,40 @@
     </div>
 
     <div class="mt-5 pt-4 border-top">
-        <p class="text-muted small fw-semibold text-uppercase mb-2">Project-specific views</p>
-        <div class="d-flex gap-2 flex-wrap">
-            <a href="/10k_perovskites/view/overview" class="btn btn-sm btn-outline-secondary">
-                10k Perovskites &mdash; Overview
-            </a>
-            <a href="/10k_perovskites/view/thinfilm-gallery" class="btn btn-sm btn-outline-secondary">
-                10k Perovskites &mdash; Thin Film Gallery <span class="text-muted">(slow)</span>
-            </a>
+        <p class="text-muted small fw-semibold text-uppercase mb-3">
+            <i class="bi bi-grid-3x3-gap me-1"></i>Project-specific views
+        </p>
+        <div class="d-flex flex-wrap gap-3">
+            <div class="card border" style="min-width:220px; max-width:320px;">
+                <div class="card-body py-2 px-3">
+                    <div class="fw-semibold small mb-1">10k Perovskites</div>
+                    <div class="d-flex flex-column gap-1">
+                        <a href="/10k_perovskites/view/overview"
+                           class="btn btn-sm btn-outline-secondary text-start">
+                            <i class="bi bi-bar-chart me-1"></i>Overview
+                        </a>
+                        <a href="/10k_perovskites/view/thinfilm-gallery"
+                           class="btn btn-sm btn-outline-secondary text-start">
+                            <i class="bi bi-images me-1"></i>Thin Film Gallery
+                            <span class="text-muted ms-1 small">(slow)</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- back-to-top button -->
+    <button id="backToTop" title="Back to top"
+            onclick="window.scrollTo({top:0, behavior:'smooth'})"
+            style="position:fixed; bottom:1.75rem; right:1.75rem; display:none; z-index:1050;
+                   width:2.5rem; height:2.5rem; border-radius:50%; border:none;
+                   background:var(--bs-secondary-color); color:#fff;
+                   box-shadow:0 2px 8px rgba(0,0,0,0.25); cursor:pointer;
+                   align-items:center; justify-content:center; font-size:1rem;
+                   transition: opacity 0.2s;">
+        <i class="bi bi-arrow-up"></i>
+    </button>
 
     <script>
         const PROJECTS = {{ projects | tojson }};
@@ -80,10 +110,10 @@
         let currentFilter   = '';
         let archivedOpen    = false;
 
-        const ARCHIVE_KEY   = 'crucible-archived';
-        const STAR_KEY      = 'crucible-starred';
-        const DASH          = '<em class="text-muted">—</em>';
-        const AVATAR_COLORS = [
+        const ARCHIVE_KEY = 'crucible-archived';
+        const STAR_KEY    = 'crucible-starred';
+        const DASH        = '<em class="text-muted">—</em>';
+        const PALETTE     = [
             '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
             '#b07aa1','#9c755f','#6b6ecf','#e05c5c','#3a9e7e'
         ];
@@ -97,7 +127,7 @@
         function hashColor(str) {
             let h = 0;
             for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
-            return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+            return PALETTE[Math.abs(h) % PALETTE.length];
         }
 
         function avatarHTML(id) {
@@ -116,51 +146,63 @@
             window.location.href = url;
         }
 
-        // ── archive helpers ───────────────────────────────────────────────────
+        // ── archive / star helpers ────────────────────────────────────────────
 
         function getArchived() {
             try { return new Set(JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]')); }
             catch { return new Set(); }
         }
-
-        function setArchived(set) {
-            localStorage.setItem(ARCHIVE_KEY, JSON.stringify([...set]));
-        }
+        function setArchived(set) { localStorage.setItem(ARCHIVE_KEY, JSON.stringify([...set])); }
 
         function archiveProject(id, event) {
             event.stopPropagation();
-            const a = getArchived(); a.add(id); setArchived(a);
-            render();
+            const a = getArchived(); a.add(id); setArchived(a); render();
         }
-
         function restoreProject(id, event) {
             event.stopPropagation();
-            const a = getArchived(); a.delete(id); setArchived(a);
-            render();
+            const a = getArchived(); a.delete(id); setArchived(a); render();
         }
 
         function getStarred() {
             try { return new Set(JSON.parse(localStorage.getItem(STAR_KEY) || '[]')); }
             catch { return new Set(); }
         }
-
-        function setStarred(set) {
-            localStorage.setItem(STAR_KEY, JSON.stringify([...set]));
-        }
+        function setStarred(set) { localStorage.setItem(STAR_KEY, JSON.stringify([...set])); }
 
         function toggleStar(id, event) {
             event.stopPropagation();
             const s = getStarred();
             if (s.has(id)) s.delete(id); else s.add(id);
-            setStarred(s);
-            render();
+            setStarred(s); render();
         }
 
         function starBtn(id, starred) {
             return `<button class="btn btn-sm btn-link p-0 ${starred ? 'text-warning' : 'text-muted'}"
                             onclick="toggleStar('${esc(id)}', event)"
                             title="${starred ? 'Unstar' : 'Star'}"
-                            style="line-height:1;">${starred ? STAR_ICON_FILL : STAR_ICON_OUTLINE}</button>`;
+                            style="line-height:1; font-size:0.9rem;">
+                        <i class="bi ${starred ? 'bi-star-fill' : 'bi-star'}"></i>
+                    </button>`;
+        }
+
+        function archiveBtn(id) {
+            return `<button class="btn btn-sm btn-link text-muted p-0"
+                            onclick="archiveProject('${esc(id)}', event)"
+                            title="Archive project"
+                            style="line-height:1; font-size:0.9rem;">
+                        <i class="bi bi-archive"></i>
+                    </button>`;
+        }
+
+        // ── badge helpers ─────────────────────────────────────────────────────
+
+        function metaBadge(icon, text) {
+            return `<span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
+                          style="background:var(--bs-tertiary-bg); font-size:0.75rem; max-width:14rem;"
+                          title="${esc(text)}">
+                        <i class="bi ${icon}"></i>
+                        <span class="text-truncate">${esc(text)}</span>
+                    </span>`;
         }
 
         // ── sort / filter ─────────────────────────────────────────────────────
@@ -180,11 +222,9 @@
                         || (p.project_lead_email || '').toLowerCase().includes(currentFilter);
                 })
                 .sort((a, b) => {
-                    // starred projects always float to top
                     const aS = starred.has(a.project_id), bS = starred.has(b.project_id);
                     if (aS && !bS) return -1;
                     if (!aS && bS) return 1;
-                    // then apply selected sort within each group
                     const va = a[field] || '', vb = b[field] || '';
                     if (!va && !vb) return 0;
                     if (!va) return 1; if (!vb) return -1;
@@ -194,27 +234,14 @@
 
         // ── card / row HTML ───────────────────────────────────────────────────
 
-        const ARCHIVE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M0 2a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1v7.5a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 1 12.5V5a1 1 0 0 1-1-1V2zm2 3v7.5A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5V5H2zm13-3H1v2h14V2zM5 7.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5z"/>
-        </svg>`;
-        const STAR_ICON_OUTLINE = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
-        </svg>`;
-        const STAR_ICON_FILL = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.283.95l-3.523 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
-        </svg>`;
-
-        function archiveBtn(id) {
-            return `<button class="btn btn-sm btn-link text-muted p-0"
-                            onclick="archiveProject('${esc(id)}', event)"
-                            title="Archive project" style="line-height:1;">${ARCHIVE_ICON}</button>`;
-        }
-
         function cardHTML(p) {
-            const starred = getStarred().has(p.project_id);
+            const starred  = getStarred().has(p.project_id);
+            const color    = hashColor(p.project_id);
+            const orgBadge  = p.organization       ? metaBadge('bi-building', p.organization)       : '';
+            const leadBadge = p.project_lead_email ? metaBadge('bi-person',   p.project_lead_email) : '';
             return `
             <div class="col">
-              <div class="card h-100 shadow-sm" style="cursor:pointer;${starred ? 'border-color:#ffc107;' : ''}"
+              <div class="card h-100 shadow-sm" style="cursor:pointer; border-left: 4px solid ${color};${starred ? 'border-color:#ffc107;' : ''}"
                    onmouseup="navIfNoSelection(event,'/${esc(p.project_id)}/')">
                 <div class="card-body" style="position:relative;">
                   <div style="position:absolute;top:0.5rem;right:0.6rem;display:flex;gap:0.3rem;align-items:center;">
@@ -225,19 +252,20 @@
                     ${avatarHTML(p.project_id)}
                     <div style="min-width:0;">
                       <h6 class="mb-0 fw-semibold text-primary" style="font-family:monospace;">${esc(p.project_id)}</h6>
-                      <p class="mb-0 text-truncate small" title="${esc(p.title)}">${esc(p.title) || DASH}</p>
+                      <p class="mb-0 text-truncate small text-muted" title="${esc(p.title)}">${esc(p.title) || DASH}</p>
                     </div>
                   </div>
-                  ${p.organization ? `<p class="mb-0 small text-muted">${esc(p.organization)}</p>` : ''}
-                </div>
-                <div class="card-footer d-flex align-items-center justify-content-between py-2">
-                  <small class="text-muted text-truncate" style="min-width:0;">
-                    ${p.project_lead_email ? 'Lead: ' + esc(p.project_lead_email) : DASH}
-                  </small>
-                  <div class="d-flex gap-2 ms-2 flex-shrink-0">
-                    <a href="/${esc(p.project_id)}/search" class="btn btn-sm btn-outline-secondary">Search</a>
-                    <a href="/${esc(p.project_id)}/chat"   class="btn btn-sm btn-outline-primary">Chat</a>
+                  <div class="d-flex flex-wrap gap-1 mt-1">
+                    ${orgBadge}${leadBadge}
                   </div>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-end gap-2 py-2">
+                  <a href="/${esc(p.project_id)}/search" class="btn btn-sm btn-outline-secondary">
+                      <i class="bi bi-search me-1"></i>Search
+                  </a>
+                  <a href="/${esc(p.project_id)}/chat" class="btn btn-sm btn-outline-primary">
+                      <i class="bi bi-chat-dots me-1"></i>Chat
+                  </a>
                 </div>
               </div>
             </div>`;
@@ -255,8 +283,12 @@
               <span class="text-muted small text-truncate" style="min-width:10rem;">${esc(p.organization) || DASH}</span>
               <span class="text-muted small text-nowrap" style="min-width:16rem;">${esc(p.project_lead_email) || DASH}</span>
               <div class="d-flex gap-2 align-items-center flex-shrink-0" style="min-width:11rem;justify-content:flex-end;">
-                <a href="/${esc(p.project_id)}/search" class="btn btn-sm btn-outline-secondary">Search</a>
-                <a href="/${esc(p.project_id)}/chat"   class="btn btn-sm btn-outline-primary">Chat</a>
+                <a href="/${esc(p.project_id)}/search" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-search me-1"></i>Search
+                </a>
+                <a href="/${esc(p.project_id)}/chat" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-chat-dots me-1"></i>Chat
+                </a>
                 ${archiveBtn(p.project_id)}
               </div>
             </div>`;
@@ -277,7 +309,9 @@
                 </div>
                 <div class="card-footer d-flex justify-content-end py-2">
                   <button class="btn btn-sm btn-outline-secondary"
-                          onclick="restoreProject('${esc(p.project_id)}', event)">Restore</button>
+                          onclick="restoreProject('${esc(p.project_id)}', event)">
+                      <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
+                  </button>
                 </div>
               </div>
             </div>`;
@@ -289,7 +323,9 @@
               <span class="fw-semibold text-nowrap text-muted" style="font-family:monospace;min-width:21rem;">${esc(p.project_id)}</span>
               <span class="flex-grow-1 text-truncate text-muted" style="min-width:0;">${esc(p.title) || DASH}</span>
               <button class="btn btn-sm btn-outline-secondary flex-shrink-0"
-                      onclick="restoreProject('${esc(p.project_id)}', event)">Restore</button>
+                      onclick="restoreProject('${esc(p.project_id)}', event)">
+                  <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
+              </button>
             </div>`;
         }
 
@@ -314,14 +350,20 @@
 
         // ── render ────────────────────────────────────────────────────────────
 
+        // on narrow screens always use cards — list columns don't fit
+        function effectiveLayout() {
+            return window.innerWidth < 768 ? 'cards' : currentLayout;
+        }
+
         function render() {
             const items     = sortedFiltered();
             const archived  = getArchived();
+            const layout    = effectiveLayout();
             const container = document.getElementById('projectList');
             const listHeader       = document.getElementById('listHeader');
             const cardSortControls = document.getElementById('cardSortControls');
 
-            if (currentLayout === 'cards') {
+            if (layout === 'cards') {
                 container.className = 'row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-4';
                 container.innerHTML = items.map(cardHTML).join('');
                 listHeader.style.setProperty('display', 'none', 'important');
@@ -337,9 +379,9 @@
             const emptyEl = document.getElementById('emptyState');
             if (items.length === 0) {
                 emptyEl.style.display = '';
-                emptyEl.textContent = filteredArchived().length > 0
-                    ? 'No active projects match — see archived results below.'
-                    : 'No projects match your filter.';
+                emptyEl.innerHTML = filteredArchived().length > 0
+                    ? '<i class="bi bi-archive d-block fs-2 mb-2 text-muted"></i>No active projects match — see archived results below.'
+                    : '<i class="bi bi-search d-block fs-2 mb-2 text-muted"></i>No projects match your filter.';
             } else {
                 emptyEl.style.display = 'none';
             }
@@ -377,14 +419,13 @@
             section.style.display = '';
             countEl.textContent = allArchived.size;
 
-            // auto-expand when filter is active and there are matches
             const shouldShow = archivedOpen || (currentFilter && visibleArchived.length > 0);
 
             if (shouldShow) {
                 toggleLabel.textContent = 'Hide ▾';
                 list.style.display = '';
                 const items = currentFilter ? visibleArchived : PROJECTS.filter(p => allArchived.has(p.project_id));
-                if (currentLayout === 'cards') {
+                if (effectiveLayout() === 'cards') {
                     list.className = 'row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-2';
                     list.innerHTML = items.map(archivedCardHTML).join('');
                 } else {
@@ -427,11 +468,37 @@
             currentLayout = layout;
             localStorage.setItem('crucible-layout', layout);
             document.getElementById('btnCards').classList.toggle('active', layout === 'cards');
-            document.getElementById('btnList').classList.toggle('active', layout === 'list');
+            document.getElementById('btnList').classList.toggle('active',  layout === 'list');
             render();
         }
 
+        // ── sticky list header: computed dynamically like overview ─────────────
+
+        (function () {
+            const nav = document.querySelector('nav[aria-label="breadcrumb"]');
+            const hdr = document.getElementById('listHeader');
+            if (nav && hdr) {
+                const offset = nav.getBoundingClientRect().height;
+                hdr.style.top    = offset + 'px';
+                hdr.style.zIndex = '10';
+            }
+        })();
+
+        // ── back-to-top ───────────────────────────────────────────────────────
+
+        const backToTop = document.getElementById('backToTop');
+        window.addEventListener('scroll', () => {
+            backToTop.style.display = window.scrollY > 300 ? 'flex' : 'none';
+        }, { passive: true });
+
         setLayout(currentLayout);
+
+        // re-render on resize so mobile/desktop layout switch is seamless
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(render, 150);
+        }, { passive: true });
     </script>
 
 {% endblock %}
