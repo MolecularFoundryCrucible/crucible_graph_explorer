@@ -148,33 +148,31 @@ def users_overview():
 @app.route("/<project_id>/")
 @auth.oidc_auth('orcid')
 def project_overview(project_id):
-    if not is_user_in_project(project_id):
+    user_session = UserSession(flask.session)
+    orcid = user_session.userinfo['sub']
+    user_projects = app.crucible_client.list_projects(orcid=orcid)
+    project_meta = next((p for p in user_projects if p['project_id'] == project_id), None)
+    if project_meta is None:
         abort(403)
-    #pc = generate_project_cache(project_id, app.crucible_client, include_metadata=True)
+
     pc = get_project(project_id)
 
-    # samples by type
+    # samples by type — types sorted alphabetically, samples within each type by unique_id
     samples_by_type = dict()
     for s in pc['samples']:
-        stype = s['sample_type']
-        if not stype in samples_by_type:
-            samples_by_type[stype] = []
-        samples_by_type[stype].append(s)
+        samples_by_type.setdefault(s['sample_type'], []).append(s)
+    samples_by_type = {k: sorted(v, key=lambda x: x['sample_name'] or '')
+                       for k, v in sorted(samples_by_type.items(), key=lambda item: item[0] or '')}
 
-    # Sort samples within each type by sample_name
-    for stype in samples_by_type:
-        samples_by_type[stype].sort(key=lambda x: x['sample_name'])
-
-    # datasets by type
-    #measurement_types = set([ds['measurement'] for ds in pc['datasets']])
+    # datasets by type — types sorted alphabetically, datasets within each type by name
     datasets_by_type = dict()
     for ds in pc['datasets']:
-        mtype = ds['measurement']
-        if not mtype in datasets_by_type:
-            datasets_by_type[mtype] = []
-        datasets_by_type[mtype].append(ds)
+        datasets_by_type.setdefault(ds['measurement'], []).append(ds)
+    datasets_by_type = {k: sorted(v, key=lambda x: x['dataset_name'] or '')
+                        for k, v in sorted(datasets_by_type.items(), key=lambda item: item[0] or '')}
 
     return render_template('project_overview.html', pc=pc,
+                        project_meta=project_meta,
                         sample_info=sorted(pc['samples_by_name'].values(), key=lambda x:x['sample_name']),
                         samples_by_type=samples_by_type,
                         datasets_by_type=datasets_by_type,

@@ -1,68 +1,474 @@
 {% extends "base.html" %}
-{% block title %}Projects in {{pc['project_id']}}{% endblock %}
+{% block title %}{{pc['project_id']}}{% endblock %}
 
-{% block breadcrumb %}
-        <li class="breadcrumb-item active"><a href="/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a></li>
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 {% endblock %}
 
-{% block content %}
+{% block breadcrumb %}
+    <li class="breadcrumb-item active">
+        <a href="/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a>
+    </li>
+{% endblock %}
 
-    <div class="d-flex align-items-center justify-content-between mb-2">
-        <h1 class="mb-0">Project {{pc['project_id']}}</h1>
-        <div class="d-flex gap-2">
-            <a href="/{{pc['project_id']}}/search" class="btn btn-outline-secondary btn-sm">Search</a>
-            <a href="/{{pc['project_id']}}/chat" class="btn btn-outline-primary btn-sm">Chat</a>
+{% block sidebar %}
+<div class="col-md-2 pe-0">
+    <div class="sticky-top pt-1" style="top: 5em; overflow-y: auto; max-height: calc(100vh - 6em);">
+
+        <input type="search" class="form-control form-control-sm mb-3" id="filterInput"
+               placeholder="Filter…" oninput="applyFilter()">
+
+        <div class="mb-3">
+            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
+                 id="sampleNavLabel"
+                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bs-primary);">
+                <i class="bi bi-eyedropper"></i> Samples
+            </div>
+            <ul class="nav flex-column" id="sampleNav">
+                {% for stype, s_list in samples_by_type.items() %}
+                <li class="nav-item" id="snav-{{ loop.index }}">
+                    <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
+                       href="#stype-{{ loop.index }}"
+                       onclick="expandAndScroll('stype-{{ loop.index }}', event)">
+                        {{stype}} <span class="text-muted">({{s_list|length}})</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="mb-3">
+            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
+                 id="datasetNavLabel"
+                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bs-secondary-color); opacity: 0.6;">
+                <i class="bi bi-database"></i> Datasets
+            </div>
+            <ul class="nav flex-column" id="datasetNav">
+                {% for mtype, ds_list in datasets_by_type.items() %}
+                <li class="nav-item" id="dnav-{{ loop.index }}">
+                    <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
+                       href="#mtype-{{ loop.index }}"
+                       onclick="expandAndScroll('mtype-{{ loop.index }}', event)">
+                        {{mtype}} <span class="text-muted">({{ds_list|length}})</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block main_col_class %}col-md-10{% endblock %}
+
+{% block content %}
+<style>
+    .action-link {
+        display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+        font-size: 0.875rem; text-decoration: none;
+        transition: background 0.15s;
+    }
+    .action-link:hover { background: var(--bs-tertiary-bg) !important; }
+
+    .tab-stat { cursor: pointer; transition: background 0.15s, opacity 0.15s; border-bottom: 4px solid transparent; }
+    .tab-stat.active   { background: var(--bs-body-bg) !important; border-bottom-color: var(--bs-primary); }
+    .tab-stat.inactive { background: var(--bs-tertiary-bg) !important; opacity: 0.55; }
+    .tab-stat.inactive:hover { opacity: 0.85; }
+    .tab-stat.active .tab-icon   { color: var(--bs-primary) !important; }
+    .tab-stat.inactive .tab-icon { color: var(--bs-secondary-color); }
+
+    .group-header {
+        display: flex; align-items: center; gap: 0.4rem;
+        padding: 0.5rem 0.75rem; margin-bottom: 0;
+        font-size: 0.875rem; font-weight: 600;
+        background: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color);
+        border-left-width: 4px;
+        border-radius: 0.375rem 0.375rem 0 0;
+        cursor: pointer;
+    }
+    .group-header:hover { filter: brightness(0.97); }
+
+    /* list items are divs — restore the hover/pointer look */
+    .list-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        border-bottom: 1px solid var(--bs-border-color);
+        transition: background 0.1s;
+    }
+    .list-row:last-child { border-bottom: none; }
+    .list-row:hover { background: var(--bs-tertiary-bg); }
+</style>
+
+{% set title = project_meta.get('title') %}
+{% set pid   = pc['project_id'] %}
+
+<div style="max-width: 860px;">
+
+    <!-- ── project header card ──────────────────────────────────────────────── -->
+    <div class="mb-3 rounded border overflow-hidden" id="projectCard" style="border-left-width: 5px !important;">
+        <div class="d-flex align-items-start gap-3 p-3">
+
+            <div id="projectAvatar" style="flex-shrink:0;"></div>
+
+            <div style="min-width:0; flex:1;">
+                <h1 class="fs-4 fw-semibold mb-0 lh-sm">
+                    {{title if title and title != pid else pid}}
+                </h1>
+                {% if title and title != pid %}
+                <div class="text-muted mt-1" style="font-family:monospace; font-size:0.78rem;">{{pid}}</div>
+                {% endif %}
+
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                    {% if project_meta.get('organization') %}
+                    <span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
+                          style="background:var(--bs-tertiary-bg); font-size:0.78rem;">
+                        <i class="bi bi-building"></i>{{project_meta['organization']}}
+                    </span>
+                    {% endif %}
+                    {% if project_meta.get('project_lead_email') %}
+                    <span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
+                          style="background:var(--bs-tertiary-bg); font-size:0.78rem;">
+                        <i class="bi bi-person"></i>{{project_meta['project_lead_email']}}
+                    </span>
+                    {% endif %}
+                </div>
+
+                {% if project_meta.get('description') %}
+                <p class="mt-2 mb-0 text-secondary" style="font-size:0.875rem;">
+                    {{project_meta['description']}}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="d-flex border-top">
+            <a href="/{{pid}}/search" class="action-link flex-fill py-2 border-end text-secondary">
+                <i class="bi bi-search"></i> Search
+            </a>
+            <a href="/{{pid}}/chat" class="action-link flex-fill py-2 text-primary">
+                <i class="bi bi-chat-dots"></i> Chat
+            </a>
         </div>
     </div>
 
-    <!-- <a class="btn btn-outline-primary btn-sm" href="/{{pc['project_id']}}/update-cache">Update Cache</a> -->
+    <!-- ── stats + tab switcher (sticky) ────────────────────────────────────── -->
+    <div class="d-flex rounded border overflow-hidden mb-3 sticky-tab-bar" id="tabBar">
 
-    <h2>Samples</h2>
+        <div class="tab-stat active flex-fill p-3 border-end" id="tabSamples"
+             onclick="switchTab('samples')">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <i class="bi bi-eyedropper fs-5 tab-icon"></i>
+                <span class="fw-bold lh-1" style="font-size:1.75rem;">{{pc['samples'] | length}}</span>
+            </div>
+            <div class="small text-muted">
+                Sample{{ 's' if pc['samples'] | length != 1 }}
+                &middot; {{samples_by_type | length}} type{{ 's' if samples_by_type | length != 1 }}
+            </div>
+        </div>
 
-    {% for stype, s_list in samples_by_type.items() %}
-    <h3>{{stype}}</h3>
-        <ul>
-            {% for s in s_list %}
-            <li>
-                {{s['sample_name']}}
-                <a href="/{{pc['project_id']}}/sample-graph/{{s['unique_id']}}" class="mfid">{{s['unique_id']}}</a>
-            </li>
-            {% endfor %}
-        </ul> 
-    {% endfor %}
+        <div class="tab-stat inactive flex-fill p-3" id="tabDatasets"
+             onclick="switchTab('datasets')">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <i class="bi bi-database fs-5 tab-icon"></i>
+                <span class="fw-bold lh-1" style="font-size:1.75rem;">{{pc['datasets'] | length}}</span>
+            </div>
+            <div class="small text-muted">
+                Dataset{{ 's' if pc['datasets'] | length != 1 }}
+                &middot; {{datasets_by_type | length}} type{{ 's' if datasets_by_type | length != 1 }}
+            </div>
+        </div>
 
+        <div class="d-flex flex-column justify-content-center gap-1 px-3 border-start"
+             style="background:var(--bs-tertiary-bg);">
+            <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;"
+                    onclick="setAllGroups(true); event.stopPropagation();">
+                <i class="bi bi-chevron-expand"></i> Expand
+            </button>
+            <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;"
+                    onclick="setAllGroups(false); event.stopPropagation();">
+                <i class="bi bi-chevron-contract"></i> Collapse
+            </button>
+        </div>
+    </div>
 
-    <!-- <ul>
-        {% for s in sample_info %}
-        <li>
-            {{s['sample_name']}}
-            <a href="/{{pc['project_id']}}/sample-graph/{{s['unique_id']}}" class="mfid">{{s['unique_id']}}</a>
-        </li>
+    <!-- ── samples section ──────────────────────────────────────────────────── -->
+    <div id="samples-section">
+        <div id="noSamples" class="text-muted fst-italic small mb-3" style="display:none;">
+            No samples match your filter.
+        </div>
+
+        {% for stype, s_list in samples_by_type.items() %}
+        <div class="sample-group mb-3" id="stype-{{ loop.index }}">
+            <div class="group-header" onclick="toggleGroup(this)">
+                <span class="toggle-icon text-muted" style="font-size:0.75rem;">▸</span>
+                <i class="bi bi-eyedropper me-1" style="font-size:0.8rem; opacity:0.6;"></i>
+                <span>{{stype}}</span>
+                <span class="text-muted fw-normal sample-count ms-1" style="font-size:0.82em;">({{s_list | length}})</span>
+            </div>
+            <div class="collapse-body" style="display:none;">
+                <div class="border border-top-0" style="border-radius:0 0 0.375rem 0.375rem; overflow:hidden;">
+                    {% for s in s_list %}
+                    <div class="list-row sample-item"
+                         data-search="{{(s['sample_name'] ~ ' ' ~ s.get('sample_type', ''))|lower}}"
+                         onmouseup="navIfNoSelection(event, '/{{pc['project_id']}}/sample-graph/{{s['unique_id']}}')">
+                        <span>{{s['sample_name']}}</span>
+                        <span class="mfid small ms-3 text-nowrap">{{s['unique_id']}}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
         {% endfor %}
-    </ul> -->
+    </div>
 
-    <h2>Datasets</h2>
-    
-    {% for mtype, ds_list in datasets_by_type.items() %}
-    <h3>{{mtype}}</h3>
-        <ul>
-            {% for ds in ds_list %}
-            <li>
-                <a href="/{{pc['project_id']}}/dataset/{{ds['unique_id']}}"  class="mfid">{{ds['unique_id'][:13]}}</a>
-                {{ds['dataset_name']}}
-            </li>
-            {% endfor %}
-        </ul> 
-    {% endfor %}
+    <!-- ── datasets section ─────────────────────────────────────────────────── -->
+    <div id="datasets-section" style="display:none;">
+        <div id="noDatasets" class="text-muted fst-italic small mb-3" style="display:none;">
+            No datasets match your filter.
+        </div>
 
-    <!-- <h3>All Datasets</h3>
-    <ul>
-        {% for ds in pc['datasets'] %}
-        <li>
-            <a href="/{{pc['project_id']}}/dataset/{{ds['unique_id']}}"  class="mfid">{{ds['unique_id'][:13]}}</a>
-            {{ds['dataset_name']}}
-        </li>
+        {% for mtype, ds_list in datasets_by_type.items() %}
+        <div class="dataset-group mb-3" id="mtype-{{ loop.index }}">
+            <div class="group-header" onclick="toggleGroup(this)">
+                <span class="toggle-icon text-muted" style="font-size:0.75rem;">▸</span>
+                <i class="bi bi-database me-1" style="font-size:0.8rem; opacity:0.6;"></i>
+                <span>{{mtype}}</span>
+                <span class="text-muted fw-normal dataset-count ms-1" style="font-size:0.82em;">({{ds_list | length}})</span>
+            </div>
+            <div class="collapse-body" style="display:none;">
+                <div class="border border-top-0" style="border-radius:0 0 0.375rem 0.375rem; overflow:hidden;">
+                    {% for ds in ds_list %}
+                    <div class="list-row dataset-item"
+                         data-search="{{(ds['dataset_name'] ~ ' ' ~ ds.get('measurement', ''))|lower}}"
+                         onmouseup="navIfNoSelection(event, '/{{pc['project_id']}}/dataset/{{ds['unique_id']}}')">
+                        <span class="text-truncate me-3">{{ds['dataset_name']}}</span>
+                        <span class="mfid small text-nowrap">{{ds['unique_id']}}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
         {% endfor %}
-    </ul>     -->
+    </div>
+
+</div>
+
+<!-- ── back-to-top button ────────────────────────────────────────────────────── -->
+<button id="backToTop" title="Back to top"
+        onclick="window.scrollTo({top:0, behavior:'smooth'})"
+        style="position:fixed; bottom:1.75rem; right:1.75rem; display:none; z-index:1050;
+               width:2.5rem; height:2.5rem; border-radius:50%; border:none;
+               background:var(--bs-secondary-color); color:#fff;
+               box-shadow:0 2px 8px rgba(0,0,0,0.25); cursor:pointer;
+               align-items:center; justify-content:center; font-size:1rem;
+               transition: opacity 0.2s;">
+    <i class="bi bi-arrow-up"></i>
+</button>
+
+<script>
+    // ── helpers ───────────────────────────────────────────────────────────────
+
+    function navIfNoSelection(event, url) {
+        if (window.getSelection().toString()) return;
+        if (event.target.closest('a, button')) return;
+        window.location.href = url;
+    }
+
+    // ── color helpers ─────────────────────────────────────────────────────────
+
+    const PALETTE = [
+        '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
+        '#b07aa1','#9c755f','#6b6ecf','#e05c5c','#3a9e7e'
+    ];
+    function hashColor(str) {
+        let h = 0;
+        for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+        return PALETTE[Math.abs(h) % PALETTE.length];
+    }
+
+    // ── avatar + header accent ────────────────────────────────────────────────
+
+    (function () {
+        const pid      = {{ pid | tojson }};
+        const color    = hashColor(pid);
+        const initials = pid.replace(/[_-]/g, ' ').split(' ')
+                            .filter(Boolean).slice(0, 2)
+                            .map(w => w[0].toUpperCase()).join('');
+
+        const av = document.getElementById('projectAvatar');
+        av.style.cssText = `width:3rem;height:3rem;min-width:3rem;border-radius:50%;`
+            + `background:${color};color:#fff;display:flex;align-items:center;`
+            + `justify-content:center;font-size:0.85rem;font-weight:700;letter-spacing:0.05em;`;
+        av.textContent = initials;
+
+        document.getElementById('projectCard').style.borderLeftColor = color;
+    })();
+
+    // colour group header left borders by type name
+    document.querySelectorAll('.group-header').forEach(h => {
+        const label = h.querySelector('span:not(.toggle-icon):not(.sample-count):not(.dataset-count)');
+        if (label) h.style.borderLeftColor = hashColor(label.textContent.trim());
+    });
+
+    // ── sticky tab bar: compute top offset after nav renders ──────────────────
+
+    (function () {
+        const nav = document.querySelector('nav[aria-label="breadcrumb"]');
+        const bar = document.getElementById('tabBar');
+        if (nav && bar) {
+            const offset = nav.getBoundingClientRect().height;
+            bar.style.position = 'sticky';
+            bar.style.top      = offset + 'px';
+            bar.style.zIndex   = '100';
+            // add a subtle shadow when stuck
+            bar.style.boxShadow = '0 2px 6px rgba(0,0,0,0.07)';
+        }
+    })();
+
+    // ── back to top ───────────────────────────────────────────────────────────
+
+    const backToTop = document.getElementById('backToTop');
+    backToTop.style.display = 'none';
+    window.addEventListener('scroll', () => {
+        const show = window.scrollY > 300;
+        backToTop.style.display       = show ? 'flex' : 'none';
+    }, { passive: true });
+
+    // ── tab switching ─────────────────────────────────────────────────────────
+
+    let activeTab = 'samples';
+
+    function switchTab(tab) {
+        activeTab = tab;
+        document.getElementById('samples-section').style.display  = tab === 'samples'  ? '' : 'none';
+        document.getElementById('datasets-section').style.display = tab === 'datasets' ? '' : 'none';
+
+        document.getElementById('tabSamples').classList.toggle('active',   tab === 'samples');
+        document.getElementById('tabSamples').classList.toggle('inactive', tab !== 'samples');
+        document.getElementById('tabDatasets').classList.toggle('active',   tab === 'datasets');
+        document.getElementById('tabDatasets').classList.toggle('inactive', tab !== 'datasets');
+
+        // highlight active sidebar section label
+        const sLbl = document.getElementById('sampleNavLabel');
+        const dLbl = document.getElementById('datasetNavLabel');
+        if (tab === 'samples') {
+            sLbl.style.color   = 'var(--bs-primary)'; sLbl.style.opacity = '1';
+            dLbl.style.color   = 'var(--bs-secondary-color)'; dLbl.style.opacity = '0.6';
+        } else {
+            dLbl.style.color   = 'var(--bs-primary)'; dLbl.style.opacity = '1';
+            sLbl.style.color   = 'var(--bs-secondary-color)'; sLbl.style.opacity = '0.6';
+        }
+    }
+
+    // ── collapse / expand ─────────────────────────────────────────────────────
+
+    function toggleGroup(header) {
+        const body = header.nextElementSibling;
+        const icon = header.querySelector('.toggle-icon');
+        const collapsed = body.style.display === 'none';
+        body.style.display = collapsed ? '' : 'none';
+        icon.textContent  = collapsed ? '▾' : '▸';
+    }
+
+    function setAllGroups(expand) {
+        const selector = activeTab === 'samples' ? '.sample-group' : '.dataset-group';
+        document.querySelectorAll(selector).forEach(group => {
+            const body = group.querySelector('.collapse-body');
+            const icon = group.querySelector('.toggle-icon');
+            if (body) body.style.display = expand ? '' : 'none';
+            if (icon) icon.textContent   = expand ? '▾' : '▸';
+        });
+    }
+
+    // ── sidebar nav ───────────────────────────────────────────────────────────
+
+    function expandAndScroll(id, event) {
+        event.preventDefault();
+        if (id.startsWith('mtype-') && activeTab !== 'datasets') switchTab('datasets');
+        if (id.startsWith('stype-') && activeTab !== 'samples')  switchTab('samples');
+
+        const group = document.getElementById(id);
+        if (!group) return;
+        const body = group.querySelector('.collapse-body');
+        const icon = group.querySelector('.toggle-icon');
+        if (body && body.style.display === 'none') {
+            body.style.display = '';
+            if (icon) icon.textContent = '▾';
+        }
+        setTimeout(() => group.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+    }
+
+    function updateSidebarNav() {
+        document.querySelectorAll('#sampleNav .nav-item').forEach(navItem => {
+            const group = document.getElementById(navItem.id.replace('snav-', 'stype-'));
+            navItem.style.opacity = (group && group.style.display === 'none') ? '0.35' : '';
+        });
+        document.querySelectorAll('#datasetNav .nav-item').forEach(navItem => {
+            const group = document.getElementById(navItem.id.replace('dnav-', 'mtype-'));
+            navItem.style.opacity = (group && group.style.display === 'none') ? '0.35' : '';
+        });
+    }
+
+    // ── filter ────────────────────────────────────────────────────────────────
+
+    function applyFilter() {
+        const q = document.getElementById('filterInput').value.toLowerCase();
+
+        let totalSamples = 0;
+        document.querySelectorAll('.sample-group').forEach(group => {
+            let visible = 0;
+            group.querySelectorAll('.sample-item').forEach(item => {
+                const match = !q || item.dataset.search.includes(q);
+                item.classList.toggle('d-none', !match);
+                if (match) visible++;
+            });
+            const total = group.querySelectorAll('.sample-item').length;
+            group.style.display = (visible > 0 || !q) ? '' : 'none';
+            const countEl = group.querySelector('.sample-count');
+            if (countEl) countEl.textContent = q ? `(${visible} of ${total})` : `(${total})`;
+            if (q && visible > 0) {
+                const body = group.querySelector('.collapse-body');
+                const icon = group.querySelector('.toggle-icon');
+                if (body) body.style.display = '';
+                if (icon) icon.textContent   = '▾';
+            }
+            totalSamples += visible;
+        });
+        document.getElementById('noSamples').style.display = totalSamples === 0 && q ? '' : 'none';
+
+        let totalDatasets = 0;
+        document.querySelectorAll('.dataset-group').forEach(group => {
+            let visible = 0;
+            group.querySelectorAll('.dataset-item').forEach(item => {
+                const match = !q || item.dataset.search.includes(q);
+                item.classList.toggle('d-none', !match);
+                if (match) visible++;
+            });
+            const total = group.querySelectorAll('.dataset-item').length;
+            group.style.display = (visible > 0 || !q) ? '' : 'none';
+            const countEl = group.querySelector('.dataset-count');
+            if (countEl) countEl.textContent = q ? `(${visible} of ${total})` : `(${total})`;
+            if (q && visible > 0) {
+                const body = group.querySelector('.collapse-body');
+                const icon = group.querySelector('.toggle-icon');
+                if (body) body.style.display = '';
+                if (icon) icon.textContent   = '▾';
+            }
+            totalDatasets += visible;
+        });
+        document.getElementById('noDatasets').style.display = totalDatasets === 0 && q ? '' : 'none';
+
+        if (q) {
+            if (totalSamples === 0 && totalDatasets > 0 && activeTab === 'samples') switchTab('datasets');
+            else if (totalDatasets === 0 && totalSamples > 0 && activeTab === 'datasets') switchTab('samples');
+        }
+
+        updateSidebarNav();
+    }
+</script>
 
 {% endblock %}
