@@ -123,7 +123,7 @@ def list_projects():
     orcid = user_session.userinfo['sub']
     user_projects = app.crucible_client.list_projects(orcid=orcid)
     info = user_session.userinfo
-    user_name = info.get('name') or info.get('given_name') or orcid
+    user_name = info.get('given_name') or info.get('name') or orcid
     return render_template('project_list.html', projects=user_projects, user_name=user_name)
 
 @app.route("/users")
