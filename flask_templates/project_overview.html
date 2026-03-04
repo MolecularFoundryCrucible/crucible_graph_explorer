@@ -13,7 +13,7 @@
 {% endblock %}
 
 {% block sidebar %}
-<div class="col-md-2 pe-0">
+<div class="col-md-2 pe-0 d-none d-md-block">
     <div class="sticky-top pt-1" style="top: 5em; overflow-y: auto; max-height: calc(100vh - 6em);">
 
         <input type="search" class="form-control form-control-sm mb-3" id="filterInput"
@@ -61,7 +61,7 @@
 </div>
 {% endblock %}
 
-{% block main_col_class %}col-md-10{% endblock %}
+{% block main_col_class %}col-12 col-md-10{% endblock %}
 
 {% block content %}
 <style>
@@ -101,6 +101,16 @@
     }
     .list-row:last-child { border-bottom: none; }
     .list-row:hover { background: var(--bs-tertiary-bg); }
+
+    /* ── mobile tweaks ──────────────────────────────────────────────────── */
+    @media (max-width: 575px) {
+        /* hide UUIDs on very small screens to avoid overflow */
+        .list-row .mfid { display: none; }
+        /* smaller header title */
+        #projectCard h1 { font-size: 1.1rem; }
+        /* smaller stat numbers in the tab bar */
+        .tab-stat .fw-bold { font-size: 1.25rem !important; }
+    }
 </style>
 
 {% set title = project_meta.get('title') %}
@@ -182,7 +192,7 @@
             </div>
         </div>
 
-        <div class="d-flex flex-column justify-content-center gap-1 px-3 border-start"
+        <div class="d-none d-sm-flex flex-column justify-content-center gap-1 px-3 border-start"
              style="background:var(--bs-tertiary-bg);">
             <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;"
                     onclick="setAllGroups(true); event.stopPropagation();">
