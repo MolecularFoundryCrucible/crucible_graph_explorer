@@ -1,92 +1,383 @@
 {% set s = self_info %}
+{% set pid = pc['project_id'] %}
 
 {% extends "base.html" %}
 {% block title %}{{s['sample_name']}}{% endblock %}
 
 {% block head %}
-    {{ super() }}
-    {{ vite_tags() }}
-    <style type="text/css">
-        .important { color: #336699; }
-        #cy {
-            width: 100%;
-            height: 600px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-bottom: 2rem;
-        }
-    </style>
+{{ super() }}
+{{ vite_tags() }}
+<style>
+    /* ── shared resource-page section pattern ─────────────────────────── */
+    .res-section {
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.375rem;
+        overflow: hidden;
+        margin-bottom: 1rem;
+        max-width: 860px;
+    }
+    .res-section-header {
+        display: flex; align-items: center; gap: 0.5rem;
+        padding: 0.6rem 0.75rem;
+        background: var(--bs-tertiary-bg);
+        cursor: pointer; user-select: none;
+        font-size: 0.875rem; font-weight: 600;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+    .res-section-header:hover { filter: brightness(0.97); }
+    .res-section-chevron {
+        margin-left: auto; color: var(--bs-secondary-color);
+        transition: transform 0.2s; flex-shrink: 0;
+    }
+
+    /* ── list rows (selectable, clickable) ─────────────────────────────── */
+    .list-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.5rem 1rem; cursor: pointer;
+        border-bottom: 1px solid var(--bs-border-color); transition: background 0.1s;
+    }
+    .list-row:last-child { border-bottom: none; }
+    .list-row:hover { background: var(--bs-tertiary-bg); }
+
+    /* ── metadata rows ──────────────────────────────────────────────────── */
+    .meta-row {
+        display: flex; gap: 0.5rem; padding: 0.35rem 0;
+        border-bottom: 1px solid var(--bs-border-color); font-size: 0.875rem;
+    }
+    .meta-row:last-child { border-bottom: none; }
+    .meta-key { min-width: 9rem; color: var(--bs-secondary-color); flex-shrink: 0; }
+
+    /* ── action footer links ────────────────────────────────────────────── */
+    .action-link {
+        display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+        font-size: 0.875rem; text-decoration: none; transition: background 0.15s;
+    }
+    .action-link:hover { background: var(--bs-tertiary-bg) !important; }
+
+    /* ── graph container ────────────────────────────────────────────────── */
+    #cy {
+        width: 100%; height: 40vh; min-height: 280px;
+        border-top: 1px solid var(--bs-border-color);
+    }
+</style>
 {% endblock %}
 
 {% block breadcrumb %}
-        <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a></li>
-        <li class="breadcrumb-item active" aria-current="page"><b>Sample</b> {{s['sample_name']}}</li>
+    <li class="breadcrumb-item"><a href="/{{pid}}/"><b>Project</b> {{pid}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page"><b>Sample</b> {{s['sample_name']}}</li>
 {% endblock %}
 
-{% block content %}
+{% block sidebar %}
+<div class="col-md-2 pe-0 d-none d-md-block">
+    <div class="sticky-top pt-1" style="top: 5em; overflow-y: auto; max-height: calc(100vh - 6em);">
 
-<div class="d-flex align-items-start justify-content-between">
-    <h1><em>Sample</em> {{s['sample_name']}} <span class="mfid">{{s['unique_id'][:13]}}</span></h1>
-    <img src="{{ qrcode(s['unique_id'], box_size=5, border=5) }}">
-</div>
+        <div class="mb-3">
+            <div class="d-flex align-items-center gap-2 mb-1 px-1">
+                <div id="projectAvatar" style="flex-shrink:0;"></div>
+                <span class="fw-semibold small text-body text-truncate">{{pid}}</span>
+            </div>
+            <a href="/{{pid}}/" class="nav-link py-1 px-1 text-muted small">
+                <i class="bi bi-arrow-left me-1"></i>Back to project
+            </a>
+        </div>
 
-<div class="container card">
+        <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
+             style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bs-primary);">
+            <i class="bi bi-eyedropper"></i> This sample
+        </div>
+        <div class="px-1 mb-3 small fw-semibold text-body">{{s['sample_name']}}</div>
 
-    <ul>
-    <li><b>Description:</b> {{s['description']}}</li>
-    <li><b>Datasets:</b>
-        <ul>
-            {% for ds in s['datasets'] %}
-            <li>
-                <a href="/{{pc['project_id']}}/dataset/{{ds['unique_id']}}" class="mfid">{{ds['unique_id'][:13]}}</a>
-                <b>{{ds['dataset_name']}}</b>
-                <!-- {{datasets_by_id[ds['unique_id']]['scientific_metadata']|string|truncate(1000)}} -->
+        {% if ancestors_info %}
+        <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
+             style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
+            <i class="bi bi-arrow-up-short"></i> Ancestors ({{ancestors_info|length}})
+        </div>
+        <ul class="nav flex-column mb-3">
+            {% for anc in ancestors_info %}
+            <li class="nav-item">
+                <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
+                   href="/{{pid}}/sample-graph/{{anc['unique_id']}}">{{anc['sample_name']}}</a>
             </li>
             {% endfor %}
         </ul>
-    </ul>
+        {% endif %}
+
+        {% if descendants_info %}
+        <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
+             style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
+            <i class="bi bi-arrow-down-short"></i> Descendants ({{descendants_info|length}})
+        </div>
+        <ul class="nav flex-column mb-3">
+            {% for desc in descendants_info %}
+            <li class="nav-item">
+                <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
+                   href="/{{pid}}/sample-graph/{{desc['unique_id']}}">{{desc['sample_name']}}</a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if s['datasets'] %}
+        <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
+             style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
+            <i class="bi bi-database"></i> Datasets ({{s['datasets']|length}})
+        </div>
+        <ul class="nav flex-column mb-3">
+            {% for ds in s['datasets'] %}
+            <li class="nav-item">
+                <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
+                   href="/{{pid}}/dataset/{{ds['unique_id']}}">{{ds['dataset_name']}}</a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}
+
+{% block main_col_class %}col-12 col-md-10{% endblock %}
+
+{% block content %}
+
+<!-- ── sample header card ────────────────────────────────────────────────── -->
+<div class="mb-3 rounded border overflow-hidden" id="sampleCard"
+     style="border-left-width: 5px !important; max-width: 860px;">
+    <div class="d-flex align-items-start gap-3 p-4">
+        <div id="sampleAvatar" style="flex-shrink:0;"></div>
+        <div style="min-width:0; flex:1;">
+            <h1 class="fs-4 fw-semibold mb-1 lh-sm" style="overflow-wrap:break-word;">{{s['sample_name']}}</h1>
+            <div class="text-muted mfid" style="font-size:0.78rem;">{{s['unique_id']}}</div>
+        </div>
+        <img src="{{ qrcode(s['unique_id'], box_size=4, border=4) }}"
+             class="d-none d-md-block" style="flex-shrink:0; border-radius:4px;">
+    </div>
+    <div class="d-flex border-top">
+        <a href="/{{pid}}/entity-graph/sample/{{s['unique_id']}}"
+           class="action-link flex-fill py-2 border-end text-secondary">
+            <i class="bi bi-diagram-3"></i> Entity Graph
+        </a>
+        <a href="/{{pid}}/search" class="action-link flex-fill py-2 border-end text-secondary">
+            <i class="bi bi-search"></i> Search
+        </a>
+        <a href="/{{pid}}/chat" class="action-link flex-fill py-2 text-primary">
+            <i class="bi bi-chat-dots"></i> Chat
+        </a>
+    </div>
 </div>
 
-<h2>Sample Graph</h2>
-<div class="d-flex gap-2 mb-2">
-  <button id="toggleLayoutBtn" class="btn btn-sm btn-secondary">
-    Switch to Vertical Layout
-  </button>
-  <a href="/{{pc['project_id']}}/entity-graph/sample/{{s['unique_id']}}" class="btn btn-sm btn-outline-success">
-    View with Datasets
-  </a>
+<!-- ── sibling nav + section controls ────────────────────────────────────── -->
+<div class="d-flex align-items-center gap-2 mb-2" style="max-width: 860px;">
+    {% if sibling_count > 1 %}
+    {% if prev_sibling %}
+    <a href="/{{pid}}/sample-graph/{{prev_sibling['unique_id']}}"
+       class="btn btn-sm btn-outline-secondary py-0 px-2"
+       title="{{prev_sibling['sample_name']}}">
+        <i class="bi bi-chevron-left"></i>
+    </a>
+    {% else %}
+    <button class="btn btn-sm btn-outline-secondary py-0 px-2" disabled>
+        <i class="bi bi-chevron-left"></i>
+    </button>
+    {% endif %}
+    <span class="small text-muted">{{sibling_index}} / {{sibling_count}}
+        <span class="fst-italic">{{s.get('sample_type', '')}}</span>
+    </span>
+    {% if next_sibling %}
+    <a href="/{{pid}}/sample-graph/{{next_sibling['unique_id']}}"
+       class="btn btn-sm btn-outline-secondary py-0 px-2"
+       title="{{next_sibling['sample_name']}}">
+        <i class="bi bi-chevron-right"></i>
+    </a>
+    {% else %}
+    <button class="btn btn-sm btn-outline-secondary py-0 px-2" disabled>
+        <i class="bi bi-chevron-right"></i>
+    </button>
+    {% endif %}
+    {% endif %}
+    <div class="d-flex align-items-center gap-2 ms-auto">
+        <span class="small text-muted">Sections:</span>
+        <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.78rem;"
+                onclick="setAllSections(true)">
+            <i class="bi bi-chevron-expand me-1"></i>Expand all
+        </button>
+        <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.78rem;"
+                onclick="setAllSections(false)">
+            <i class="bi bi-chevron-contract me-1"></i>Collapse all
+        </button>
+    </div>
 </div>
-<div id="cy" data-project-id="{{pc['project_id']}}"></div>
+
+<!-- ── details — expanded by default ────────────────────────────────────── -->
+<div class="res-section" id="section-details">
+    <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-card-list text-muted"></i>
+        <span>Details</span>
+        <i class="bi bi-chevron-right res-section-chevron" style="transform: rotate(90deg);"></i>
+    </div>
+    <div class="res-section-body">
+        <div class="px-3 py-2">
+            {% for k, v in s.items() %}
+            {% if k != 'datasets' %}
+            <div class="meta-row">
+                <span class="meta-key">{{k}}</span>
+                <span class="text-break">
+                    {%- if v is mapping -%}
+                        <span class="text-muted fst-italic">object</span>
+                    {%- elif v is sequence and v is not string -%}
+                        {{v | join(', ')}}
+                    {%- elif v is none -%}
+                        <span class="text-muted">—</span>
+                    {%- else -%}
+                        {{v}}
+                    {%- endif -%}
+                </span>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- ── sample graph ──────────────────────────────────────────────────────── -->
+<div class="res-section" id="section-graph">
+    <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-diagram-3 text-muted"></i>
+        <span>Sample Graph</span>
+        <div class="d-flex gap-2 ms-auto me-2" onclick="event.stopPropagation()">
+            <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                <i class="bi bi-arrow-left-right me-1"></i>Vertical
+            </button>
+            <a href="/{{pid}}/entity-graph/sample/{{s['unique_id']}}"
+               class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                <i class="bi bi-diagram-3 me-1"></i>With Datasets
+            </a>
+        </div>
+        <i class="bi bi-chevron-right res-section-chevron" style="transform: rotate(90deg); margin-left: 0;"></i>
+    </div>
+    <div class="res-section-body">
+        <div id="cy" data-project-id="{{pid}}"></div>
+    </div>
+</div>
+
+<!-- ── linked datasets ───────────────────────────────────────────────────── -->
+{% if s['datasets'] %}
+<div class="res-section" id="section-datasets">
+    <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-database text-muted"></i>
+        <span>Linked Datasets</span>
+        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
+            {{s['datasets']|length}}
+        </span>
+        <i class="bi bi-chevron-right res-section-chevron"></i>
+    </div>
+    <div class="res-section-body" style="display:none;">
+        {% for ds in s['datasets'] %}
+        <div class="list-row"
+             onmouseup="navIfNoSelection(event, '/{{pid}}/dataset/{{ds['unique_id']}}')">
+            <span class="fw-medium">{{ds['dataset_name']}}</span>
+            <span class="mfid small ms-3 text-nowrap">{{ds['unique_id']}}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- ── ancestors ────────────────────────────────────────────────────────── -->
+{% if ancestors_info %}
+<div class="res-section" id="section-ancestors">
+    <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-arrow-up-short text-muted"></i>
+        <span>Ancestors</span>
+        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
+            {{ancestors_info|length}}
+        </span>
+        <i class="bi bi-chevron-right res-section-chevron"></i>
+    </div>
+    <div class="res-section-body" style="display:none;">
+        {% for anc in ancestors_info %}
+        {% set aname = anc['sample_name'] %}
+        <div class="list-row"
+             onmouseup="navIfNoSelection(event, '/{{pid}}/sample-graph/{{anc['unique_id']}}')">
+            <div style="min-width:0;">
+                <div class="fw-medium">{{aname}}</div>
+                <div class="small text-muted text-truncate">
+                    <i class="bi bi-signpost me-1"></i>{{" ← ".join(ancestors_path[aname])}}
+                </div>
+            </div>
+            <span class="mfid small ms-3 text-nowrap">{{anc['unique_id']}}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- ── descendants ──────────────────────────────────────────────────────── -->
+<div class="res-section" id="section-descendants">
+    <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-arrow-down-short text-muted"></i>
+        <span>Descendants</span>
+        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
+            {{descendants_info|length}}
+        </span>
+        <i class="bi bi-chevron-right res-section-chevron"></i>
+    </div>
+    <div class="res-section-body" style="display:none;">
+        {% if not descendants_info %}
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-diagram-3 fs-3 d-block mb-2 opacity-50"></i>
+            No descendants
+        </div>
+        {% endif %}
+        {% for desc in descendants_info %}
+        {% set dname = desc['sample_name'] %}
+        <div class="list-row"
+             onmouseup="navIfNoSelection(event, '/{{pid}}/sample-graph/{{desc['unique_id']}}')">
+            <div style="min-width:0;">
+                <div class="fw-medium">{{dname}}</div>
+                <div class="small text-muted text-truncate">
+                    <i class="bi bi-signpost me-1"></i>{{" → ".join(descendants_path[dname])}}
+                </div>
+            </div>
+            <span class="mfid small ms-3 text-nowrap">{{desc['unique_id']}}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- ── back-to-top ────────────────────────────────────────────────────────── -->
+<button id="backToTop" title="Back to top"
+        onclick="window.scrollTo({top:0, behavior:'smooth'})"
+        style="position:fixed; bottom:1.75rem; right:1.75rem; display:none; z-index:1050;
+               width:2.5rem; height:2.5rem; border-radius:50%; border:none;
+               background:var(--bs-secondary-color); color:#fff;
+               box-shadow:0 2px 8px rgba(0,0,0,0.25); cursor:pointer;
+               align-items:center; justify-content:center; font-size:1rem;">
+    <i class="bi bi-arrow-up"></i>
+</button>
 
 <script type="module">
   let cyInstance = null;
-  let currentLayout = 'LR';
 
-  // Wait for the page to load and for the initSampleGraph function to be available
   async function initGraph() {
-    // Fetch the graph data from the API
-    const response = await fetch('/{{pc["project_id"]}}/api/sample-graph-data/{{s["unique_id"]}}');
+    const response = await fetch('/{{pid}}/api/sample-graph-data/{{s["unique_id"]}}');
     const graphData = await response.json();
-
-    // Initialize the graph when window.initSampleGraph is available
     if (window.initSampleGraph) {
       cyInstance = window.initSampleGraph('cy', graphData);
     } else {
-      // If not immediately available, wait for it
       setTimeout(initGraph, 100);
     }
   }
 
-  // Toggle layout button handler
   document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
     if (cyInstance && cyInstance.toggleLayout) {
       const newLayout = cyInstance.toggleLayout();
-      currentLayout = newLayout;
-      this.textContent = newLayout === 'LR' ? 'Switch to Vertical Layout' : 'Switch to Horizontal Layout';
+      this.innerHTML = newLayout === 'LR'
+        ? '<i class="bi bi-arrow-left-right me-1"></i>Vertical'
+        : '<i class="bi bi-arrow-down me-1"></i>Horizontal';
     }
   });
 
-  // Start initialization when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initGraph);
   } else {
@@ -94,63 +385,64 @@
   }
 </script>
 
+<script>
+    function navIfNoSelection(event, url) {
+        if (window.getSelection().toString()) return;
+        if (event.target.closest('a, button')) return;
+        window.location.href = url;
+    }
 
+    function toggleSection(header) {
+        const body = header.nextElementSibling;
+        const chevron = header.querySelector('.res-section-chevron');
+        const isOpen = body.style.display !== 'none';
+        body.style.display = isOpen ? 'none' : '';
+        if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+    }
 
-<h2>Ancestors</h2>
-{% for s in ancestors_info %}
-    {% set name = s['sample_name'] %}
-    <div class="container p-4 border rounded-3 mt-2">
-    <h3>{{name}}
-        <a href="/{{pc['project_id']}}/sample-graph/{{s['unique_id']}}" class="mfid">
-            {{s['unique_id'][:13]}}</a>
-    </h3>
-    <ul>
-        <li><b>Path:</b> {{" <- ".join(ancestors_path[name])}}</li>
-        <li><b>Description:</b> {{s['description']}}</li>
-        <li><b>Datasets:</b>
-            <ul>
-            {% for ds in s['datasets'] %}
-                <li>
-                    <a href="/{{pc['project_id']}}/dataset/{{ds['unique_id']}}" class="mfid">{{ds['unique_id'][:13]}}</a>
-                    <b>{{ds['dataset_name']}}</b> 
-                    <!-- {{datasets_by_id[ds['unique_id']]['scientific_metadata']|string|truncate(1000)}} -->
-                </li>
-            {% endfor %}
-            </ul>
-        </li>
-    </ul>
-    </div>
-{% endfor %}
+    function setAllSections(expand) {
+        document.querySelectorAll('.res-section').forEach(section => {
+            const body    = section.querySelector('.res-section-body');
+            const chevron = section.querySelector('.res-section-chevron');
+            if (body)    body.style.display        = expand ? '' : 'none';
+            if (chevron) chevron.style.transform    = expand ? 'rotate(90deg)' : '';
+        });
+    }
 
+    const PALETTE = [
+        '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
+        '#b07aa1','#9c755f','#6b6ecf','#e05c5c','#3a9e7e'
+    ];
+    function hashColor(str) {
+        let h = 0;
+        for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+        return PALETTE[Math.abs(h) % PALETTE.length];
+    }
+    function makeInitials(str) {
+        return str.replace(/[_\-]/g, ' ').split(' ')
+            .filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+    }
+    function makeAvatar(el, str, size='2.5rem', fontSize='0.85rem') {
+        const color = hashColor(str);
+        el.style.cssText = `width:${size};height:${size};min-width:${size};border-radius:50%;`
+            + `background:${color};color:#fff;display:flex;align-items:center;`
+            + `justify-content:center;font-size:${fontSize};font-weight:700;letter-spacing:0.05em;`;
+        el.textContent = makeInitials(str);
+        return color;
+    }
 
-<h2>Descendants</h2>
-{% if not descendants_info %}
-No Descendants
-{% endif %}
+    const projAv = document.getElementById('projectAvatar');
+    if (projAv) makeAvatar(projAv, {{ pid | tojson }}, '1.5rem', '0.6rem');
 
-{% for s in descendants_info %}
-{% set name = s['sample_name'] %}
-<div class="container p-4 border rounded-3 mt-2">
+    const stype = {{ (s.get('sample_type') or s['sample_name']) | tojson }};
+    const sampleColor = hashColor(stype);
+    makeAvatar(document.getElementById('sampleAvatar'), {{ s['sample_name'] | tojson }});
+    document.getElementById('sampleCard').style.borderLeftColor = sampleColor;
 
-<h3>{{name}}
-    <a href="/{{pc['project_id']}}/sample-graph/{{s['unique_id']}}" class="mfid">
-        {{s['unique_id'][:13]}}</a>
-</h3>
-<ul>
-    <li><b>Path:</b> {{" -> ".join(descendants_path[name])}}</li>
-    <li><b>Description:</b> {{s['description']}}</li>
-    <li><b>Datasets:</b>
-        <ul>
-        {% for ds in s['datasets'] %}
-            <li>
-                <a href="/{{pc['project_id']}}/dataset/{{ds['unique_id']}}" class="mfid">{{ds['unique_id'][:13]}}</a>
-                <b>{{ds['dataset_name']}}</b> {{datasets_by_id[ds['unique_id']]['scientific_metadata']|string|truncate(1000)}}
-            </li>
-        {% endfor %}
-        </ul>
-    </li>
-</ul>
-</div>
+    const backToTop = document.getElementById('backToTop');
+    window.addEventListener('scroll', () => {
+        backToTop.style.display = window.scrollY > 300 ? 'flex' : 'none';
+    }, { passive: true });
+</script>
 
-{% endfor %}
 {% endblock %}
