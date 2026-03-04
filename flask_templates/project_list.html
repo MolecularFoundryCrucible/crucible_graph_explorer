@@ -79,7 +79,7 @@
         }
 
         function avatarHTML(id) {
-            const initials = id.replace(/_/g,' ').split(' ')
+            const initials = id.replace(/[_-]/g,' ').split(' ')
                                .filter(Boolean).slice(0, 2)
                                .map(w => w[0].toUpperCase()).join('');
             const bg = hashColor(id);
