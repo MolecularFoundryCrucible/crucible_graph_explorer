@@ -5,7 +5,6 @@ import tempfile
 import anthropic
 import networkx as nx
 import flask
-import pandas
 import markdown
 import requests
 from flask import Flask, render_template, jsonify, abort, redirect, request, Response, stream_with_context
@@ -186,6 +185,7 @@ def project_overview(project_id):
                         sample_info=sorted(pc['samples_by_name'].values(), key=lambda x:x['sample_name']),
                         samples_by_type=samples_by_type,
                         datasets_by_type=datasets_by_type,
+                        custom_views=project_views.get_views(project_id),
                         )
 
 # @app.route("/<project_id>/update-cache")
@@ -974,114 +974,12 @@ def project_chat_api(project_id):
                     headers={'X-Accel-Buffering': 'no', 'Cache-Control': 'no-cache'})
 
 
-# 10_perovskite specific views
-
-project_id = "10k_perovskites"
-@app.route(f"/10k_perovskites/view/overview")
-@auth.oidc_auth('orcid')
-def overview10k():
-    pc = get_project(project_id, include_metadata=True)
-    G = get_project_sample_graph(project_id)
-
-    if not is_user_in_project(project_id):
-        abort(403)
-
-    thin_films = [s for s in pc['samples'] 
-                  if s['sample_name'].startswith('TF')]
-    thin_films.sort(key= lambda x: x['sample_name'])
-
-    rows = []
-
-    for s in thin_films:
-
-        # all ancestors
-        ancestors = nx.ancestors(G, s['unique_id'])
-        ancestors = [pc['samples_by_id'][sid] for sid in ancestors]
-        # all descendants
-        descendants = nx.descendants(G, s['unique_id'])
-        descendants = [pc['samples_by_id'][sid] for sid in descendants]
-
-        # Find the solid precursor samples that were used to make this thin film sample
-        solid_precursors = [sample for sample in ancestors if sample['sample_name'].startswith('SP')]
-        
-        # Capture their compositions from the 'Solid Precursor synthesis' dataset
-        precursor_compositions = []
-        try:
-            for sp in solid_precursors:
-                for ds in sp['datasets']:
-                    if ds['measurement'] == 'Solid Precursor synthesis':
-                        full_ds = pc['datasets_by_id'][ds['unique_id']]
-                        material = full_ds['scientific_metadata']['name']
-                        precursor_compositions.append(material)
-        except Exception as err:
-            print(f"Failed to get solid precursor details {s['sample_name']}: {err}")
-        
-        if len(precursor_compositions) != 2:
-            #print(f"Warning: expected 2 solid precursors for {s['sample_name']}, found {len(precursor_compositions)}")
-            if len(precursor_compositions) < 2:
-                precursor_compositions += [None] * (2 - len(precursor_compositions))
-        
-        sr = [ds for ds in s['datasets'] if ds['measurement'] == 'spin_run']
-        if sr:
-            print(sr)
-            sr = pc['datasets_by_id'][sr[0]['unique_id']]
-            anneal_temp = sr['scientific_metadata']['heater_sv_temp']
-        else: 
-            anneal_temp = '?'
-
-        row = {
-            'thin_film_sample_name': s['sample_name'],
-            'thin_film_unique_id': s['unique_id'],
-            'sp_A': precursor_compositions[0],
-            'sp_B': precursor_compositions[1],
-            'anneal_temp': anneal_temp,
-        }
-        #print(row)
-        rows.append(row)    
-
-    df = pandas.DataFrame(rows)
-
-    return render_template(f'proj10k_templates/overview.html', 
-                           pc=pc,
-                           tfs=thin_films, df=df)
-
-@app.route(f"/10k_perovskites/view/thinfilm-gallery")
-@auth.oidc_auth('orcid')
-def thinfilm_gallery_10k():
-    project_id = "10k_perovskites"
-    if not is_user_in_project(project_id):
-        abort(403)
-    pc = get_project(project_id)
-
-    thin_films = [s for s in pc['samples'] 
-                  if s['sample_name'].startswith('TF')]
-    thin_films.sort(key= lambda x: x['sample_name'])
-
-    # Collect all image dataset IDs then batch-fetch thumbnails in one request
-    img_dsid = {
-        tf['unique_id']: next(
-            (ds['unique_id'] for ds in tf['datasets'] if ds['measurement'] == 'sample well image'),
-            None
-        )
-        for tf in thin_films
-    }
-    batch = {}
-    dataset_ids = [dsid for dsid in img_dsid.values() if dsid]
-    if dataset_ids:
-        try:
-            batch = app.crucible_client._request("POST", "/datasets/first_thumbnails", json=dataset_ids)
-        except Exception:
-            pass
-
-    tf_thumbs = []
-    for tf in thin_films:
-        dsid = img_dsid.get(tf['unique_id'])
-        tn = dict(batch.get(dsid, {})) if dsid else {}
-        tn['sample_name'] = tf['sample_name']
-        tn['sample_url'] = f"/10k_perovskites/sample-graph/{tf['unique_id']}"
-        tf_thumbs.append(tn)
-            
-
-
-
-    return render_template('proj10k_templates/thinfilm-gallery.html', tf_thumbs=tf_thumbs)
+# Project-specific views are loaded from the project_views/ package.
+import project_views
+project_views.register_all(app, auth, {
+    'get_project': get_project,
+    'is_user_in_project': is_user_in_project,
+    'get_project_sample_graph': get_project_sample_graph,
+    'get_sample_lineage_graph': get_sample_lineage_graph,
+    'get_entity_graph_nx': get_entity_graph_nx,
+})
