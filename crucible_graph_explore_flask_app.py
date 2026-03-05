@@ -2,7 +2,6 @@ import os
 import re
 import json
 import tempfile
-from concurrent.futures import ThreadPoolExecutor
 import anthropic
 import networkx as nx
 import flask
@@ -31,9 +30,10 @@ vite = Vite(app)
 app.project_cache = {}
 app.project_sample_graphs = {}
 
+crucible_api_url = os.getenv("CRUCIBLE_API_URL", "https://crucible.lbl.gov/api/v1")
 crucible_api_key = os.getenv("CRUCIBLE_API_KEY")
 app.crucible_client = CrucibleClient(
-    api_url="https://crucible.lbl.gov/api/v1",
+    api_url=crucible_api_url,
     api_key=crucible_api_key # v3
 )
 
@@ -80,15 +80,14 @@ def get_project_sample_graph(project_id):
     node_link_data = app.crucible_client._request("GET",f"/projects/{project_id}/sample_graph")
     G = nx.node_link_graph(node_link_data)
     return G
-    # if project_id in app.project_cache:
-    #     return app.project_sample_graphs[project_id]
-    # try:
-    #     return load_project_sample_graph(project_id)
-    # except Exception as err:
-    #     print(f"failed to load project cache for {project_id}, regenerating...")
-    #     G = generate_project_sample_graph(project_id,app.crucible_client)
-    #     app.project_sample_graphs[project_id] = G
-    #     return G
+
+def get_sample_lineage_graph(sample_id):
+    node_link_data = app.crucible_client._request("GET", f"/samples/{sample_id}/sample_graph")
+    return nx.node_link_graph(node_link_data)
+
+def get_entity_graph_nx(entity_id):
+    node_link_data = app.crucible_client._request("GET", f"/entity_graph/{entity_id}")
+    return nx.node_link_graph(node_link_data)
 
     
 # def clear_project_cache(project_id):
@@ -199,11 +198,7 @@ def sample_graph(project_id, sample_id):
     pc = get_project(project_id)
 
     print(f"sample_graph")
-    #G = generate_sample_graph(sample_id, app.crucible_client)
-    #Gproject = generate_project_sample_graph(project_id, app.crucible_client)
-    G = get_project_sample_graph(project_id)
-    #G = nx.ego_graph(Gproject,sample_id)
-    #print(G)
+    G = get_sample_lineage_graph(sample_id)
 
     #sample_name = pc['samples_by_id'][sample_id]['sample_name']
     #print(sample_name)
@@ -254,19 +249,11 @@ def sample_graph_data(project_id, sample_id):
         abort(403)
 
     pc = get_project(project_id)
-    G = get_project_sample_graph(project_id)
-
-    # Get the subgraph containing the sample and all its ancestors and descendants
-    descendants = nx.descendants(G, sample_id)
-    ancestors = nx.ancestors(G, sample_id)
-    all_nodes = ancestors | descendants | {sample_id}
-
-    # Create subgraph with only relevant nodes
-    subgraph = G.subgraph(all_nodes)
+    G = get_sample_lineage_graph(sample_id)
 
     # Build nodes list
     nodes = []
-    for node_id in subgraph.nodes():
+    for node_id in G.nodes():
         sample = pc['samples_by_id'].get(node_id, {})
         nodes.append({
             'id': node_id,
@@ -277,7 +264,7 @@ def sample_graph_data(project_id, sample_id):
 
     # Build edges list
     edges = []
-    for source, target in subgraph.edges():
+    for source, target in G.edges():
         edges.append({
             'source': source,
             'target': target
@@ -304,7 +291,11 @@ def dataset(project_id, dsid):
     associated_files = app.crucible_client.get_associated_files(dsid)
     print(associated_files)
 
-    download_links = app.crucible_client.get_dataset_download_links(dsid)
+    try:
+        download_links = app.crucible_client.get_dataset_download_links(dsid)
+    except Exception as err:
+        print(f"Failed to get download links for {dsid}: {err}")
+        download_links = {}
 
     child_datasets = app.crucible_client.list_children_of_dataset(dsid)
     parent_datasets = app.crucible_client.list_parents_of_dataset(dsid)
@@ -446,106 +437,48 @@ def entity_graph_data(project_id, entity_type, entity_id):
         abort(403)
 
     pc = get_project(project_id)
-    G = get_project_sample_graph(project_id)
+    G = get_entity_graph_nx(entity_id)
 
-    # Determine focal sample(s)
-    if entity_type == 'sample':
-        focal_sample_ids = {entity_id}
-    else:
-        focal_sample_ids = {s['unique_id'] for s in app.crucible_client.list_samples(dataset_id=entity_id)}
-
-    # Expand to ancestors + descendants for each focal sample
-    all_sample_ids = set()
-    for sid in focal_sample_ids:
-        if sid in G:
-            all_sample_ids |= nx.ancestors(G, sid) | nx.descendants(G, sid) | {sid}
-        else:
-            all_sample_ids.add(sid)
-
-    subgraph = G.subgraph(all_sample_ids)
     nodes = []
-    edges = []
-    seen = set()
+    edges = [{'source': src, 'target': tgt} for src, tgt in G.edges()]
+    dataset_ids = []
 
-    # Sample nodes
-    for sid in all_sample_ids:
-        seen.add(sid)
-        sample = pc['samples_by_id'].get(sid, {})
-        nodes.append({
-            'id': sid,
-            'label': sample.get('sample_name', sid[:13]),
-            'type': 'sample',
-            'description': sample.get('description', ''),
-            'url': f'/{project_id}/sample-graph/{sid}'
-        })
+    for node_id, attrs in G.nodes(data=True):
+        ntype = attrs.get('entity_type', entity_type)
+        if ntype == 'sample':
+            sample = pc['samples_by_id'].get(node_id, {})
+            nodes.append({
+                'id': node_id,
+                'label': sample.get('sample_name', attrs.get('name', node_id[:13])),
+                'type': 'sample',
+                'description': sample.get('description', ''),
+                'url': f'/{project_id}/sample-graph/{node_id}'
+            })
+        else:
+            dataset_ids.append(node_id)
 
-    # Sample-sample edges
-    for source, target in subgraph.edges():
-        edges.append({'source': source, 'target': target})
-
-    # Collect unique dataset IDs and edges in one pass
-    dataset_meta = {}  # dsid -> ds dict
-
-    # Always include the focal dataset itself (handles datasets with no associated samples)
-    if entity_type == 'dataset' and entity_id not in seen:
-        seen.add(entity_id)
-        dataset_meta[entity_id] = pc['datasets_by_id'].get(entity_id, {'unique_id': entity_id})
-
-    # Add parent and child datasets with their edges
-    if entity_type == 'dataset':
-        try:
-            for parent in app.crucible_client.list_parents_of_dataset(entity_id) or []:
-                pid = parent['unique_id']
-                if pid not in seen:
-                    seen.add(pid)
-                    dataset_meta[pid] = parent
-                edges.append({'source': pid, 'target': entity_id})
-        except Exception:
-            pass
-        try:
-            for child in app.crucible_client.list_children_of_dataset(entity_id) or []:
-                cid = child['unique_id']
-                if cid not in seen:
-                    seen.add(cid)
-                    dataset_meta[cid] = child
-                edges.append({'source': entity_id, 'target': cid})
-        except Exception:
-            pass
-
-    for sid in all_sample_ids:
-        sample = pc['samples_by_id'].get(sid, {})
-        for ds_ref in sample.get('datasets', []):
-            dsid = ds_ref['unique_id']
-            edges.append({'source': sid, 'target': dsid})
-            if dsid not in seen:
-                seen.add(dsid)
-                dataset_meta[dsid] = pc['datasets_by_id'].get(dsid, ds_ref)
-
-    # Fetch all thumbnails in parallel
-    def fetch_thumbnail(dsid):
-        try:
-            thumbs = app.crucible_client.get_thumbnails(dsid)
-            if thumbs:
-                return dsid, f"data:image/png;base64,{thumbs[0]['thumbnail_b64str']}"
-        except Exception:
-            pass
-        return dsid, None
-
+    # Fetch first thumbnail for all dataset nodes in one batch request
     thumbnails = {}
-    if dataset_meta:
-        with ThreadPoolExecutor(max_workers=min(len(dataset_meta), 10)) as executor:
-            for dsid, thumb in executor.map(fetch_thumbnail, dataset_meta):
-                thumbnails[dsid] = thumb
+    if dataset_ids:
+        try:
+            batch = app.crucible_client._request("POST", "/datasets/first_thumbnails", json=dataset_ids)
+            thumbnails = {
+                dsid: f"data:image/png;base64,{data['thumbnail_b64str']}"
+                for dsid, data in batch.items()
+            }
+        except Exception:
+            pass
 
-    # Build dataset nodes
-    for dsid, ds in dataset_meta.items():
+    for node_id in dataset_ids:
+        attrs = G.nodes[node_id]
+        ds = pc['datasets_by_id'].get(node_id, {})
         nodes.append({
-            'id': dsid,
-            'label': ds.get('dataset_name', dsid[:13]),
+            'id': node_id,
+            'label': ds.get('dataset_name', attrs.get('name', node_id[:13])),
             'type': 'dataset',
             'measurement': ds.get('measurement', ''),
-            'url': f'/{project_id}/dataset/{dsid}',
-            'thumbnail': thumbnails.get(dsid)
+            'url': f'/{project_id}/dataset/{node_id}',
+            'thumbnail': thumbnails.get(node_id)
         })
 
     return jsonify({
@@ -611,7 +544,11 @@ def mdnote_edit(project_id, dsid):
 
     # GET: load current markdown content
     associated_files = app.crucible_client.get_associated_files(dsid)
-    download_links = app.crucible_client.get_dataset_download_links(dsid)
+    try:
+        download_links = app.crucible_client.get_dataset_download_links(dsid)
+    except Exception as err:
+        print(f"Failed to get download links for {dsid}: {err}")
+        download_links = {}
     md_content = ''
     for file in associated_files:
         if file['filename'].endswith('.md'):
@@ -819,36 +756,34 @@ def execute_chat_tool(name, inputs, crucible_client, pc):
         elif name == 'get_entity_graph':
             entity_type = inputs['entity_type']
             entity_id   = inputs['entity_id']
-            G = get_project_sample_graph(pc['project_id'])
+            G = get_entity_graph_nx(entity_id)
 
-            if entity_type == 'sample':
-                focal_ids = {entity_id}
-            else:
-                focal_ids = {s['unique_id'] for s in crucible_client.list_samples(dataset_id=entity_id)}
-
-            all_sample_ids = set()
-            for sid in focal_ids:
-                if sid in G:
-                    all_sample_ids |= nx.ancestors(G, sid) | nx.descendants(G, sid) | {sid}
-                else:
-                    all_sample_ids.add(sid)
-
-            subgraph = G.subgraph(all_sample_ids)
             nodes = []
-            for sid in all_sample_ids:
-                s = pc['samples_by_id'].get(sid, {})
-                datasets_for_sample = [
-                    {'id': d['unique_id'], 'name': d.get('dataset_name', ''), 'measurement': d.get('measurement', '')}
-                    for d in s.get('datasets', [])
-                ]
-                nodes.append({
-                    'id': sid,
-                    'name': s.get('sample_name', sid[:13]),
-                    'type': s.get('sample_type', ''),
-                    'is_focal': sid in focal_ids,
-                    'datasets': datasets_for_sample
-                })
-            edges = [{'source': src, 'target': tgt} for src, tgt in subgraph.edges()]
+            edges = [{'source': src, 'target': tgt} for src, tgt in G.edges()]
+            for node_id, attrs in G.nodes(data=True):
+                ntype = attrs.get('entity_type', entity_type)
+                if ntype == 'sample':
+                    s = pc['samples_by_id'].get(node_id, {})
+                    datasets_for_sample = [
+                        {'id': d['unique_id'], 'name': d.get('dataset_name', ''), 'measurement': d.get('measurement', '')}
+                        for d in s.get('datasets', [])
+                    ]
+                    nodes.append({
+                        'id': node_id,
+                        'name': s.get('sample_name', attrs.get('name', node_id[:13])),
+                        'type': 'sample',
+                        'is_focal': node_id == entity_id,
+                        'datasets': datasets_for_sample
+                    })
+                else:
+                    ds = pc['datasets_by_id'].get(node_id, {})
+                    nodes.append({
+                        'id': node_id,
+                        'name': ds.get('dataset_name', attrs.get('name', node_id[:13])),
+                        'type': 'dataset',
+                        'measurement': ds.get('measurement', ''),
+                        'is_focal': node_id == entity_id
+                    })
             result = {'nodes': nodes, 'edges': edges}
         else:
             result = {'error': f'Unknown tool: {name}'}
@@ -1033,19 +968,26 @@ def thinfilm_gallery_10k():
                   if s['sample_name'].startswith('TF')]
     thin_films.sort(key= lambda x: x['sample_name'])
 
+    # Collect all image dataset IDs then batch-fetch thumbnails in one request
+    img_dsid = {
+        tf['unique_id']: next(
+            (ds['unique_id'] for ds in tf['datasets'] if ds['measurement'] == 'sample well image'),
+            None
+        )
+        for tf in thin_films
+    }
+    batch = {}
+    dataset_ids = [dsid for dsid in img_dsid.values() if dsid]
+    if dataset_ids:
+        try:
+            batch = app.crucible_client._request("POST", "/datasets/first_thumbnails", json=dataset_ids)
+        except Exception:
+            pass
+
     tf_thumbs = []
-    # get the thumbnail of the 
     for tf in thin_films:
-        print(tf['sample_name'])
-        img_datasets = [ds for ds in tf['datasets'] if ds['measurement'] == 'sample well image']
-        
-        if img_datasets:
-            ds = img_datasets[0]
-            dsid = ds['unique_id']
-            thumbnails = app.crucible_client.get_thumbnails(dsid)    
-            tn  = thumbnails[0]
-        else:
-            tn = {}
+        dsid = img_dsid.get(tf['unique_id'])
+        tn = dict(batch.get(dsid, {})) if dsid else {}
         tn['sample_name'] = tf['sample_name']
         tn['sample_url'] = f"/10k_perovskites/sample-graph/{tf['unique_id']}"
         tf_thumbs.append(tn)
