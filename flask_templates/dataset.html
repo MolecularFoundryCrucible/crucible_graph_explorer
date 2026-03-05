@@ -248,6 +248,12 @@
             <i class="bi bi-pencil"></i> Edit Note
         </a>
         {% endif %}
+        {% for cv in custom_views %}
+        <a href="{{ cv.url }}"
+           class="action-link flex-fill py-2 border-end text-secondary">
+            <i class="bi bi-journal-text"></i> {{ cv.label }}
+        </a>
+        {% endfor %}
         <a href="/{{project_id}}/search" class="action-link flex-fill py-2 border-end text-secondary">
             <i class="bi bi-search"></i> Search
         </a>

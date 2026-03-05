@@ -166,6 +166,16 @@
                 <i class="bi bi-chat-dots"></i> Chat
             </a>
         </div>
+        {% if custom_views %}
+        <div class="d-flex flex-wrap gap-2 border-top px-3 py-2"
+             style="background:var(--bs-tertiary-bg);">
+            {% for view in custom_views %}
+            <a href="{{ view.url }}" class="btn btn-sm btn-outline-secondary">
+                {% if view.icon %}<i class="bi {{ view.icon }} me-1"></i>{% endif %}{{ view.label }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
     </div>
 
     <!-- ── tab switcher + expand/collapse (sticky) ────────────────────── -->

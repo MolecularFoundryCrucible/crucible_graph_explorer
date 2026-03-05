@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}{{ds['dataset_name']}} — RGA/TEY Plots{% endblock %}
+
+{% block head %}
+{{ super() }}
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
+    <li class="breadcrumb-item"><a href="/{{project_id}}/dataset/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">RGA/TEY Plots</li>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h1 class="fs-4 fw-semibold mb-0" style="overflow-wrap: break-word;">{{ds['dataset_name']}}</h1>
+    <a href="/{{project_id}}/dataset/{{ds['unique_id']}}"
+       class="btn btn-sm btn-outline-secondary flex-shrink-0">
+        <i class="bi bi-database me-1"></i>Dataset
+    </a>
+</div>
+
+{% if tey_found %}
+
+<div id="tey-plot" style="width:100%; height:480px;"></div>
+<div id="tey-error" class="alert alert-warning d-none"></div>
+
+<script>
+(async () => {
+    const url = `/dataset-view/rga-tey-run-plots/{{ project_id }}/{{ ds['unique_id'] }}/tey-data`;
+    let text;
+    try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        text = await resp.text();
+    } catch (e) {
+        const el = document.getElementById('tey-error');
+        el.textContent = 'Failed to load TEY data: ' + e.message;
+        el.classList.remove('d-none');
+        return;
+    }
+
+    // Parse tab-separated file (header row: "Time,s\tTEY,A\tShutter")
+    const lines = text.trim().split('\n');
+    const time = [], tey = [], shutter = [];
+    for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split('\t');
+        if (parts.length < 3) continue;
+        time.push(parseFloat(parts[0]));
+        tey.push(parseFloat(parts[1]));
+        shutter.push(parseInt(parts[2], 10));
+    }
+
+    // Find contiguous shutter-open (=1) intervals for shading
+    const shapes = [];
+    let spanStart = null;
+    for (let i = 0; i < shutter.length; i++) {
+        if (shutter[i] === 1 && spanStart === null) {
+            spanStart = time[i];
+        } else if (shutter[i] !== 1 && spanStart !== null) {
+            shapes.push({
+                type: 'rect', xref: 'x', yref: 'paper',
+                x0: spanStart, x1: time[i - 1],
+                y0: 0, y1: 1,
+                fillcolor: 'rgba(255, 200, 0, 0.15)',
+                line: { width: 0 },
+                layer: 'below',
+            });
+            spanStart = null;
+        }
+    }
+    if (spanStart !== null) {
+        shapes.push({
+            type: 'rect', xref: 'x', yref: 'paper',
+            x0: spanStart, x1: time[time.length - 1],
+            y0: 0, y1: 1,
+            fillcolor: 'rgba(255, 200, 0, 0.15)',
+            line: { width: 0 },
+            layer: 'below',
+        });
+    }
+
+    const trace = {
+        x: time,
+        y: tey,
+        type: 'scattergl',
+        mode: 'lines',
+        name: 'TEY',
+        line: { color: '#0d6efd', width: 1.5 },
+    };
+
+    const layout = {
+        xaxis: { title: { text: 'Time (s)' }, showgrid: true },
+        yaxis: { title: { text: 'TEY (A)' }, showgrid: true, exponentformat: 'e' },
+        shapes,
+        legend: { orientation: 'h', y: -0.15 },
+        margin: { t: 30, r: 20, b: 60, l: 80 },
+        hovermode: 'x unified',
+        annotations: shapes.length ? [{
+            xref: 'paper', yref: 'paper',
+            x: 1, y: 1.02, xanchor: 'right', yanchor: 'bottom',
+            text: '<span style="background:rgba(255,200,0,0.3);padding:2px 6px;border-radius:3px;">■</span> Shutter open',
+            showarrow: false,
+            font: { size: 12 },
+        }] : [],
+    };
+
+    Plotly.newPlot('tey-plot', [trace], layout, { responsive: true });
+})();
+</script>
+
+{% else %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle me-2"></i>No TEY data file found for this dataset.
+</div>
+{% endif %}
+
+<hr class="my-4">
+
+<h2 class="fs-5 fw-semibold mb-3">RGA Mass Spectrum</h2>
+
+{% if rga_found %}
+
+<div id="rga-summed" style="width:100%; height:380px;" class="mt-4"></div>
+<div id="rga-heatmap" style="width:100%; height:520px;"></div>
+<div id="rga-error" class="alert alert-warning d-none"></div>
+
+<script>
+(async () => {
+    const url = `/dataset-view/rga-tey-run-plots/{{ project_id }}/{{ ds['unique_id'] }}/rga-data`;
+    let text;
+    try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        text = await resp.text();
+    } catch (e) {
+        const el = document.getElementById('rga-error');
+        el.textContent = 'Failed to load RGA data: ' + e.message;
+        el.classList.remove('d-none');
+        return;
+    }
+
+    // Line 0: instrument metadata (skip)
+    // Line 1: headers — "Time", "1", "2", ..., "300"
+    // Lines 2+: "YYYY/MM/DD HH:MM:SS.d" <tab> val1 <tab> val2 ...
+    const lines = text.trim().split('\n');
+    const headers = lines[1].split('\t');
+    const massLabels = headers.slice(1).map(Number);  // [1, 2, ..., 300]
+
+    // Parse data rows — store raw linear values for summing, log values for heatmap
+    const timestamps = [];
+    const rawByMass = massLabels.map(() => []);  // linear pressure per mass per time
+
+    for (let i = 2; i < lines.length; i++) {
+        const parts = lines[i].split('\t');
+        if (parts.length < 2) continue;
+        const iso = parts[0].trim().replace(/(\d{4})\/(\d{2})\/(\d{2}) /, '$1-$2-$3T');
+        timestamps.push(new Date(iso).getTime());
+        for (let m = 0; m < massLabels.length; m++) {
+            rawByMass[m].push(parseFloat(parts[m + 1]));
+        }
+    }
+
+    const t0 = timestamps[0];
+    const elapsed = timestamps.map(t => (t - t0) / 1000);
+
+    // Heatmap: log10 of raw values (floor at 1e-13)
+    const zLog = rawByMass.map(row => row.map(v => Math.log10(Math.max(v, 1e-13))));
+
+    Plotly.newPlot('rga-heatmap', [{
+        x: elapsed,
+        y: massLabels,
+        z: zLog,
+        type: 'heatmap',
+        colorscale: 'Viridis',
+        colorbar: { title: { text: 'log₁₀ Pressure (Torr)', side: 'right' }, thickness: 18 },
+        hovertemplate: 'Time: %{x:.1f} s<br>Mass: %{y}<br>log₁₀P: %{z:.2f}<extra></extra>',
+    }], {
+        xaxis: { title: { text: 'Elapsed time (s)' } },
+        yaxis: { title: { text: 'Mass (amu)' }, dtick: 25 },
+        margin: { t: 20, r: 100, b: 60, l: 65 },
+    }, { responsive: true });
+
+    // Mean spectrum: average raw values across all time points per mass channel
+    const nTime = timestamps.length;
+    const mean = rawByMass.map(row => row.reduce((a, v) => a + Math.max(v, 0), 0) / nTime);
+
+    Plotly.newPlot('rga-summed', [{
+        x: massLabels,
+        y: mean,
+        type: 'bar',
+        marker: { color: '#0d6efd' },
+        hovertemplate: 'Mass: %{x}<br>Mean Pressure: %{y:.3e} Torr<extra></extra>',
+    }], {
+        xaxis: { title: { text: 'Mass (amu)' }, dtick: 25 },
+        yaxis: { title: { text: 'Mean Pressure (Torr)' }, type: 'log', exponentformat: 'e' },
+        margin: { t: 20, r: 20, b: 60, l: 80 },
+    }, { responsive: true });
+})();
+</script>
+
+{% else %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle me-2"></i>No RGA histogram file found for this dataset.
+</div>
+{% endif %}
+
+{% endblock %}

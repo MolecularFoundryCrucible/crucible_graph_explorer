@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ds['dataset_name']}}{% endblock %}
+
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<style>
+    .markdown-content { line-height: 1.6; max-width: 860px; }
+    .markdown-content h1, .markdown-content h2, .markdown-content h3,
+    .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+        margin-top: 24px; margin-bottom: 16px; font-weight: 600;
+    }
+    .markdown-content h1 { font-size: 2em; border-bottom: 1px solid var(--bs-border-color); padding-bottom: 0.3em; }
+    .markdown-content h2 { font-size: 1.5em; border-bottom: 1px solid var(--bs-border-color); padding-bottom: 0.3em; }
+    .markdown-content h3 { font-size: 1.25em; }
+    .markdown-content p  { margin-bottom: 16px; }
+    .markdown-content ul, .markdown-content ol { margin-bottom: 16px; padding-left: 2em; }
+    .markdown-content li { margin-bottom: 4px; }
+    .markdown-content code { background-color: rgba(175,184,193,0.2); padding: 0.2em 0.4em; border-radius: 6px; font-size: 85%; }
+    .markdown-content pre { background-color: var(--bs-tertiary-bg); border-radius: 6px; padding: 16px; overflow: auto; margin-bottom: 16px; }
+    .markdown-content pre code { background-color: transparent; padding: 0; }
+    .markdown-content blockquote { border-left: 4px solid var(--bs-border-color); padding-left: 16px; margin-left: 0; color: var(--bs-secondary-color); }
+    .markdown-content table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+    .markdown-content table th, .markdown-content table td { border: 1px solid var(--bs-border-color); padding: 6px 13px; }
+    .markdown-content table th { background-color: var(--bs-tertiary-bg); font-weight: 600; }
+    .markdown-content img { max-width: 100%; height: auto; }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
+    <li class="breadcrumb-item"><a href="/{{project_id}}/dataset/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Note</li>
+{% endblock %}
+
+{% block content %}
+
+<div style="max-width: 860px;">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <h1 class="fs-4 fw-semibold mb-0" style="overflow-wrap: break-word;">{{ds['dataset_name']}}</h1>
+        <div class="d-flex gap-2 flex-shrink-0">
+            <a href="/{{project_id}}/dataset/{{ds['unique_id']}}/mdnote-edit"
+               class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-pencil me-1"></i>Edit
+            </a>
+            <a href="/{{project_id}}/dataset/{{ds['unique_id']}}"
+               class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-database me-1"></i>Dataset
+            </a>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+    </div>
+    {% elif markdown_html %}
+    <div class="markdown-content">
+        {{ markdown_html | safe }}
+    </div>
+    {% else %}
+    <div class="text-muted fst-italic">This note is empty.</div>
+    {% endif %}
+</div>
+
+{% endblock %}
