@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ds['dataset_name']}} — Raw{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
+    <li class="breadcrumb-item"><a href="/{{project_id}}/dataset/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Raw Markdown</li>
+{% endblock %}
+
+{% block content %}
+
+<div style="max-width: 860px;">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <h1 class="fs-4 fw-semibold mb-0" style="overflow-wrap: break-word;">{{ds['dataset_name']}}</h1>
+        <div class="d-flex gap-2 flex-shrink-0">
+            <a href="/{{project_id}}/dataset/{{ds['unique_id']}}/mdnote-edit"
+               class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-pencil me-1"></i>Edit
+            </a>
+            <a href="/{{project_id}}/dataset/{{ds['unique_id']}}"
+               class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-database me-1"></i>Dataset
+            </a>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+    </div>
+    {% elif raw_content %}
+    <pre class="p-3 rounded border"
+         style="background: var(--bs-tertiary-bg); font-size: 0.875rem;
+                white-space: pre-wrap; word-break: break-word; overflow-x: auto;">{{ raw_content | e }}</pre>
+    {% else %}
+    <div class="text-muted fst-italic">This note is empty.</div>
+    {% endif %}
+</div>
+
+{% endblock %}

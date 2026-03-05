@@ -395,13 +395,14 @@ def dataset(project_id, dsid):
 
     return render_template("dataset.html",
                            project_id=project_id, pc=pc, ds=ds,
-                           child_datasets = child_datasets,
-                           parent_datasets = parent_datasets,
+                           child_datasets=child_datasets,
+                           parent_datasets=parent_datasets,
                            samples=samples,
-                            files=associated_files,
-                            download_links=download_links,
+                           files=associated_files,
+                           download_links=download_links,
                            thumbnails=thumbnails,
                            markdown_html=markdown_html,
+                           custom_views=dataset_views.get_views(ds.get('measurement'), project_id, dsid),
                            prev_sibling=prev_sibling,
                            next_sibling=next_sibling,
                            sibling_index=ds_sibling_idx + 1,
@@ -982,4 +983,11 @@ project_views.register_all(app, auth, {
     'get_project_sample_graph': get_project_sample_graph,
     'get_sample_lineage_graph': get_sample_lineage_graph,
     'get_entity_graph_nx': get_entity_graph_nx,
+})
+
+# Dataset measurement-type views are loaded from the dataset_views/ package.
+import dataset_views
+dataset_views.register_all(app, auth, {
+    'get_project': get_project,
+    'is_user_in_project': is_user_in_project,
 })
