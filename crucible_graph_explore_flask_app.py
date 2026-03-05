@@ -616,6 +616,7 @@ def mdnote_edit(project_id, dsid):
             with open(tmp_path, 'w', encoding='utf-8') as f:
                 f.write(md_content)
             result = app.crucible_client.upload_dataset_file(dsid, tmp_path, verbose=True)
+            app.crucible_client.request_ingestion(dsid, ingestion_class = 'ApiUploadIngestor' )
             print("Upload result:", result)
         finally:
             os.unlink(tmp_path)
