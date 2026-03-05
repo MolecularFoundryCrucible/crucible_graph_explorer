@@ -23,6 +23,17 @@ app = Flask(__name__, template_folder="flask_templates")
 QRcode(app)
 vite = Vite(app)
 
+@app.template_filter('humanize_size')
+def humanize_size_filter(n):
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        return '—'
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if n < 1024 or unit == 'TB':
+            return f'{n} {unit}' if unit == 'B' else f'{n:.1f} {unit}'
+        n /= 1024
+
 # import project_views.proj10k_perovskite_views
 
 # app.register_blueprint(project_views.proj10k_perovskite_views.proj_views, 

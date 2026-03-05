@@ -18,8 +18,31 @@
 
 {% block head %}
 {{ super() }}
+{{ vite_tags() }}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
 <style>
+    /* ── graph containers ───────────────────────────────────────────────── */
+    #cy {
+        width: 100%; height: 40vh; min-height: 280px;
+        border-top: 1px solid var(--bs-border-color);
+    }
+    #section-graph:fullscreen {
+        background: var(--bs-body-bg);
+        display: flex !important;
+        flex-direction: column;
+        height: 100vh;
+    }
+    #section-graph:fullscreen .res-section-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    #section-graph:fullscreen #cy {
+        flex: 1;
+        height: unset !important;
+        min-height: unset !important;
+    }
     /* ── shared resource-page section pattern ─────────────────────────── */
     .res-section {
         border: 1px solid var(--bs-border-color);
@@ -44,7 +67,7 @@
 
     /* ── list rows ──────────────────────────────────────────────────────── */
     .list-row {
-        display: flex; align-items: center; justify-content: space-between;
+        display: flex; align-items: center; flex-wrap: wrap; gap: 0.15rem 0.5rem;
         padding: 0.5rem 1rem; cursor: pointer;
         border-bottom: 1px solid var(--bs-border-color); transition: background 0.1s;
     }
@@ -116,70 +139,77 @@
 
 {% block sidebar %}
 <div class="col-md-2 pe-0 d-none d-md-block">
-    <div class="sticky-top pt-1" style="top: 5em; overflow-y: auto; max-height: calc(100vh - 6em);">
+    <div class="sticky-top pt-1" style="top: 5em; display:flex; flex-direction:column; max-height: calc(100vh - 5.5em);">
 
-        <div class="mb-3">
-            <div class="d-flex align-items-center gap-2 mb-1 px-1">
-                <div id="projectAvatar" style="flex-shrink:0;"></div>
-                <span class="fw-semibold small text-body text-truncate">{{project_id}}</span>
-            </div>
-            <a href="/{{project_id}}/" class="nav-link py-1 px-1 text-muted small">
-                <i class="bi bi-arrow-left me-1"></i>Back to project
-            </a>
-        </div>
-
-        <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
-             style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bs-primary);">
-            <i class="bi bi-database"></i> This dataset
-        </div>
-        <div class="px-1 mb-3 small fw-semibold text-body">{{ds['dataset_name']}}</div>
-
-        {% if samples %}
-        <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
-             style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
-            <i class="bi bi-eyedropper"></i> Samples ({{samples|length}})
-        </div>
-        <ul class="nav flex-column mb-3">
-            {% for sample in samples %}
-            <li class="nav-item">
-                <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
-                   href="/{{project_id}}/sample-graph/{{sample['unique_id']}}">
-                    {{sample['sample_name']}}
+        <!-- Fixed top: project + this dataset identity -->
+        <div class="flex-shrink-0">
+            <div class="mb-3">
+                <div class="d-flex align-items-center gap-2 mb-1 px-1">
+                    <div id="projectAvatar" style="flex-shrink:0;"></div>
+                    <span class="fw-semibold small text-body text-truncate">{{project_id}}</span>
+                </div>
+                <a href="/{{project_id}}/" class="nav-link py-1 px-1 text-muted small">
+                    <i class="bi bi-arrow-left me-1"></i>Back to project
                 </a>
-            </li>
-            {% endfor %}
-        </ul>
-        {% endif %}
+            </div>
 
-        {% if parent_datasets %}
-        <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
-             style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
-            <i class="bi bi-arrow-up-short"></i> Parents ({{parent_datasets|length}})
+            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
+                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bs-primary);">
+                <i class="bi bi-database"></i> This dataset
+            </div>
+            <div class="px-1 mb-2 small fw-semibold text-body">{{ds['dataset_name']}}</div>
+            <hr class="my-2">
         </div>
-        <ul class="nav flex-column mb-3">
-            {% for pd in parent_datasets %}
-            <li class="nav-item">
-                <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
-                   href="/{{project_id}}/dataset/{{pd['unique_id']}}">{{pd['dataset_name']}}</a>
-            </li>
-            {% endfor %}
-        </ul>
-        {% endif %}
 
-        {% if child_datasets %}
-        <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
-             style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
-            <i class="bi bi-arrow-down-short"></i> Children ({{child_datasets|length}})
+        <!-- Scrollable bottom: related items -->
+        <div style="overflow-y: auto; flex:1; min-height:0;">
+            {% if samples %}
+            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
+                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
+                <i class="bi bi-eyedropper"></i> Samples ({{samples|length}})
+            </div>
+            <ul class="nav flex-column mb-3">
+                {% for sample in samples %}
+                <li class="nav-item">
+                    <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
+                       href="/{{project_id}}/sample-graph/{{sample['unique_id']}}">
+                        {{sample['sample_name']}}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if parent_datasets %}
+            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
+                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
+                <i class="bi bi-arrow-up-short"></i> Parents ({{parent_datasets|length}})
+            </div>
+            <ul class="nav flex-column mb-3">
+                {% for pd in parent_datasets %}
+                <li class="nav-item">
+                    <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
+                       href="/{{project_id}}/dataset/{{pd['unique_id']}}">{{pd['dataset_name']}}</a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if child_datasets %}
+            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
+                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
+                <i class="bi bi-arrow-down-short"></i> Children ({{child_datasets|length}})
+            </div>
+            <ul class="nav flex-column mb-3">
+                {% for cd in child_datasets %}
+                <li class="nav-item">
+                    <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
+                       href="/{{project_id}}/dataset/{{cd['unique_id']}}">{{cd['dataset_name']}}</a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
         </div>
-        <ul class="nav flex-column mb-3">
-            {% for cd in child_datasets %}
-            <li class="nav-item">
-                <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
-                   href="/{{project_id}}/dataset/{{cd['unique_id']}}">{{cd['dataset_name']}}</a>
-            </li>
-            {% endfor %}
-        </ul>
-        {% endif %}
 
     </div>
 </div>
@@ -199,15 +229,19 @@
                 {{ds['dataset_name']}}
             </h1>
             <div class="text-muted mfid" style="font-size:0.78rem;">{{ds['unique_id']}}</div>
+            {% set kws = ds.get('keywords') %}
+            {% if kws %}
+            <div class="mt-1 d-flex flex-wrap gap-1">
+                {% for kw in (kws if kws is sequence and kws is not string else [kws]) %}
+                <span class="badge fw-normal border text-body-secondary" style="background:var(--bs-tertiary-bg); font-size:0.72rem;">{{kw}}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
         <img src="{{ qrcode(ds['unique_id'], box_size=4, border=4) }}"
              class="d-none d-md-block" style="flex-shrink:0; border-radius:4px;">
     </div>
     <div class="d-flex border-top">
-        <a href="/{{project_id}}/entity-graph/dataset/{{ds['unique_id']}}"
-           class="action-link flex-fill py-2 border-end text-secondary">
-            <i class="bi bi-diagram-3"></i> Entity Graph
-        </a>
         {% if ds['measurement'] == 'MDNote' %}
         <a href="/{{project_id}}/dataset/{{ds['unique_id']}}/mdnote-edit"
            class="action-link flex-fill py-2 border-end text-secondary">
@@ -223,37 +257,51 @@
     </div>
 </div>
 
+<!-- ── compact sticky header (shown when main card scrolls out) ──────────── -->
+<div id="compactHeader" style="position:sticky; top:3.5rem; z-index:500; display:none;
+     margin-bottom:0.5rem; margin-left:-0.25rem; margin-right:-0.25rem;">
+    <div class="d-flex align-items-center gap-2 px-1 py-2 bg-body border-bottom" style="max-width:860px;">
+        <div id="compactAvatar" style="width:1.4rem;height:1.4rem;border-radius:50%;flex-shrink:0;"></div>
+        <span class="fw-semibold small text-truncate" style="flex:1; min-width:0;">{{ds['dataset_name']}}</span>
+        {% if ds.get('measurement') %}
+        <span class="badge fw-normal border text-body-secondary flex-shrink-0"
+              style="background:var(--bs-tertiary-bg); font-size:0.7rem;">{{ds['measurement']}}</span>
+        {% endif %}
+        <span class="mfid flex-shrink-0" style="font-size:0.7rem;">{{ds['unique_id']}}</span>
+    </div>
+</div>
+
 <!-- ── sibling nav + section controls ────────────────────────────────────── -->
-<div class="d-flex align-items-center gap-2 mb-2" style="max-width: 860px;">
+<div class="d-flex align-items-center flex-wrap gap-2 mb-2" style="max-width: 860px;">
     {% if sibling_count > 1 %}
-    {% if prev_sibling %}
-    <a href="/{{project_id}}/dataset/{{prev_sibling['unique_id']}}"
-       class="btn btn-sm btn-outline-secondary py-0 px-2"
-       title="{{prev_sibling['dataset_name']}}">
-        <i class="bi bi-chevron-left"></i>
-    </a>
-    {% else %}
-    <button class="btn btn-sm btn-outline-secondary py-0 px-2" disabled>
-        <i class="bi bi-chevron-left"></i>
-    </button>
+    <div class="btn-group btn-group-sm" role="group" aria-label="Sibling navigation">
+        {% if prev_sibling %}
+        <a href="/{{project_id}}/dataset/{{prev_sibling['unique_id']}}"
+           class="btn btn-outline-secondary px-2" title="{{prev_sibling['dataset_name']}}">
+            <i class="bi bi-chevron-left"></i>
+        </a>
+        {% else %}
+        <button class="btn btn-outline-secondary px-2" disabled>
+            <i class="bi bi-chevron-left"></i>
+        </button>
+        {% endif %}
+        <span class="btn btn-outline-secondary px-3" style="pointer-events:none; font-size:0.78rem; cursor:default;">
+            {{sibling_index}}&thinsp;/&thinsp;{{sibling_count}}
+            {% if ds.get('measurement') %}<span class="text-muted ms-1">{{ds['measurement']}}</span>{% endif %}
+        </span>
+        {% if next_sibling %}
+        <a href="/{{project_id}}/dataset/{{next_sibling['unique_id']}}"
+           class="btn btn-outline-secondary px-2" title="{{next_sibling['dataset_name']}}">
+            <i class="bi bi-chevron-right"></i>
+        </a>
+        {% else %}
+        <button class="btn btn-outline-secondary px-2" disabled>
+            <i class="bi bi-chevron-right"></i>
+        </button>
+        {% endif %}
+    </div>
     {% endif %}
-    <span class="small text-muted">{{sibling_index}} / {{sibling_count}}
-        <span class="fst-italic">{{ds.get('measurement', '')}}</span>
-    </span>
-    {% if next_sibling %}
-    <a href="/{{project_id}}/dataset/{{next_sibling['unique_id']}}"
-       class="btn btn-sm btn-outline-secondary py-0 px-2"
-       title="{{next_sibling['dataset_name']}}">
-        <i class="bi bi-chevron-right"></i>
-    </a>
-    {% else %}
-    <button class="btn btn-sm btn-outline-secondary py-0 px-2" disabled>
-        <i class="bi bi-chevron-right"></i>
-    </button>
-    {% endif %}
-    {% endif %}
-    <div class="d-flex align-items-center gap-2 ms-auto">
-        <span class="small text-muted">Sections:</span>
+    <div class="d-flex align-items-center gap-2 ms-auto flex-shrink-0">
         <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.78rem;"
                 onclick="setAllSections(true)">
             <i class="bi bi-chevron-expand me-1"></i>Expand all
@@ -293,6 +341,43 @@
             </div>
             {% endif %}
             {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- ── entity graph ──────────────────────────────────────────────────── -->
+<div class="res-section" id="section-graph">
+    <div class="res-section-header" onclick="toggleGraphSection(this)">
+        <i class="bi bi-diagram-3 text-muted"></i>
+        <span>Entity Graph</span>
+        <div class="d-flex gap-2 ms-auto me-2" onclick="event.stopPropagation()">
+            <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                <i class="bi bi-arrow-left-right me-1"></i>Vertical
+            </button>
+            <button id="fitBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                <i class="bi bi-bounding-box me-1"></i>Fit
+            </button>
+            <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                <i class="bi bi-image me-1"></i>Thumbnails
+            </button>
+            <button id="fullscreenBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                <i class="bi bi-fullscreen me-1"></i>Fullscreen
+            </button>
+        </div>
+        <i class="bi bi-chevron-right res-section-chevron" style="margin-left: 0;"></i>
+    </div>
+    <div class="res-section-body" style="position:relative; display:none;">
+        <div id="cy-spinner" style="position:absolute;inset:0;display:none;align-items:center;
+                                    justify-content:center;z-index:5;background:var(--bs-body-bg);">
+            <div class="spinner-border text-secondary" role="status">
+                <span class="visually-hidden">Loading…</span>
+            </div>
+        </div>
+        <div id="cy" data-project-id="{{project_id}}"></div>
+        <div id="zoomHint" style="position:absolute; bottom:0.5rem; right:0.75rem;
+                                   font-size:0.72rem; color:var(--bs-secondary-color);
+                                   pointer-events:none; transition:opacity 1s; opacity:1;">
+            <i class="bi bi-keyboard me-1"></i>Ctrl + scroll to zoom
         </div>
     </div>
 </div>
@@ -357,13 +442,8 @@
         {% for sample in samples %}
         <div class="list-row"
              onmouseup="navIfNoSelection(event, '/{{project_id}}/sample-graph/{{sample['unique_id']}}')">
-            <div>
-                <div class="fw-medium">{{sample['sample_name']}}</div>
-                {% if sample.get('description') %}
-                <div class="small text-muted">{{sample['description']}}</div>
-                {% endif %}
-            </div>
-            <span class="mfid small ms-3 text-nowrap">{{sample['unique_id']}}</span>
+            <span class="fw-medium" style="flex:1; min-width:8rem;">{{sample['sample_name']}}</span>
+            <span class="mfid small ms-auto">{{sample['unique_id']}}</span>
         </div>
         {% endfor %}
     </div>
@@ -385,8 +465,8 @@
         {% for pd in parent_datasets %}
         <div class="list-row"
              onmouseup="navIfNoSelection(event, '/{{project_id}}/dataset/{{pd['unique_id']}}')">
-            <span class="fw-medium">{{pd['dataset_name']}}</span>
-            <span class="mfid small ms-3 text-nowrap">{{pd['unique_id']}}</span>
+            <span class="fw-medium" style="flex:1; min-width:8rem;">{{pd['dataset_name']}}</span>
+            <span class="mfid small ms-auto">{{pd['unique_id']}}</span>
         </div>
         {% endfor %}
     </div>
@@ -408,8 +488,8 @@
         {% for cd in child_datasets %}
         <div class="list-row"
              onmouseup="navIfNoSelection(event, '/{{project_id}}/dataset/{{cd['unique_id']}}')">
-            <span class="fw-medium">{{cd['dataset_name']}}</span>
-            <span class="mfid small ms-3 text-nowrap">{{cd['unique_id']}}</span>
+            <span class="fw-medium" style="flex:1; min-width:8rem;">{{cd['dataset_name']}}</span>
+            <span class="mfid small ms-auto">{{cd['unique_id']}}</span>
         </div>
         {% endfor %}
     </div>
@@ -447,9 +527,16 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for file in files %}
-        <div class="list-row">
-            <span>{{file['filename']}}</span>
-            <span class="text-muted small ms-3 text-nowrap">{{file['size']}} bytes</span>
+        <div class="list-row" style="padding:0; gap:0;">
+            <div style="flex:1; min-width:0; overflow-x:auto; scrollbar-width:none;
+                        display:flex; align-items:center; padding:0.5rem 1rem;
+                        -webkit-mask-image:linear-gradient(to right, black 80%, transparent 100%);
+                        mask-image:linear-gradient(to right, black 80%, transparent 100%);">
+                <span class="text-nowrap">{{file['filename']}}</span>
+            </div>
+            <span class="text-muted small text-nowrap px-3 border-start" style="flex-shrink:0; line-height:2.2;">
+                {{file['size'] | humanize_size}}
+            </span>
         </div>
         {% endfor %}
     </div>
@@ -478,6 +565,104 @@
     </div>
 </div>
 {% endif %}
+
+<script type="module">
+  let cyInstance  = null;
+  let entityData  = null;
+  let graphLoaded = false;
+
+  async function renderGraph() {
+    const spinner = document.getElementById('cy-spinner');
+    if (spinner) spinner.style.display = 'flex';
+
+    if (cyInstance) { cyInstance.destroy(); cyInstance = null; }
+    document.getElementById('toggleLayoutBtn').innerHTML = '<i class="bi bi-arrow-left-right me-1"></i>Vertical';
+
+    if (!entityData) {
+      const r = await fetch('/{{project_id}}/api/entity-graph-data/dataset/{{ds["unique_id"]}}');
+      entityData = await r.json();
+    }
+
+    if (window.initEntityGraph) cyInstance = window.initEntityGraph('cy', entityData);
+
+    const hint = document.getElementById('zoomHint');
+    if (hint) {
+      hint.style.transition = 'none';
+      hint.style.opacity = '1';
+      setTimeout(() => { hint.style.transition = 'opacity 1.5s'; hint.style.opacity = '0'; }, 2500);
+    }
+
+    if (spinner) spinner.style.display = 'none';
+  }
+
+  document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
+    if (cyInstance && cyInstance.toggleLayout) {
+      const newLayout = cyInstance.toggleLayout();
+      this.innerHTML = newLayout === 'LR'
+        ? '<i class="bi bi-arrow-left-right me-1"></i>Vertical'
+        : '<i class="bi bi-arrow-down me-1"></i>Horizontal';
+      setTimeout(() => { if (cyInstance) { cyInstance.resize(); cyInstance.fit(); } }, 550);
+    }
+  });
+
+  document.getElementById('fitBtn').addEventListener('click', () => {
+    if (cyInstance) cyInstance.fit();
+  });
+
+  document.getElementById('toggleThumbnailsBtn').addEventListener('click', function() {
+    if (cyInstance && cyInstance.toggleThumbnails) {
+      const visible = cyInstance.toggleThumbnails();
+      this.innerHTML = visible
+        ? '<i class="bi bi-image me-1"></i>Thumbnails'
+        : '<i class="bi bi-image-fill me-1"></i>No Thumbnails';
+    }
+  });
+
+  document.getElementById('fullscreenBtn').addEventListener('click', async () => {
+    const section = document.getElementById('section-graph');
+    const body    = section.querySelector('.res-section-body');
+    if (!document.fullscreenElement) {
+      // Expand if collapsed
+      if (body.style.display === 'none') {
+        toggleSection(section.querySelector('.res-section-header'));
+      }
+      // Load graph if not yet loaded
+      if (!graphLoaded) {
+        graphLoaded = true;
+        await renderGraph();
+      } else if (cyInstance) {
+        cyInstance.resize(); cyInstance.fit();
+      }
+      section.requestFullscreen().catch(err => console.error(err));
+    } else {
+      document.exitFullscreen();
+    }
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    const btn = document.getElementById('fullscreenBtn');
+    btn.innerHTML = document.fullscreenElement
+      ? '<i class="bi bi-fullscreen-exit me-1"></i>Exit'
+      : '<i class="bi bi-fullscreen me-1"></i>Fullscreen';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (cyInstance) { cyInstance.resize(); cyInstance.fit(); }
+    }));
+  });
+
+  // Expose lazy-load toggle so the section header can call it
+  window.toggleGraphSection = function(header) {
+    toggleSection(header);
+    const body = header.nextElementSibling;
+    if (body.style.display !== 'none') {
+      if (!graphLoaded) {
+        graphLoaded = true;
+        renderGraph();
+      } else if (cyInstance) {
+        cyInstance.resize(); cyInstance.fit();
+      }
+    }
+  };
+</script>
 
 <!-- ── back-to-top ────────────────────────────────────────────────────── -->
 <button id="backToTop" title="Back to top"
@@ -509,8 +694,20 @@
         document.querySelectorAll('.res-section').forEach(section => {
             const body    = section.querySelector('.res-section-body');
             const chevron = section.querySelector('.res-section-chevron');
-            if (body)    body.style.display     = expand ? '' : 'none';
-            if (chevron) chevron.style.transform = expand ? 'rotate(90deg)' : '';
+            if (!body) return;
+            const isOpen = body.style.display !== 'none';
+            if (expand && !isOpen) {
+                // Graph section needs lazy-load logic on first open
+                if (section.id === 'section-graph' && window.toggleGraphSection) {
+                    window.toggleGraphSection(section.querySelector('.res-section-header'));
+                } else {
+                    body.style.display = '';
+                    if (chevron) chevron.style.transform = 'rotate(90deg)';
+                }
+            } else if (!expand && isOpen) {
+                body.style.display = 'none';
+                if (chevron) chevron.style.transform = '';
+            }
         });
     }
 
@@ -541,8 +738,32 @@
 
     const mtype = {{ (ds.get('measurement') or ds['dataset_name']) | tojson }};
     const dsColor = hashColor(mtype);
-    makeAvatar(document.getElementById('datasetAvatar'), {{ ds['dataset_name'] | tojson }});
+    const avatarColor = makeAvatar(document.getElementById('datasetAvatar'), {{ ds['dataset_name'] | tojson }});
     document.getElementById('datasetCard').style.borderLeftColor = dsColor;
+
+    // Compact avatar — same color as the main header avatar
+    const compactAv = document.getElementById('compactAvatar');
+    if (compactAv) {
+        compactAv.style.cssText = `width:1.4rem;height:1.4rem;border-radius:50%;flex-shrink:0;`
+            + `background:${avatarColor};color:#fff;display:flex;align-items:center;`
+            + `justify-content:center;font-size:0.55rem;font-weight:700;letter-spacing:0.05em;`;
+        compactAv.textContent = makeInitials({{ ds['dataset_name'] | tojson }});
+    }
+    // Show compact header when main card scrolls out of view
+    const compactHeader = document.getElementById('compactHeader');
+    const mainCard = document.getElementById('datasetCard');
+    if (compactHeader && mainCard) {
+        const navEl = document.querySelector('nav[aria-label="breadcrumb"]');
+        function syncCompactTop() {
+            if (navEl) compactHeader.style.top = navEl.offsetHeight + 'px';
+        }
+        syncCompactTop();
+        window.addEventListener('resize', syncCompactTop, { passive: true });
+        new IntersectionObserver(
+            ([entry]) => { compactHeader.style.display = entry.isIntersecting ? 'none' : ''; },
+            { threshold: 0 }
+        ).observe(mainCard);
+    }
 
     const backToTop = document.getElementById('backToTop');
     window.addEventListener('scroll', () => {

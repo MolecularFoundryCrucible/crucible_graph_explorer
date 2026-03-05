@@ -32,7 +32,7 @@
 
     /* ── list rows (selectable, clickable) ─────────────────────────────── */
     .list-row {
-        display: flex; align-items: center; justify-content: space-between;
+        display: flex; align-items: center; flex-wrap: wrap; gap: 0.15rem 0.5rem;
         padding: 0.5rem 1rem; cursor: pointer;
         border-bottom: 1px solid var(--bs-border-color); transition: background 0.1s;
     }
@@ -54,10 +54,28 @@
     }
     .action-link:hover { background: var(--bs-tertiary-bg) !important; }
 
-    /* ── graph container ────────────────────────────────────────────────── */
+    /* ── graph containers ───────────────────────────────────────────────── */
     #cy {
         width: 100%; height: 40vh; min-height: 280px;
         border-top: 1px solid var(--bs-border-color);
+    }
+    /* fullscreen: stretch graph to fill the viewport */
+    #section-graph:fullscreen {
+        background: var(--bs-body-bg);
+        display: flex !important;
+        flex-direction: column;
+        height: 100vh;
+    }
+    #section-graph:fullscreen .res-section-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    #section-graph:fullscreen #cy {
+        flex: 1;
+        height: unset !important;
+        min-height: unset !important;
     }
 </style>
 {% endblock %}
@@ -69,68 +87,75 @@
 
 {% block sidebar %}
 <div class="col-md-2 pe-0 d-none d-md-block">
-    <div class="sticky-top pt-1" style="top: 5em; overflow-y: auto; max-height: calc(100vh - 6em);">
+    <div class="sticky-top pt-1" style="top: 5em; display:flex; flex-direction:column; max-height: calc(100vh - 5.5em);">
 
-        <div class="mb-3">
-            <div class="d-flex align-items-center gap-2 mb-1 px-1">
-                <div id="projectAvatar" style="flex-shrink:0;"></div>
-                <span class="fw-semibold small text-body text-truncate">{{pid}}</span>
+        <!-- Fixed top: project + this sample identity -->
+        <div class="flex-shrink-0">
+            <div class="mb-3">
+                <div class="d-flex align-items-center gap-2 mb-1 px-1">
+                    <div id="projectAvatar" style="flex-shrink:0;"></div>
+                    <span class="fw-semibold small text-body text-truncate">{{pid}}</span>
+                </div>
+                <a href="/{{pid}}/" class="nav-link py-1 px-1 text-muted small">
+                    <i class="bi bi-arrow-left me-1"></i>Back to project
+                </a>
             </div>
-            <a href="/{{pid}}/" class="nav-link py-1 px-1 text-muted small">
-                <i class="bi bi-arrow-left me-1"></i>Back to project
-            </a>
+
+            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
+                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bs-primary);">
+                <i class="bi bi-eyedropper"></i> This sample
+            </div>
+            <div class="px-1 mb-2 small fw-semibold text-body">{{s['sample_name']}}</div>
+            <hr class="my-2">
         </div>
 
-        <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
-             style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bs-primary);">
-            <i class="bi bi-eyedropper"></i> This sample
-        </div>
-        <div class="px-1 mb-3 small fw-semibold text-body">{{s['sample_name']}}</div>
+        <!-- Scrollable bottom: related items -->
+        <div style="overflow-y: auto; flex:1; min-height:0;">
+            {% if ancestors_info %}
+            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
+                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
+                <i class="bi bi-arrow-up-short"></i> Ancestors ({{ancestors_info|length}})
+            </div>
+            <ul class="nav flex-column mb-3">
+                {% for anc in ancestors_info %}
+                <li class="nav-item">
+                    <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
+                       href="/{{pid}}/sample-graph/{{anc['unique_id']}}">{{anc['sample_name']}}</a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
 
-        {% if ancestors_info %}
-        <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
-             style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
-            <i class="bi bi-arrow-up-short"></i> Ancestors ({{ancestors_info|length}})
-        </div>
-        <ul class="nav flex-column mb-3">
-            {% for anc in ancestors_info %}
-            <li class="nav-item">
-                <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
-                   href="/{{pid}}/sample-graph/{{anc['unique_id']}}">{{anc['sample_name']}}</a>
-            </li>
-            {% endfor %}
-        </ul>
-        {% endif %}
+            {% if descendants_info %}
+            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
+                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
+                <i class="bi bi-arrow-down-short"></i> Descendants ({{descendants_info|length}})
+            </div>
+            <ul class="nav flex-column mb-3">
+                {% for desc in descendants_info %}
+                <li class="nav-item">
+                    <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
+                       href="/{{pid}}/sample-graph/{{desc['unique_id']}}">{{desc['sample_name']}}</a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
 
-        {% if descendants_info %}
-        <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
-             style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
-            <i class="bi bi-arrow-down-short"></i> Descendants ({{descendants_info|length}})
+            {% if s['datasets'] %}
+            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
+                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
+                <i class="bi bi-database"></i> Datasets ({{s['datasets']|length}})
+            </div>
+            <ul class="nav flex-column mb-3">
+                {% for ds in s['datasets'] %}
+                <li class="nav-item">
+                    <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
+                       href="/{{pid}}/dataset/{{ds['unique_id']}}">{{ds['dataset_name']}}</a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
         </div>
-        <ul class="nav flex-column mb-3">
-            {% for desc in descendants_info %}
-            <li class="nav-item">
-                <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
-                   href="/{{pid}}/sample-graph/{{desc['unique_id']}}">{{desc['sample_name']}}</a>
-            </li>
-            {% endfor %}
-        </ul>
-        {% endif %}
-
-        {% if s['datasets'] %}
-        <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
-             style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
-            <i class="bi bi-database"></i> Datasets ({{s['datasets']|length}})
-        </div>
-        <ul class="nav flex-column mb-3">
-            {% for ds in s['datasets'] %}
-            <li class="nav-item">
-                <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
-                   href="/{{pid}}/dataset/{{ds['unique_id']}}">{{ds['dataset_name']}}</a>
-            </li>
-            {% endfor %}
-        </ul>
-        {% endif %}
 
     </div>
 </div>
@@ -148,15 +173,19 @@
         <div style="min-width:0; flex:1;">
             <h1 class="fs-4 fw-semibold mb-1 lh-sm" style="overflow-wrap:break-word;">{{s['sample_name']}}</h1>
             <div class="text-muted mfid" style="font-size:0.78rem;">{{s['unique_id']}}</div>
+            {% set kws = s.get('keywords') %}
+            {% if kws %}
+            <div class="mt-1 d-flex flex-wrap gap-1">
+                {% for kw in (kws if kws is sequence and kws is not string else [kws]) %}
+                <span class="badge fw-normal border text-body-secondary" style="background:var(--bs-tertiary-bg); font-size:0.72rem;">{{kw}}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
         <img src="{{ qrcode(s['unique_id'], box_size=4, border=4) }}"
              class="d-none d-md-block" style="flex-shrink:0; border-radius:4px;">
     </div>
     <div class="d-flex border-top">
-        <a href="/{{pid}}/entity-graph/sample/{{s['unique_id']}}"
-           class="action-link flex-fill py-2 border-end text-secondary">
-            <i class="bi bi-diagram-3"></i> Entity Graph
-        </a>
         <a href="/{{pid}}/search" class="action-link flex-fill py-2 border-end text-secondary">
             <i class="bi bi-search"></i> Search
         </a>
@@ -166,37 +195,51 @@
     </div>
 </div>
 
+<!-- ── compact sticky header (shown when main card scrolls out) ──────────── -->
+<div id="compactHeader" style="position:sticky; top:3.5rem; z-index:500; display:none;
+     margin-bottom:0.5rem; margin-left:-0.25rem; margin-right:-0.25rem;">
+    <div class="d-flex align-items-center gap-2 px-1 py-2 bg-body border-bottom" style="max-width:860px;">
+        <div id="compactAvatar" style="width:1.4rem;height:1.4rem;border-radius:50%;flex-shrink:0;"></div>
+        <span class="fw-semibold small text-truncate" style="flex:1; min-width:0;">{{s['sample_name']}}</span>
+        {% if s.get('sample_type') %}
+        <span class="badge fw-normal border text-body-secondary flex-shrink-0"
+              style="background:var(--bs-tertiary-bg); font-size:0.7rem;">{{s['sample_type']}}</span>
+        {% endif %}
+        <span class="mfid flex-shrink-0" style="font-size:0.7rem;">{{s['unique_id']}}</span>
+    </div>
+</div>
+
 <!-- ── sibling nav + section controls ────────────────────────────────────── -->
-<div class="d-flex align-items-center gap-2 mb-2" style="max-width: 860px;">
+<div class="d-flex align-items-center flex-wrap gap-2 mb-2" style="max-width: 860px;">
     {% if sibling_count > 1 %}
-    {% if prev_sibling %}
-    <a href="/{{pid}}/sample-graph/{{prev_sibling['unique_id']}}"
-       class="btn btn-sm btn-outline-secondary py-0 px-2"
-       title="{{prev_sibling['sample_name']}}">
-        <i class="bi bi-chevron-left"></i>
-    </a>
-    {% else %}
-    <button class="btn btn-sm btn-outline-secondary py-0 px-2" disabled>
-        <i class="bi bi-chevron-left"></i>
-    </button>
+    <div class="btn-group btn-group-sm" role="group" aria-label="Sibling navigation">
+        {% if prev_sibling %}
+        <a href="/{{pid}}/sample-graph/{{prev_sibling['unique_id']}}"
+           class="btn btn-outline-secondary px-2" title="{{prev_sibling['sample_name']}}">
+            <i class="bi bi-chevron-left"></i>
+        </a>
+        {% else %}
+        <button class="btn btn-outline-secondary px-2" disabled>
+            <i class="bi bi-chevron-left"></i>
+        </button>
+        {% endif %}
+        <span class="btn btn-outline-secondary px-3" style="pointer-events:none; font-size:0.78rem; cursor:default;">
+            {{sibling_index}}&thinsp;/&thinsp;{{sibling_count}}
+            {% if s.get('sample_type') %}<span class="text-muted ms-1">{{s['sample_type']}}</span>{% endif %}
+        </span>
+        {% if next_sibling %}
+        <a href="/{{pid}}/sample-graph/{{next_sibling['unique_id']}}"
+           class="btn btn-outline-secondary px-2" title="{{next_sibling['sample_name']}}">
+            <i class="bi bi-chevron-right"></i>
+        </a>
+        {% else %}
+        <button class="btn btn-outline-secondary px-2" disabled>
+            <i class="bi bi-chevron-right"></i>
+        </button>
+        {% endif %}
+    </div>
     {% endif %}
-    <span class="small text-muted">{{sibling_index}} / {{sibling_count}}
-        <span class="fst-italic">{{s.get('sample_type', '')}}</span>
-    </span>
-    {% if next_sibling %}
-    <a href="/{{pid}}/sample-graph/{{next_sibling['unique_id']}}"
-       class="btn btn-sm btn-outline-secondary py-0 px-2"
-       title="{{next_sibling['sample_name']}}">
-        <i class="bi bi-chevron-right"></i>
-    </a>
-    {% else %}
-    <button class="btn btn-sm btn-outline-secondary py-0 px-2" disabled>
-        <i class="bi bi-chevron-right"></i>
-    </button>
-    {% endif %}
-    {% endif %}
-    <div class="d-flex align-items-center gap-2 ms-auto">
-        <span class="small text-muted">Sections:</span>
+    <div class="d-flex align-items-center gap-2 ms-auto flex-shrink-0">
         <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.78rem;"
                 onclick="setAllSections(true)">
             <i class="bi bi-chevron-expand me-1"></i>Expand all
@@ -241,22 +284,41 @@
 
 <!-- ── sample graph ──────────────────────────────────────────────────────── -->
 <div class="res-section" id="section-graph">
-    <div class="res-section-header" onclick="toggleSection(this)">
+    <div class="res-section-header" onclick="toggleGraphSection(this)">
         <i class="bi bi-diagram-3 text-muted"></i>
-        <span>Sample Graph</span>
+        <span id="graphSectionTitle">Sample Graph</span>
         <div class="d-flex gap-2 ms-auto me-2" onclick="event.stopPropagation()">
             <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
                 <i class="bi bi-arrow-left-right me-1"></i>Vertical
             </button>
-            <a href="/{{pid}}/entity-graph/sample/{{s['unique_id']}}"
-               class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+            <button id="fitBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                <i class="bi bi-bounding-box me-1"></i>Fit
+            </button>
+            <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem; display:none;">
+                <i class="bi bi-image me-1"></i>Thumbnails
+            </button>
+            <button id="toggleEntityBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
                 <i class="bi bi-diagram-3 me-1"></i>With Datasets
-            </a>
+            </button>
+            <button id="fullscreenBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                <i class="bi bi-fullscreen me-1"></i>Fullscreen
+            </button>
         </div>
-        <i class="bi bi-chevron-right res-section-chevron" style="transform: rotate(90deg); margin-left: 0;"></i>
+        <i class="bi bi-chevron-right res-section-chevron" style="margin-left: 0;"></i>
     </div>
-    <div class="res-section-body">
+    <div class="res-section-body" style="position:relative; display:none;">
+        <div id="cy-spinner" style="position:absolute;inset:0;display:none;align-items:center;
+                                    justify-content:center;z-index:5;background:var(--bs-body-bg);">
+            <div class="spinner-border text-secondary" role="status">
+                <span class="visually-hidden">Loading…</span>
+            </div>
+        </div>
         <div id="cy" data-project-id="{{pid}}"></div>
+        <div id="zoomHint" style="position:absolute; bottom:0.5rem; right:0.75rem;
+                                   font-size:0.72rem; color:var(--bs-secondary-color);
+                                   pointer-events:none; transition:opacity 1s; opacity:1;">
+            <i class="bi bi-keyboard me-1"></i>Ctrl + scroll to zoom
+        </div>
     </div>
 </div>
 
@@ -275,8 +337,8 @@
         {% for ds in s['datasets'] %}
         <div class="list-row"
              onmouseup="navIfNoSelection(event, '/{{pid}}/dataset/{{ds['unique_id']}}')">
-            <span class="fw-medium">{{ds['dataset_name']}}</span>
-            <span class="mfid small ms-3 text-nowrap">{{ds['unique_id']}}</span>
+            <span class="fw-medium" style="flex:1; min-width:8rem;">{{ds['dataset_name']}}</span>
+            <span class="mfid small ms-auto">{{ds['unique_id']}}</span>
         </div>
         {% endfor %}
     </div>
@@ -299,13 +361,13 @@
         {% set aname = anc['sample_name'] %}
         <div class="list-row"
              onmouseup="navIfNoSelection(event, '/{{pid}}/sample-graph/{{anc['unique_id']}}')">
-            <div style="min-width:0;">
+            <div style="flex:1; min-width:8rem;">
                 <div class="fw-medium">{{aname}}</div>
                 <div class="small text-muted text-truncate">
                     <i class="bi bi-signpost me-1"></i>{{" ← ".join(ancestors_path[aname])}}
                 </div>
             </div>
-            <span class="mfid small ms-3 text-nowrap">{{anc['unique_id']}}</span>
+            <span class="mfid small ms-auto">{{anc['unique_id']}}</span>
         </div>
         {% endfor %}
     </div>
@@ -333,13 +395,13 @@
         {% set dname = desc['sample_name'] %}
         <div class="list-row"
              onmouseup="navIfNoSelection(event, '/{{pid}}/sample-graph/{{desc['unique_id']}}')">
-            <div style="min-width:0;">
+            <div style="flex:1; min-width:8rem;">
                 <div class="fw-medium">{{dname}}</div>
                 <div class="small text-muted text-truncate">
                     <i class="bi bi-signpost me-1"></i>{{" → ".join(descendants_path[dname])}}
                 </div>
             </div>
-            <span class="mfid small ms-3 text-nowrap">{{desc['unique_id']}}</span>
+            <span class="mfid small ms-auto">{{desc['unique_id']}}</span>
         </div>
         {% endfor %}
     </div>
@@ -357,17 +419,72 @@
 </button>
 
 <script type="module">
-  let cyInstance = null;
+  let cyInstance   = null;
+  let currentMode  = 'sample';   // 'sample' | 'entity'
+  let sampleData   = null;
+  let entityData   = null;
+  let graphLoaded  = false;
 
-  async function initGraph() {
-    const response = await fetch('/{{pid}}/api/sample-graph-data/{{s["unique_id"]}}');
-    const graphData = await response.json();
-    if (window.initSampleGraph) {
-      cyInstance = window.initSampleGraph('cy', graphData);
-    } else {
-      setTimeout(initGraph, 100);
+  async function fetchSampleData() {
+    if (!sampleData) {
+      const r = await fetch('/{{pid}}/api/sample-graph-data/{{s["unique_id"]}}');
+      sampleData = await r.json();
     }
+    return sampleData;
   }
+
+  async function fetchEntityData() {
+    if (!entityData) {
+      const r = await fetch('/{{pid}}/api/entity-graph-data/sample/{{s["unique_id"]}}');
+      entityData = await r.json();
+    }
+    return entityData;
+  }
+
+  async function renderGraph(mode) {
+    const spinner = document.getElementById('cy-spinner');
+    if (spinner) { spinner.style.display = 'flex'; }
+
+    if (cyInstance) { cyInstance.destroy(); cyInstance = null; }
+    currentMode = mode;
+
+    const layoutBtn     = document.getElementById('toggleLayoutBtn');
+    const thumbBtn      = document.getElementById('toggleThumbnailsBtn');
+    const entityBtn     = document.getElementById('toggleEntityBtn');
+    const titleEl       = document.getElementById('graphSectionTitle');
+
+    // Reset layout button label
+    layoutBtn.innerHTML = '<i class="bi bi-arrow-left-right me-1"></i>Vertical';
+
+    if (mode === 'sample') {
+      const data = await fetchSampleData();
+      if (window.initSampleGraph) cyInstance = window.initSampleGraph('cy', data);
+      titleEl.textContent = 'Sample Graph';
+      entityBtn.innerHTML = '<i class="bi bi-diagram-3 me-1"></i>With Datasets';
+      thumbBtn.style.display = 'none';
+    } else {
+      const data = await fetchEntityData();
+      if (window.initEntityGraph) cyInstance = window.initEntityGraph('cy', data);
+      titleEl.textContent = 'Entity Graph';
+      entityBtn.innerHTML = '<i class="bi bi-eyedropper me-1"></i>Sample Only';
+      thumbBtn.style.display = '';
+      thumbBtn.innerHTML = '<i class="bi bi-image me-1"></i>Thumbnails';
+    }
+
+    // Show the zoom hint then fade it out
+    const hint = document.getElementById('zoomHint');
+    if (hint) {
+      hint.style.transition = 'none';
+      hint.style.opacity = '1';
+      setTimeout(() => { hint.style.transition = 'opacity 1.5s'; hint.style.opacity = '0'; }, 2500);
+    }
+
+    if (spinner) spinner.style.display = 'none';
+  }
+
+  document.getElementById('toggleEntityBtn').addEventListener('click', () => {
+    renderGraph(currentMode === 'sample' ? 'entity' : 'sample');
+  });
 
   document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
     if (cyInstance && cyInstance.toggleLayout) {
@@ -375,14 +492,69 @@
       this.innerHTML = newLayout === 'LR'
         ? '<i class="bi bi-arrow-left-right me-1"></i>Vertical'
         : '<i class="bi bi-arrow-down me-1"></i>Horizontal';
+      // After the 500ms animation, resize the canvas and re-fit
+      setTimeout(() => { if (cyInstance) { cyInstance.resize(); cyInstance.fit(); } }, 550);
     }
   });
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initGraph);
-  } else {
-    initGraph();
-  }
+  document.getElementById('toggleThumbnailsBtn').addEventListener('click', function() {
+    if (cyInstance && cyInstance.toggleThumbnails) {
+      const visible = cyInstance.toggleThumbnails();
+      this.innerHTML = visible
+        ? '<i class="bi bi-image me-1"></i>Thumbnails'
+        : '<i class="bi bi-image-fill me-1"></i>No Thumbnails';
+    }
+  });
+
+  document.getElementById('fitBtn').addEventListener('click', () => {
+    if (cyInstance) cyInstance.fit();
+  });
+
+  document.getElementById('fullscreenBtn').addEventListener('click', async () => {
+    const section = document.getElementById('section-graph');
+    const body    = section.querySelector('.res-section-body');
+    if (!document.fullscreenElement) {
+      // Expand if collapsed
+      if (body.style.display === 'none') {
+        toggleSection(section.querySelector('.res-section-header'));
+      }
+      // Load graph if not yet loaded
+      if (!graphLoaded) {
+        graphLoaded = true;
+        await renderGraph(currentMode);
+      } else if (cyInstance) {
+        cyInstance.resize(); cyInstance.fit();
+      }
+      section.requestFullscreen().catch(err => console.error(err));
+    } else {
+      document.exitFullscreen();
+    }
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    const btn = document.getElementById('fullscreenBtn');
+    btn.innerHTML = document.fullscreenElement
+      ? '<i class="bi bi-fullscreen-exit me-1"></i>Exit'
+      : '<i class="bi bi-fullscreen me-1"></i>Fullscreen';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (cyInstance) { cyInstance.resize(); cyInstance.fit(); }
+    }));
+  });
+
+  // Expose lazy-load toggle so the section header can call it
+  window.toggleGraphSection = function(header) {
+    toggleSection(header);
+    const body = header.nextElementSibling;
+    if (body.style.display !== 'none') {
+      // Section just opened
+      if (!graphLoaded) {
+        graphLoaded = true;
+        renderGraph(currentMode);
+      } else if (cyInstance) {
+        cyInstance.resize(); cyInstance.fit();
+      }
+    }
+  };
 </script>
 
 <script>
@@ -404,8 +576,20 @@
         document.querySelectorAll('.res-section').forEach(section => {
             const body    = section.querySelector('.res-section-body');
             const chevron = section.querySelector('.res-section-chevron');
-            if (body)    body.style.display        = expand ? '' : 'none';
-            if (chevron) chevron.style.transform    = expand ? 'rotate(90deg)' : '';
+            if (!body) return;
+            const isOpen = body.style.display !== 'none';
+            if (expand && !isOpen) {
+                // Graph section needs lazy-load logic on first open
+                if (section.id === 'section-graph' && window.toggleGraphSection) {
+                    window.toggleGraphSection(section.querySelector('.res-section-header'));
+                } else {
+                    body.style.display = '';
+                    if (chevron) chevron.style.transform = 'rotate(90deg)';
+                }
+            } else if (!expand && isOpen) {
+                body.style.display = 'none';
+                if (chevron) chevron.style.transform = '';
+            }
         });
     }
 
@@ -436,8 +620,32 @@
 
     const stype = {{ (s.get('sample_type') or s['sample_name']) | tojson }};
     const sampleColor = hashColor(stype);
-    makeAvatar(document.getElementById('sampleAvatar'), {{ s['sample_name'] | tojson }});
+    const avatarColor = makeAvatar(document.getElementById('sampleAvatar'), {{ s['sample_name'] | tojson }});
     document.getElementById('sampleCard').style.borderLeftColor = sampleColor;
+
+    // Compact avatar — same color as the main header avatar
+    const compactAv = document.getElementById('compactAvatar');
+    if (compactAv) {
+        compactAv.style.cssText = `width:1.4rem;height:1.4rem;border-radius:50%;flex-shrink:0;`
+            + `background:${avatarColor};color:#fff;display:flex;align-items:center;`
+            + `justify-content:center;font-size:0.55rem;font-weight:700;letter-spacing:0.05em;`;
+        compactAv.textContent = makeInitials({{ s['sample_name'] | tojson }});
+    }
+    // Show compact header when main card scrolls out of view
+    const compactHeader = document.getElementById('compactHeader');
+    const mainCard = document.getElementById('sampleCard');
+    if (compactHeader && mainCard) {
+        const navEl = document.querySelector('nav[aria-label="breadcrumb"]');
+        function syncCompactTop() {
+            if (navEl) compactHeader.style.top = navEl.offsetHeight + 'px';
+        }
+        syncCompactTop();
+        window.addEventListener('resize', syncCompactTop, { passive: true });
+        new IntersectionObserver(
+            ([entry]) => { compactHeader.style.display = entry.isIntersecting ? 'none' : ''; },
+            { threshold: 0 }
+        ).observe(mainCard);
+    }
 
     const backToTop = document.getElementById('backToTop');
     window.addEventListener('scroll', () => {
