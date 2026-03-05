@@ -489,6 +489,51 @@ def entity_graph_data(project_id, entity_type, entity_id):
     })
 
 
+@app.route("/<project_id>/project-graph")
+@auth.oidc_auth('orcid')
+def project_graph(project_id):
+    if not is_user_in_project(project_id):
+        abort(403)
+    pc = get_project(project_id)
+    return render_template('project_graph.html', pc=pc)
+
+
+@app.route("/<project_id>/api/project-graph-data")
+@auth.oidc_auth('orcid')
+def project_graph_data(project_id):
+    if not is_user_in_project(project_id):
+        abort(403)
+
+    pc = get_project(project_id)
+    node_link_data = app.crucible_client._request("GET", f"/projects/{project_id}/entity_graph")
+    G = nx.node_link_graph(node_link_data)
+
+    nodes = []
+    edges = [{'source': src, 'target': tgt} for src, tgt in G.edges()]
+
+    for node_id, attrs in G.nodes(data=True):
+        if attrs.get('entity_type') == 'sample':
+            sample = pc['samples_by_id'].get(node_id, {})
+            nodes.append({
+                'id': node_id,
+                'label': sample.get('sample_name', attrs.get('name', node_id[:13])),
+                'type': 'sample',
+                'description': sample.get('description', ''),
+                'url': f'/{project_id}/sample-graph/{node_id}'
+            })
+        else:
+            ds = pc['datasets_by_id'].get(node_id, {})
+            nodes.append({
+                'id': node_id,
+                'label': ds.get('dataset_name', attrs.get('name', node_id[:13])),
+                'type': 'dataset',
+                'measurement': ds.get('measurement', ''),
+                'url': f'/{project_id}/dataset/{node_id}'
+            })
+
+    return jsonify({'nodes': nodes, 'edges': edges})
+
+
 @app.route("/<project_id>/api/samples")
 @auth.oidc_auth('orcid')
 def api_samples(project_id):

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Project Graph – {{pc['project_id']}}{% endblock %}
+
+{% block head %}
+    {{ super() }}
+    {{ vite_tags() }}
+    <style>
+        #cy {
+            width: 100%;
+            height: 700px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 2rem;
+        }
+        .legend-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            margin-right: 4px;
+        }
+    </style>
+{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Project Graph</li>
+{% endblock %}
+
+{% block content %}
+
+<h1>Project Graph – <em>{{pc['project_id']}}</em></h1>
+
+<div class="d-flex align-items-center gap-3 mb-2">
+    <button id="toggleLayoutBtn" class="btn btn-sm btn-secondary">Switch to Vertical Layout</button>
+    <span class="text-muted small">
+        <span class="legend-dot" style="background:#4a7ba7;"></span>Sample
+        &nbsp;
+        <span class="legend-dot" style="background:#5a9e6f;"></span>Dataset
+    </span>
+</div>
+
+<div id="cy" data-project-id="{{pc['project_id']}}"></div>
+
+<script type="module">
+  let cyInstance = null;
+
+  async function initGraph() {
+    const response = await fetch('/{{pc["project_id"]}}/api/project-graph-data');
+    const graphData = await response.json();
+
+    if (window.initEntityGraph) {
+      cyInstance = window.initEntityGraph('cy', graphData);
+    } else {
+      setTimeout(initGraph, 100);
+    }
+  }
+
+  document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
+    if (cyInstance && cyInstance.toggleLayout) {
+      const newLayout = cyInstance.toggleLayout();
+      this.textContent = newLayout === 'LR' ? 'Switch to Vertical Layout' : 'Switch to Horizontal Layout';
+    }
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGraph);
+  } else {
+    initGraph();
+  }
+</script>
+
+{% endblock %}
