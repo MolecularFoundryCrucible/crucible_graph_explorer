@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>(function(){var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-bs-theme',t);})();</script>
     {% block head %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,8 +12,17 @@
         href="https://cdn.rawgit.com/afeld/bootstrap-toc/v1.0.1/dist/bootstrap-toc.min.css"
     />
 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
     <style type="text/css">
-        .mfid { color: #80858a; font-family: monospace;}
+        .mfid { color: #80858a; font-family: monospace; white-space: nowrap; }
+        .mfid-copy-btn {
+            opacity: 0.35; transition: opacity 0.15s;
+            color: var(--bs-secondary-color); font-size: 0.85em;
+            vertical-align: middle; line-height: 1;
+            background: none; border: none; padding: 0 0 0 0.25em; cursor: pointer;
+        }
+        .mfid-copy-btn:hover { opacity: 1; color: var(--bs-body-color); }
     </style>
 
     <title>{% block title %}{% endblock %} - Crucible</title>
@@ -31,13 +41,19 @@
 
     {% block nav %}
     <nav aria-label="breadcrumb" class="sticky-top">
-    <ol class="breadcrumb breadcrumb-chevron p-3 bg-body-tertiary border rounded-3">
-        <li class="breadcrumb-item"><a href="/"><b>Crucible</b></a></li>
-        {% block breadcrumb %}
-        {% endblock %}
-    </ol>
+    <div class="d-flex align-items-center bg-body-tertiary border rounded-3 px-1">
+        <ol class="breadcrumb breadcrumb-chevron p-3 mb-0 flex-grow-1">
+            <li class="breadcrumb-item"><a href="/"><b>Crucible</b></a></li>
+            {% block breadcrumb %}
+            {% endblock %}
+        </ol>
+        <button id="darkModeToggle" class="btn btn-sm btn-link text-secondary ms-auto me-1 px-2"
+                title="Toggle dark mode" style="font-size:1rem;">
+            <i class="bi bi-moon"></i>
+        </button>
+    </div>
     </nav>
-    
+
     {% endblock %}
 
 
@@ -57,5 +73,45 @@
         {% block footer %}
         {% endblock %}
     </div>
+
+    <script>
+    // ── dark mode ────────────────────────────────────────────────────────
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-bs-theme', theme);
+        localStorage.setItem('theme', theme);
+        const btn = document.getElementById('darkModeToggle');
+        if (btn) btn.innerHTML = theme === 'dark'
+            ? '<i class="bi bi-sun"></i>'
+            : '<i class="bi bi-moon"></i>';
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        applyTheme(localStorage.getItem('theme') || 'light');
+        document.getElementById('darkModeToggle').addEventListener('click', () => {
+            applyTheme(document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark');
+        });
+    });
+    </script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.mfid').forEach(el => {
+            const text = el.textContent.trim();
+            if (!text) return;
+            const btn = document.createElement('button');
+            btn.className = 'mfid-copy-btn';
+            btn.title = 'Copy ID';
+            btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                e.preventDefault();
+                navigator.clipboard.writeText(text).then(() => {
+                    btn.innerHTML = '<i class="bi bi-clipboard-check" style="color:var(--bs-success);"></i>';
+                    setTimeout(() => { btn.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1500);
+                });
+            });
+            el.appendChild(btn);
+        });
+    });
+    </script>
 </body>
 </html>

@@ -5,10 +5,10 @@
     {{ super() }}
     <style>
         .result-card { transition: background 0.1s; }
-        .result-card:hover { background: #f8f9fa; }
+        .result-card:hover { background: var(--bs-tertiary-bg); }
         mark { background: #fff3cd; border-radius: 2px; padding: 0 2px; }
-        .result-meta { font-size: 0.8em; color: #6c757d; }
-        #results-summary { font-size: 0.85em; color: #6c757d; min-height: 1.4em; }
+        .result-meta { font-size: 0.8em; color: var(--bs-secondary-color); }
+        #results-summary { font-size: 0.85em; color: var(--bs-secondary-color); min-height: 1.4em; }
     </style>
 {% endblock %}
 
@@ -19,7 +19,7 @@
 
 {% block content %}
 
-<h1>Search <em>{{pc['project_id']}}</em></h1>
+<h1><i class="bi bi-search me-2 text-muted"></i>Search <em>{{pc['project_id']}}</em></h1>
 
 <div class="mb-3">
     <input id="search-input" type="text" class="form-control form-control-lg"
@@ -29,11 +29,11 @@
 
 <div class="row">
     <div class="col-md-6">
-        <h5>Samples <span id="sample-count" class="badge bg-secondary"></span></h5>
+        <h5><i class="bi bi-eyedropper me-1 text-muted"></i>Samples <span id="sample-count" class="badge bg-secondary ms-1"></span></h5>
         <div id="sample-results"></div>
     </div>
     <div class="col-md-6">
-        <h5>Datasets <span id="dataset-count" class="badge bg-secondary"></span></h5>
+        <h5><i class="bi bi-database me-1 text-muted"></i>Datasets <span id="dataset-count" class="badge bg-secondary ms-1"></span></h5>
         <div id="dataset-results"></div>
     </div>
 </div>
@@ -67,7 +67,7 @@ function renderSample(s, q) {
         <div class="fw-semibold">${highlight(s.name, q)}</div>
         <div class="result-meta">
             ${s.type ? highlight(s.type, q) + ' &nbsp;·&nbsp; ' : ''}
-            <span class="mfid">${s.id.slice(0,13)}</span>
+            <span class="mfid">${s.id}</span>
         </div>
         ${s.description ? `<div class="result-meta mt-1">${highlight(s.description, q)}</div>` : ''}
     </a>`;
@@ -93,7 +93,7 @@ function renderDataset(d, q) {
         <div class="fw-semibold">${highlight(d.name, q)}</div>
         <div class="result-meta">
             ${d.measurement ? highlight(d.measurement, q) + ' &nbsp;·&nbsp; ' : ''}
-            <span class="mfid">${d.id.slice(0,13)}</span>
+            <span class="mfid">${d.id}</span>
         </div>
         ${metaHtml}
     </a>`;

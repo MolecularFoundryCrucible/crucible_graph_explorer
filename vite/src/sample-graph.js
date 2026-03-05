@@ -191,8 +191,19 @@ export function initEntityGraph(containerId, graphData) {
       padding: 30
     },
     minZoom: 0.2,
-    maxZoom: 3
+    maxZoom: 3,
+    userZoomingEnabled: false
   });
+
+  // Ctrl+scroll to zoom (regular scroll passes through to the page)
+  document.getElementById(containerId).addEventListener('wheel', e => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      cy.zoom({ level: Math.min(Math.max(cy.zoom() * factor, cy.minZoom()), cy.maxZoom()),
+                renderedPosition: { x: e.offsetX, y: e.offsetY } });
+    }
+  }, { passive: false });
 
   const popup = createNodePopup();
 
@@ -355,11 +366,21 @@ export function initSampleGraph(containerId, graphData) {
     },
 
     minZoom: 0.3,
-    maxZoom: 3
-    //wheelSensitivity: 0.2
+    maxZoom: 3,
+    userZoomingEnabled: false
   });
 
   console.log('Cytoscape instance created, nodes:', cy.nodes().length, 'edges:', cy.edges().length);
+
+  // Ctrl+scroll to zoom (regular scroll passes through to the page)
+  document.getElementById(containerId).addEventListener('wheel', e => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      cy.zoom({ level: Math.min(Math.max(cy.zoom() * factor, cy.minZoom()), cy.maxZoom()),
+                renderedPosition: { x: e.offsetX, y: e.offsetY } });
+    }
+  }, { passive: false });
 
   const samplePopup = createNodePopup();
 
