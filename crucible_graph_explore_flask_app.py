@@ -609,7 +609,7 @@ def api_samples(project_id):
     pc = get_project(project_id)
     samples = pc['samples']
     if q:
-        samples = [s for s in samples if q in s['sample_name'].lower() or q in s['unique_id'].lower()]
+        samples = [s for s in samples if q in (s['sample_name'] or '').lower() or q in (s['unique_id'] or '').lower()]
     return jsonify([{'id': s['unique_id'], 'name': s['sample_name']} for s in samples[:20]])
 
 
@@ -622,7 +622,7 @@ def api_datasets(project_id):
     pc = get_project(project_id)
     datasets = pc['datasets']
     if q:
-        datasets = [d for d in datasets if q in d['dataset_name'].lower() or q in d['unique_id'].lower()]
+        datasets = [d for d in datasets if q in (d['dataset_name'] or '').lower() or q in (d['unique_id'] or '').lower()]
     return jsonify([{'id': d['unique_id'], 'name': d['dataset_name']} for d in datasets[:20]])
 
 
@@ -847,16 +847,16 @@ def execute_chat_tool(name, inputs, crucible_client, pc):
         elif name == 'search_samples':
             q = inputs['query'].lower()
             result = [
-                {'id': s['unique_id'], 'name': s['sample_name'], 'type': s.get('sample_type', '')}
+                {'id': s['unique_id'], 'name': s['sample_name'], 'type': s.get('sample_type') or ''}
                 for s in pc.get('samples', [])
-                if q in s['sample_name'].lower()
+                if q in (s['sample_name'] or '').lower()
             ]
         elif name == 'search_datasets':
             q = inputs['query'].lower()
             result = [
-                {'id': d['unique_id'], 'name': d['dataset_name'], 'measurement': d.get('measurement', '')}
+                {'id': d['unique_id'], 'name': d['dataset_name'], 'measurement': d.get('measurement') or ''}
                 for d in pc.get('datasets', [])
-                if q in d['dataset_name'].lower() or q in d.get('measurement', '').lower()
+                if q in (d['dataset_name'] or '').lower() or q in (d.get('measurement') or '').lower()
             ]
         elif name == 'list_samples_for_dataset':
             result = crucible_client.list_samples(dataset_id=inputs['dataset_id'])

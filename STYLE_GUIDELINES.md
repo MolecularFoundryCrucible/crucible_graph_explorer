@@ -264,6 +264,198 @@ When a list or section has no content:
 
 Choose a semantically relevant icon (`bi-inbox`, `bi-search`, `bi-folder`, etc.).
 
+### 6.9 Resource Sections (`res-section`)
+
+The primary pattern for all content sections on resource detail pages (sample, dataset).
+Every section below the header card uses this collapsible container. Sections that show
+primary content (Details, Graph, Note, Thumbnails) start **expanded**; relationship and
+data sections (Linked Samples, Parents, Children, Metadata, Files) start **collapsed**.
+
+```html
+<div class="res-section" id="section-datasets">
+    <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-database text-muted"></i>
+        <span>Section Title</span>
+        <span class="badge fw-normal border text-muted"
+              style="background:var(--bs-tertiary-bg); font-size:0.75rem;">N</span>
+        <!-- chevron: rotate(90deg) = open, '' = closed -->
+        <i class="bi bi-chevron-right res-section-chevron"></i>
+    </div>
+    <div class="res-section-body" style="display:none;"><!-- collapsed by default -->
+        <!-- list-rows or other content -->
+    </div>
+</div>
+```
+
+Start a section **expanded** by setting `style="transform: rotate(90deg);"` on the chevron
+and omitting `style="display:none;"` from the body.
+
+```css
+.res-section { border: 1px solid var(--bs-border-color); border-radius: 0.375rem; overflow: hidden; margin-bottom: 1rem; max-width: 860px; }
+.res-section-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.75rem; background: var(--bs-tertiary-bg); cursor: pointer; user-select: none; font-size: 0.875rem; font-weight: 600; border-bottom: 1px solid var(--bs-border-color); }
+.res-section-header:hover { filter: brightness(0.97); }
+.res-section-chevron { margin-left: auto; color: var(--bs-secondary-color); transition: transform 0.2s; flex-shrink: 0; }
+```
+
+```javascript
+function toggleSection(header) {
+    const body = header.nextElementSibling;
+    const chevron = header.querySelector('.res-section-chevron');
+    const isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : '';
+    if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+}
+```
+
+### 6.10 Metadata Display
+
+For key-value metadata rows (e.g., dataset fields), use a definition-row pattern instead of `<ul>`:
+
+```html
+<div class="meta-row">
+    <span class="meta-key">field_name</span>
+    <span class="text-break">{{ value }}</span>
+</div>
+```
+
+```css
+.meta-row { display: flex; gap: 0.5rem; padding: 0.35rem 0; border-bottom: 1px solid var(--bs-border-color); font-size: 0.875rem; }
+.meta-row:last-child { border-bottom: none; }
+.meta-key { min-width: 9rem; color: var(--bs-secondary-color); flex-shrink: 0; }
+```
+
+In Jinja2, handle different value types safely:
+```jinja2
+{%- if v is mapping -%}<span class="text-muted fst-italic">object</span>
+{%- elif v is sequence and v is not string -%}{{ v | join(', ') }}
+{%- elif v is none -%}<span class="text-muted">—</span>
+{%- else -%}{{ v }}
+{%- endif -%}
+```
+
+### 6.9b Expand / Collapse All Toolbar
+
+Place this toolbar between the header card and the first `res-section` on any resource
+detail page (sample, dataset). It operates on all `.res-section` elements on the page.
+
+```html
+<div class="d-flex gap-2 mb-2 align-items-center" style="max-width: 860px;">
+    <span class="small text-muted me-1">Sections:</span>
+    <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.78rem;"
+            onclick="setAllSections(true)">
+        <i class="bi bi-chevron-expand me-1"></i>Expand all
+    </button>
+    <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.78rem;"
+            onclick="setAllSections(false)">
+        <i class="bi bi-chevron-contract me-1"></i>Collapse all
+    </button>
+</div>
+```
+
+```javascript
+function setAllSections(expand) {
+    document.querySelectorAll('.res-section').forEach(section => {
+        const body    = section.querySelector('.res-section-body');
+        const chevron = section.querySelector('.res-section-chevron');
+        if (body)    body.style.display     = expand ? '' : 'none';
+        if (chevron) chevron.style.transform = expand ? 'rotate(90deg)' : '';
+    });
+}
+```
+
+### 6.10b Resource Page Section Order
+
+Both sample and dataset detail pages share a consistent section order. The header card
+is always visible; everything below is a `res-section`.
+
+**Sample page:**
+1. Header card (always visible)
+2. Expand/Collapse All toolbar
+3. Details — `res-section`, **expanded** (all sample fields via `meta-row`)
+4. Sample Graph — `res-section`, **expanded**
+5. Linked Datasets — `res-section`, collapsed
+6. Ancestors — `res-section`, collapsed (list-rows with path subtitle)
+7. Descendants — `res-section`, collapsed (list-rows with path subtitle)
+
+**Dataset page:**
+1. Header card (always visible)
+2. Expand/Collapse All toolbar
+3. Details (metadata fields) — `res-section`, **expanded**
+4. Note Content (MDNote only) — `res-section`, **expanded**
+5. Thumbnails (if present) — `res-section`, **expanded**
+6. Linked Samples — `res-section`, collapsed
+7. Parent Datasets — `res-section`, collapsed
+8. Child Datasets — `res-section`, collapsed
+9. Scientific Metadata — `res-section`, collapsed (can be very large)
+10. Files — `res-section`, collapsed
+11. Download Links — `res-section`, collapsed
+
+### 6.11 Relative Cards (Ancestors / Descendants)
+
+Cards showing linked entities (ancestors, descendants) use a colored left border consistent
+with the entity's type color:
+
+```html
+<div class="rel-card" style="border-left-color: {{ color }};">
+    <div class="rel-card-header">
+        <i class="bi bi-eyedropper text-muted small"></i>
+        <a href="..." class="fw-semibold text-decoration-none text-body">Name</a>
+        <span class="mfid small text-muted ms-auto">full-uuid</span>
+    </div>
+    <div class="p-3"><!-- content --></div>
+</div>
+```
+
+```css
+.rel-card { border: 1px solid var(--bs-border-color); border-left-width: 4px;
+            border-radius: 0.375rem; overflow: hidden; margin-bottom: 1rem; }
+.rel-card-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem;
+                   background: var(--bs-tertiary-bg); border-bottom: 1px solid var(--bs-border-color); }
+```
+
+### 6.12 Project Mini-nav Sidebar (Detail Pages)
+
+Sample and dataset detail pages use a narrow `col-md-2` sidebar (hidden on mobile) showing:
+1. Project avatar + name with a "← Back to project" link
+2. "This [entity]" section label with the current item name
+3. Related entities (ancestors, descendants, linked samples/datasets)
+
+```html
+<div class="col-md-2 pe-0 d-none d-md-block">
+    <div class="sticky-top pt-1" style="top: 5em; overflow-y: auto; max-height: calc(100vh - 6em);">
+        <!-- Project avatar + back link -->
+        <div class="d-flex align-items-center gap-2 mb-1 px-1">
+            <div id="projectAvatar"></div>
+            <span class="fw-semibold small text-body text-truncate">{{ project_id }}</span>
+        </div>
+        <a href="/{{ project_id }}/" class="nav-link py-1 px-1 text-muted small">
+            <i class="bi bi-arrow-left me-1"></i>Back to project
+        </a>
+    </div>
+</div>
+```
+
+The project avatar is a small (1.5rem) circle initialized with `makeAvatar(el, project_id, '1.5rem', '0.6rem')`.
+
+### 6.13 Thumbnail Grids
+
+Use Bootstrap's responsive grid instead of deprecated `card-columns`:
+
+```html
+<div class="row row-cols-1 row-cols-md-3 g-3 mb-4">
+    {% for thumb in thumbnails %}
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-header small fw-semibold">{{ thumb['name'] }}</div>
+            <img class="card-img-bottom" src="..." style="object-fit:contain; max-height:300px;">
+        </div>
+    </div>
+    {% endfor %}
+</div>
+```
+
+Never use Bootstrap 4's `card-columns` — it does not exist in Bootstrap 5.
+
 ---
 
 ## 7. Icons Reference
@@ -405,7 +597,11 @@ A new page should follow this skeleton:
 - Don't hardcode pixel offsets for sticky elements.
 - Don't use arbitrary hex colors — go through `PALETTE`/`hashColor()`.
 - Don't hide content categories in the sidebar based on the active tab.
-- Don't use deprecated Bootstrap 4 classes (`card-columns`, `text-left`, etc.).
+- Don't use deprecated Bootstrap 4 classes (`card-columns`, `text-left`, `float-left`, etc.).
+  `card-columns` no longer exists in Bootstrap 5 — use `row row-cols-1 row-cols-md-3 g-3` instead.
 - Don't use `onclick` on `<a>` to intercept navigation (use `onmouseup` + `<div>`).
-- Don't use fixed `height` on graph/chart containers — use `min-height` or `vh` units.
+- Don't use fixed `height` on graph/chart containers — use `min-height: 60vh` or similar.
 - Don't use `100vh` for full-screen layouts — use `100dvh` for mobile keyboard compatibility.
+- Don't truncate UUIDs with `[:13]` or `.slice(0,13)` — always show full identifiers.
+- Don't dump raw key-value data with `<ul><li>` — use the `meta-row` pattern for metadata.
+- Don't use `<ul><li>` for navigable entity lists — use `list-row` divs with `navIfNoSelection`.
