@@ -1,18 +1,41 @@
 {% extends "base.html" %}
+{% block title %}Thin Film Gallery — {{ project_id }}{% endblock %}
 
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/{{ project_id }}/"><b>Project</b> {{ project_id }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Thin Film Gallery</li>
+{% endblock %}
 
 {% block content %}
 
-    <h1>Thin Film Gallery</h1>
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h1 class="fs-4 fw-semibold mb-0">Thin Film Gallery</h1>
+    <span class="text-muted small">{{ tf_thumbs | length }} samples</span>
+</div>
 
-    <div class="container">
-    <div class="row row-cols-xl-4">
-    {% for thumb in tf_thumbs %}
-    <div class="card" style="width: 10em;">
-        <h6 class="card-header"><a href={{thumb['sample_url']}}>{{thumb['sample_name']}}</a></h6>
-        <img class="card-img-top" src="data:image/png;base64, {{thumb['thumbnail_b64str']}}" alt="{{thumb['thumbnail_name']}}"/>
-    </div>
-    {% endfor %}
-    </div>
-    </div>
+<div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 row-cols-xl-6 g-3">
+{% for thumb in tf_thumbs %}
+<div class="col">
+    <a href="{{ thumb['sample_url'] }}" class="text-decoration-none">
+        <div class="card h-100 border" style="overflow:hidden;">
+            {% if thumb.get('thumbnail_b64str') %}
+            <img src="data:image/png;base64,{{ thumb['thumbnail_b64str'] }}"
+                 alt="{{ thumb['sample_name'] }}"
+                 style="width:100%; aspect-ratio:1; object-fit:cover;">
+            {% else %}
+            <div class="d-flex align-items-center justify-content-center bg-body-secondary text-muted"
+                 style="aspect-ratio:1;">
+                <i class="bi bi-image fs-3 opacity-25"></i>
+            </div>
+            {% endif %}
+            <div class="card-footer py-1 px-2 text-center border-top"
+                 style="font-size:0.75rem; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                {{ thumb['sample_name'] }}
+            </div>
+        </div>
+    </a>
+</div>
+{% endfor %}
+</div>
+
 {% endblock %}

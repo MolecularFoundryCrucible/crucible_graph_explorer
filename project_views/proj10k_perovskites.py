@@ -100,6 +100,7 @@ def create_blueprint(auth, helpers):
             tn['sample_url'] = f'/{PROJECT_ID}/sample-graph/{tf["unique_id"]}'
             tf_thumbs.append(tn)
 
-        return render_template('proj10k_templates/thinfilm-gallery.html', tf_thumbs=tf_thumbs)
+        return render_template('proj10k_templates/thinfilm-gallery.html',
+                               tf_thumbs=tf_thumbs, project_id=PROJECT_ID)
 
     return bp
