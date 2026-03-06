@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block title %}{{ds['dataset_name']}} — Spectra Plot{% endblock %}
+
+{% block head %}
+{{ super() }}
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
+    <li class="breadcrumb-item"><a href="/{{project_id}}/dataset/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Spectra Plot</li>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h1 class="fs-4 fw-semibold mb-0" style="overflow-wrap: break-word;">{{ds['dataset_name']}}</h1>
+    <a href="/{{project_id}}/dataset/{{ds['unique_id']}}"
+       class="btn btn-sm btn-outline-secondary flex-shrink-0">
+        <i class="bi bi-database me-1"></i>Dataset
+    </a>
+</div>
+
+<!-- Controls -->
+<div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+    <div class="btn-group btn-group-sm" role="group" aria-label="Display mode">
+        <input type="radio" class="btn-check" name="mode" id="mode-reflectance" value="reflectance" checked>
+        <label class="btn btn-outline-primary" for="mode-reflectance">Reflectance</label>
+
+        <input type="radio" class="btn-check" name="mode" id="mode-dark-corrected" value="dark_corrected">
+        <label class="btn btn-outline-primary" for="mode-dark-corrected">Dark-corrected</label>
+
+        <input type="radio" class="btn-check" name="mode" id="mode-raw" value="raw">
+        <label class="btn btn-outline-primary" for="mode-raw">Raw</label>
+    </div>
+    <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" id="wl-filter" checked>
+        <label class="form-check-label small" for="wl-filter">Visible range only (300–700 nm)</label>
+    </div>
+</div>
+
+<!-- Loading / error states -->
+<div id="loading" class="text-muted">
+    <span class="spinner-border spinner-border-sm me-2"></span>Loading spectral data…
+</div>
+<div id="load-error" class="alert alert-warning d-none"></div>
+
+<!-- Overview: all samples -->
+<div id="overview-plot" style="width:100%; height:460px; display:none;"></div>
+
+<!-- Detail: individual line-scan spectra -->
+<div id="detail-section" class="mt-4" style="display:none;">
+    <h2 class="fs-5 fw-semibold mb-1">
+        Line scan detail — <span id="detail-title"></span>
+    </h2>
+    <p class="text-muted small mb-2">
+        Gray traces are individual spectra from each point along the line scan. The colored trace is their mean. Click a sample in the overview or map to switch.
+    </p>
+    <div id="detail-plot" style="width:100%; height:340px;"></div>
+
+    <h2 class="fs-5 fw-semibold mb-1 mt-4">Sample locations</h2>
+    <p class="text-muted small mb-2">Click a point to view its spectra.</p>
+    <div id="location-plot" style="width:100%; height:340px;"></div>
+</div>
+
+<script>
+(async () => {
+    const dsid = {{ ds['unique_id'] | tojson }};
+    const projectId = {{ project_id | tojson }};
+    const dataUrl = `/dataset-view/pollux-oospec/${projectId}/${dsid}/data`;
+
+    // --- Fetch data ---
+    let payload;
+    try {
+        const resp = await fetch(dataUrl);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        payload = await resp.json();
+        if (payload.error) throw new Error(payload.error);
+    } catch (e) {
+        document.getElementById('loading').classList.add('d-none');
+        const el = document.getElementById('load-error');
+        el.textContent = 'Failed to load spectral data: ' + e.message;
+        el.classList.remove('d-none');
+        return;
+    }
+
+    document.getElementById('loading').classList.add('d-none');
+    document.getElementById('overview-plot').style.display = '';
+    document.getElementById('detail-section').style.display = '';
+
+    const { wavelengths, positions } = payload;
+
+    // Palette: Plotly's default qualitative colours (repeating)
+    const palette = [
+        '#636efa','#ef553b','#00cc96','#ab63fa','#ffa15a',
+        '#19d3f3','#ff6692','#b6e880','#ff97ff','#fecb52',
+        '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b',
+    ];
+
+    // --- Mode helpers ---
+    const modeKey = () => document.querySelector('input[name=mode]:checked').value;
+    const yLabel = () => ({
+        reflectance: 'Reflectance',
+        dark_corrected: 'Intensity – dark (counts)',
+        raw: 'Raw intensity (counts)',
+    }[modeKey()]);
+
+    const getMeanData = (pos) => ({
+        reflectance: pos.mean_reflectance,
+        dark_corrected: pos.mean_dark_corrected,
+        raw: pos.mean_raw,
+    }[modeKey()]);
+
+    const getAllData = (pos) => ({
+        reflectance: pos.all_reflectance,
+        dark_corrected: pos.all_dark_corrected,
+        raw: pos.all_raw,
+    }[modeKey()]);
+
+    // Reflectance is bounded [0, 1]; other modes use auto-range.
+    const yAxisRange = () => modeKey() === 'reflectance'
+        ? { range: [0, 1.2] }
+        : { autorange: true };
+
+    // Wavelength filter
+    const useFilter = () => document.getElementById('wl-filter').checked;
+    let filterMask = null; // computed once
+    let filteredWl = wavelengths;
+
+    const computeFilter = () => {
+        filterMask = wavelengths.map((w, i) => ({ w, i }))
+            .filter(({ w }) => w >= 300 && w <= 700)
+            .map(({ i }) => i);
+        filteredWl = filterMask.map(i => wavelengths[i]);
+    };
+    computeFilter();
+
+    const applyFilter = (arr) => useFilter()
+        ? filterMask.map(i => arr[i])
+        : arr;
+
+    const xValues = () => useFilter() ? filteredWl : wavelengths;
+
+    // --- Build overview traces ---
+    let selectedIdx = null;
+
+    const buildOverviewTraces = () => positions.map((pos, idx) => ({
+        x: xValues(),
+        y: applyFilter(getMeanData(pos)),
+        type: 'scattergl',
+        mode: 'lines',
+        name: pos.sample_name,
+        line: { color: palette[idx % palette.length], width: 1.8 },
+        hovertemplate: `<b>${pos.sample_name}</b><br>λ: %{x:.1f} nm<br>${yLabel()}: %{y:.4f}<extra></extra>`,
+    }));
+
+    const overviewLayout = () => ({
+        xaxis: { title: { text: 'Wavelength (nm)' }, showgrid: true },
+        yaxis: { title: { text: yLabel() }, showgrid: true, ...yAxisRange() },
+        legend: { orientation: 'v', x: 1.01, y: 1 },
+        margin: { t: 20, r: 160, b: 60, l: 75 },
+        hovermode: 'x unified',
+    });
+
+    await Plotly.newPlot('overview-plot', buildOverviewTraces(), overviewLayout(), { responsive: true });
+
+    // --- Location map ---
+    // Each sample is shown as a 15 mm × 15 mm rectangle in stage coordinates.
+    const HALF = 7.5;  // half of 15 mm
+
+    const buildMapShapes = (selectedIdx) => positions.map((pos, idx) => ({
+        type: 'rect',
+        x0: pos.x_center - HALF, x1: pos.x_center + HALF,
+        y0: pos.y_center - HALF, y1: pos.y_center + HALF,
+        fillcolor: palette[idx % palette.length],
+        opacity: idx === selectedIdx ? 0.7 : 0.25,
+        line: { color: palette[idx % palette.length], width: idx === selectedIdx ? 2.5 : 1 },
+        layer: 'below',
+    }));
+
+    const initLocationMap = async () => {
+        // Invisible markers for click detection; text labels at centre.
+        const traces = positions.map((pos, idx) => ({
+            x: [pos.x_center],
+            y: [pos.y_center],
+            type: 'scatter',
+            mode: 'markers+text',
+            text: [pos.sample_name],
+            textposition: 'middle center',
+            textfont: { size: 9 },
+            marker: { color: 'rgba(0,0,0,0)', size: 20 },
+            showlegend: false,
+            hovertemplate: `<b>${pos.sample_name}</b><br>x: ${pos.x_center} mm<br>y: ${pos.y_center} mm<extra></extra>`,
+        }));
+
+        await Plotly.newPlot('location-plot', traces, {
+            shapes: buildMapShapes(null),
+            xaxis: { title: { text: 'Stage X (mm)' }, showgrid: true },
+            yaxis: { title: { text: 'Stage Y (mm)' }, showgrid: true, scaleanchor: 'x', scaleratio: 1 },
+            margin: { t: 10, r: 10, b: 55, l: 60 },
+            hovermode: 'closest',
+        }, { responsive: true });
+
+        document.getElementById('location-plot').on('plotly_click', (e) => {
+            if (e.points.length) showDetail(e.points[0].curveNumber);
+        });
+    };
+
+    const updateMapSelection = (idx) => {
+        Plotly.relayout('location-plot', { shapes: buildMapShapes(idx) });
+    };
+
+    await initLocationMap();
+
+    // --- Detail plot ---
+    const showDetail = async (idx) => {
+        selectedIdx = idx;
+        const pos = positions[idx];
+        document.getElementById('detail-title').textContent = pos.sample_name;
+        updateMapSelection(idx);
+
+        const color = palette[idx % palette.length];
+        const allSpectra = getAllData(pos);
+        const nPts = allSpectra.length;
+        const label = yLabel();
+
+        const detailTraces = allSpectra.map((spectrum, i) => ({
+            x: xValues(),
+            y: applyFilter(spectrum),
+            type: 'scattergl',
+            mode: 'lines',
+            name: `Point ${i + 1}`,
+            line: { color: 'rgba(150,150,150,0.5)', width: 1 },
+            showlegend: i === 0,
+            legendgroup: 'scans',
+            hovertemplate: `Point ${i + 1}<br>λ: %{x:.1f} nm<br>${label}: %{y:.4f}<extra></extra>`,
+        }));
+
+        // Mean trace on top
+        detailTraces.push({
+            x: xValues(),
+            y: applyFilter(getMeanData(pos)),
+            type: 'scattergl',
+            mode: 'lines',
+            name: 'Mean',
+            line: { color, width: 2.5 },
+            hovertemplate: `Mean<br>λ: %{x:.1f} nm<br>${label}: %{y:.4f}<extra></extra>`,
+        });
+
+        detailTraces[0].name = `Individual (${nPts} pts)`;
+
+        await Plotly.newPlot('detail-plot', detailTraces, {
+            xaxis: { title: { text: 'Wavelength (nm)' }, showgrid: true },
+            yaxis: { title: { text: label }, showgrid: true, ...yAxisRange() },
+            legend: { orientation: 'h', y: -0.2 },
+            margin: { t: 10, r: 20, b: 75, l: 75 },
+            hovermode: 'x unified',
+        }, { responsive: true });
+    };
+
+    // Click on a trace in overview → show detail
+    document.getElementById('overview-plot').on('plotly_legendclick', (e) => {
+        showDetail(e.curveNumber);
+        return false; // don't toggle visibility
+    });
+    document.getElementById('overview-plot').on('plotly_click', (e) => {
+        if (e.points.length) showDetail(e.points[0].curveNumber);
+    });
+
+    // Show first sample by default
+    showDetail(0);
+
+    // --- Re-render on mode / filter change ---
+    const redraw = () => {
+        Plotly.react('overview-plot', buildOverviewTraces(), overviewLayout());
+        if (selectedIdx !== null) showDetail(selectedIdx);
+    };
+
+    document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', redraw));
+    document.getElementById('wl-filter').addEventListener('change', redraw);
+})();
+</script>
+
+{% endblock %}
