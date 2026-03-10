@@ -32,6 +32,8 @@ steps:
         ORCID_CLIENT_ID=orcid_client_id_esb:latest,
         ORCID_CLIENT_SECRET=orcid_client_secret_esb:latest,
         ANTHROPIC_AUTH_TOKEN=mfdata-cborg-api-key:latest
+      - '--service-account'
+      - 'graph-explorer-cloudrun@mf-crucible.iam.gserviceaccount.com'
       - '--allow-unauthenticated'
 
 substitutions:
