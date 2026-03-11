@@ -25,82 +25,99 @@ def _safe_2d(arr):
     return [[None if not math.isfinite(v) else v for v in row] for row in arr.tolist()]
 
 
-def _make_position(pos_name, raw, dark, safe_denom, sample_name, x_center, y_center):
-    refl = (raw - dark) / safe_denom
+def _open_h5(content_bytes):
+    return h5py.File(io.BytesIO(content_bytes), 'r')
+
+
+def _get_refs(meas, all_positions, new_format):
+    """Return (dark_1d, safe_denom_1d, reference_indices) for the new format,
+    or (None, None, set()) for the old format."""
+    if not new_format:
+        return None, None, set()
+    settings_attrs = meas['settings'].attrs
+    dark_idx  = int(settings_attrs.get('dark_idx',  0))
+    blank_idx = int(settings_attrs.get('blank_idx', 1))
+    dark  = np.mean(all_positions[dark_idx][1]['spectral_data'][:],  axis=0)
+    blank = np.mean(all_positions[blank_idx][1]['spectral_data'][:], axis=0)
+    safe_denom = np.where(np.abs(blank - dark) > 1e-6, blank - dark, np.nan)
+    return dark, safe_denom, {dark_idx, blank_idx}
+
+
+def _position_arrays(grp, dark, safe_denom, new_format):
+    """Return (raw, dark_1d, safe_denom) for one position group."""
+    if new_format:
+        raw = grp['spectral_data'][:]
+    else:
+        raw        = grp['raw_intensities'][:]
+        dark_arr   = grp['dark_intensities'][:]
+        blank_arr  = grp['blank_intensities'][:]
+        dark       = dark_arr
+        safe_denom = np.where(np.abs(blank_arr - dark_arr) > 1e-6, blank_arr - dark_arr, np.nan)
+    return raw, dark, safe_denom
+
+
+def _position_meta(grp, pos_name, new_format):
+    if new_format:
+        return {
+            'pos_name':    pos_name,
+            'sample_name': _h5str(grp['sample_name'][()]),
+            'x_center':    float(grp['x_center'][()]),
+            'y_center':    float(grp['y_center'][()]),
+        }
+    attrs = dict(grp.attrs)
     return {
-        'pos_name':            pos_name,
-        'sample_name':         sample_name,
-        'x_center':            x_center,
-        'y_center':            y_center,
-        'mean_raw':            np.nanmean(raw, axis=0).tolist(),
-        'mean_dark_corrected': np.nanmean(raw - dark, axis=0).tolist(),
-        'mean_reflectance':    _safe_1d(np.nanmean(refl, axis=0)),
-        'all_raw':             raw.tolist(),
-        'all_dark_corrected':  (raw - dark).tolist(),
-        'all_reflectance':     _safe_2d(refl),
+        'pos_name':    pos_name,
+        'sample_name': str(attrs.get('sample_name', pos_name)),
+        'x_center':    float(attrs.get('x_center', 0)),
+        'y_center':    float(attrs.get('y_center', 0)),
     }
 
 
-def _parse_h5(content_bytes):
-    """Parse an in-memory .h5 file, handling two known format versions.
-
-    New format: spectral_data per position, global DarkReference / BlankReference
-                positions, metadata stored as datasets.
-    Old format: raw_intensities / dark_intensities / blank_intensities per
-                position, metadata stored as HDF5 attributes.
+def _parse_h5_overview(content_bytes):
+    """Return wavelengths + per-position metadata and mean spectra only.
+    Individual line-scan spectra are omitted — fetch via /data/<pos_name>.
     """
-    with h5py.File(io.BytesIO(content_bytes), 'r') as f:
+    with _open_h5(content_bytes) as f:
         meas = f['measurement/pollux_oospec_multipos_line_scan']
         wavelengths = meas['wavelengths'][:].tolist()
         all_positions = sorted(meas['positions'].items())
-
-        # Detect format from first position group
-        first_grp = all_positions[0][1]
-        new_format = 'spectral_data' in first_grp
+        new_format = 'spectral_data' in all_positions[0][1]
+        dark, safe_denom, ref_indices = _get_refs(meas, all_positions, new_format)
 
         positions_out = []
-
-        if new_format:
-            settings_attrs = meas['settings'].attrs
-            dark_idx  = int(settings_attrs.get('dark_idx',  0))
-            blank_idx = int(settings_attrs.get('blank_idx', 1))
-
-            dark  = np.mean(all_positions[dark_idx][1]['spectral_data'][:],  axis=0)
-            blank = np.mean(all_positions[blank_idx][1]['spectral_data'][:], axis=0)
-            safe_denom = np.where(np.abs(blank - dark) > 1e-6, blank - dark, np.nan)
-
-            reference_indices = {dark_idx, blank_idx}
-            for i, (pos_name, grp) in enumerate(all_positions):
-                if i in reference_indices:
-                    continue
-                positions_out.append(_make_position(
-                    pos_name,
-                    raw        = grp['spectral_data'][:],
-                    dark       = dark,
-                    safe_denom = safe_denom,
-                    sample_name = _h5str(grp['sample_name'][()]),
-                    x_center    = float(grp['x_center'][()]),
-                    y_center    = float(grp['y_center'][()]),
-                ))
-
-        else:  # old format
-            for pos_name, grp in all_positions:
-                raw   = grp['raw_intensities'][:]
-                dark  = grp['dark_intensities'][:]
-                blank = grp['blank_intensities'][:]
-                safe_denom = np.where(np.abs(blank - dark) > 1e-6, blank - dark, np.nan)
-                attrs = dict(grp.attrs)
-                positions_out.append(_make_position(
-                    pos_name,
-                    raw        = raw,
-                    dark       = dark,
-                    safe_denom = safe_denom,
-                    sample_name = str(attrs.get('sample_name', pos_name)),
-                    x_center    = float(attrs.get('x_center', 0)),
-                    y_center    = float(attrs.get('y_center', 0)),
-                ))
+        for i, (pos_name, grp) in enumerate(all_positions):
+            if i in ref_indices:
+                continue
+            raw, d, sd = _position_arrays(grp, dark, safe_denom, new_format)
+            refl = (raw - d) / sd
+            meta = _position_meta(grp, pos_name, new_format)
+            meta.update({
+                'mean_raw':            np.nanmean(raw, axis=0).tolist(),
+                'mean_dark_corrected': np.nanmean(raw - d, axis=0).tolist(),
+                'mean_reflectance':    _safe_1d(np.nanmean(refl, axis=0)),
+            })
+            positions_out.append(meta)
 
     return {'wavelengths': wavelengths, 'positions': positions_out}
+
+
+def _parse_h5_position(content_bytes, pos_name):
+    """Return all individual line-scan spectra for one named position."""
+    with _open_h5(content_bytes) as f:
+        meas = f['measurement/pollux_oospec_multipos_line_scan']
+        all_positions = sorted(meas['positions'].items())
+        new_format = 'spectral_data' in all_positions[0][1]
+        dark, safe_denom, _ = _get_refs(meas, all_positions, new_format)
+
+        grp = meas['positions'][pos_name]
+        raw, d, sd = _position_arrays(grp, dark, safe_denom, new_format)
+        refl = (raw - d) / sd
+
+    return {
+        'all_raw':            raw.tolist(),
+        'all_dark_corrected': (raw - d).tolist(),
+        'all_reflectance':    _safe_2d(refl),
+    }
 
 
 def _fetch_h5_bytes(dsid):
@@ -142,26 +159,36 @@ def create_blueprint(auth, helpers):
         if not is_user_in_project(project_id):
             abort(403)
         ds = current_app.crucible_client.get_dataset(dsid)
-        return render_template(
-            'dataset_views/pollux_oospec.html',
-            project_id=project_id,
-            ds=ds,
-        )
+        return render_template('dataset_views/pollux_oospec.html',
+                               project_id=project_id, ds=ds)
 
     @bp.route('/<project_id>/<dsid>/data')
     @auth.oidc_auth('orcid')
     def data(project_id, dsid):
         if not is_user_in_project(project_id):
             abort(403)
-
         try:
             content, error = _fetch_h5_bytes(dsid)
             if error:
                 return jsonify({'error': error}), 404
-            result = _parse_h5(content)
-            return jsonify(result)
+            return jsonify(_parse_h5_overview(content))
         except Exception as e:
             current_app.logger.exception('pollux_oospec /data failed for dsid=%s', dsid)
+            return jsonify({'error': str(e)}), 500
+
+    @bp.route('/<project_id>/<dsid>/data/<pos_name>')
+    @auth.oidc_auth('orcid')
+    def data_position(project_id, dsid, pos_name):
+        if not is_user_in_project(project_id):
+            abort(403)
+        try:
+            content, error = _fetch_h5_bytes(dsid)
+            if error:
+                return jsonify({'error': error}), 404
+            return jsonify(_parse_h5_position(content, pos_name))
+        except Exception as e:
+            current_app.logger.exception(
+                'pollux_oospec /data/%s failed for dsid=%s', pos_name, dsid)
             return jsonify({'error': str(e)}), 500
 
     return bp

@@ -220,6 +220,24 @@
         document.getElementById('detail-title').textContent = pos.sample_name;
         updateMapSelection(idx);
 
+        // Lazily fetch individual line-scan spectra; cache on the position object.
+        if (!pos._detail) {
+            document.getElementById('detail-plot').innerHTML =
+                '<div class="text-muted p-3"><span class="spinner-border spinner-border-sm me-2"></span>Loading spectra…</div>';
+            const resp = await fetch(`${dataUrl}/${encodeURIComponent(pos.pos_name)}`);
+            const detail = await resp.json();
+            if (detail.error) {
+                document.getElementById('detail-plot').innerHTML =
+                    `<div class="alert alert-warning m-2">${detail.error}</div>`;
+                return;
+            }
+            Object.assign(pos, detail);  // merges all_raw, all_dark_corrected, all_reflectance
+            pos._detail = true;
+        }
+
+        // Bail if user switched to a different sample while we were fetching.
+        if (idx !== selectedIdx) return;
+
         const color = palette[idx % palette.length];
         const allSpectra = getAllData(pos);
         const nPts = allSpectra.length;
