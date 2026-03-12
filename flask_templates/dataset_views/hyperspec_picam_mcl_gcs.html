@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% block title %}{{ds['dataset_name']}} — Hyperspectral Viewer{% endblock %}
+
+{% block head %}
+{{ super() }}
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
+    <li class="breadcrumb-item"><a href="/{{project_id}}/dataset/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Hyperspectral Viewer</li>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h1 class="fs-4 fw-semibold mb-0" style="overflow-wrap:break-word;">{{ds['dataset_name']}}</h1>
+    <a href="/{{project_id}}/dataset/{{ds['unique_id']}}" class="btn btn-sm btn-outline-secondary flex-shrink-0">
+        <i class="bi bi-database me-1"></i>Dataset
+    </a>
+</div>
+
+<!-- Controls -->
+<div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+    <div class="d-flex align-items-center gap-2">
+        <label class="form-label mb-0 small fw-semibold">Spectral axis</label>
+        <select id="x-axis-select" class="form-select form-select-sm" style="width:auto;">
+            {% for key in available_axes %}
+            <option value="{{key}}">{{ x_axis_labels[key] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="small text-muted">Map range:</span>
+        <input id="spec-min" type="number" class="form-control form-control-sm" style="width:110px;" placeholder="min">
+        <span class="small text-muted">–</span>
+        <input id="spec-max" type="number" class="form-control form-control-sm" style="width:110px;" placeholder="max">
+        <button id="apply-range" class="btn btn-sm btn-primary">Apply</button>
+        <button id="reset-range" class="btn btn-sm btn-outline-secondary">Full range</button>
+    </div>
+</div>
+
+<!-- Heatmap -->
+<div id="map-loading" class="text-muted small mb-1">Loading map…</div>
+<div id="map-plot" style="width:100%; height:480px;"></div>
+<div id="map-error" class="alert alert-warning d-none mt-2"></div>
+
+<hr class="my-4">
+
+<!-- Spectrum -->
+<h2 class="fs-5 fw-semibold mb-1">
+    Pixel spectrum — <span id="spectrum-title" class="text-muted fw-normal">click map to select pixel</span>
+</h2>
+<p class="text-muted small mb-2">
+    Drag on the spectrum to select a spectral range; the map will update to show the integrated intensity over that range.
+</p>
+<div id="spectrum-plot" style="width:100%; height:360px;"></div>
+<div id="spectrum-error" class="alert alert-warning d-none mt-2"></div>
+
+<script>
+(async () => {
+    const dsid      = {{ ds['unique_id'] | tojson }};
+    const projectId = {{ project_id | tojson }};
+    const base      = `/dataset-view/hyperspec-picam-mcl-gcs/${projectId}/${dsid}`;
+
+    // ── State ────────────────────────────────────────────────────────────────
+    let currentXi = null, currentYi = null;
+    let specMin = null, specMax = null;
+    let xValues = null, xLabel = null;   // cached from /map, reused by every /spectrum call
+    let hArray = null, vArray = null;    // cached from /map, needed by click handler
+
+    const xAxisSel = document.getElementById('x-axis-select');
+    const xAxis = () => xAxisSel.value;
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function showError(id, msg) {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.classList.remove('d-none');
+    }
+
+    async function fetchJSON(url) {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return resp.json();
+    }
+
+    // ── Map ──────────────────────────────────────────────────────────────────
+    async function loadMap() {
+        const params = new URLSearchParams({ x_axis: xAxis() });
+        if (specMin !== null) params.set('spec_min', specMin);
+        if (specMax !== null) params.set('spec_max', specMax);
+
+        let payload;
+        try {
+            payload = await fetchJSON(`${base}/map?${params}`);
+        } catch (e) {
+            showError('map-error', 'Failed to load map: ' + e.message);
+            return;
+        }
+
+        const { h_array, v_array, map_data, x_values, x_label: xl } = payload;
+        hArray  = h_array;
+        vArray  = v_array;
+        xValues = x_values;
+        xLabel  = xl;
+
+        const mapTrace = {
+            x: h_array,
+            y: v_array,
+            z: map_data,
+            type: 'heatmap',
+            colorscale: 'Viridis',
+            colorbar: { title: { text: 'Intensity', side: 'right' }, thickness: 16 },
+            hovertemplate: 'h: %{x:.2f} µm<br>v: %{y:.2f} µm<br>Intensity: %{z:.3e}<extra></extra>',
+        };
+
+        // Marker for selected pixel
+        const markerTrace = {
+            x: currentXi !== null ? [h_array[currentXi]] : [],
+            y: currentYi !== null ? [v_array[currentYi]] : [],
+            type: 'scatter',
+            mode: 'markers',
+            marker: { color: 'red', size: 10, symbol: 'cross', line: { color: 'white', width: 1.5 } },
+            showlegend: false,
+            hoverinfo: 'skip',
+        };
+
+        const layout = {
+            xaxis: { title: { text: 'h (µm)' }, showgrid: false },
+            yaxis: { title: { text: 'v (µm)' }, showgrid: false, scaleanchor: 'x', scaleratio: 1 },
+            margin: { t: 20, r: 80, b: 60, l: 70 },
+        };
+
+        await Plotly.react('map-plot', [mapTrace, markerTrace], layout, { responsive: true });
+
+        document.getElementById('map-loading').classList.add('d-none');
+    }
+
+    function nearestIndex(arr, val) {
+        let best = 0, bestDist = Math.abs(arr[0] - val);
+        for (let i = 1; i < arr.length; i++) {
+            const d = Math.abs(arr[i] - val);
+            if (d < bestDist) { bestDist = d; best = i; }
+        }
+        return best;
+    }
+
+    // ── Spectrum ─────────────────────────────────────────────────────────────
+    async function loadSpectrum() {
+        if (currentXi === null || currentYi === null || xValues === null) return;
+
+        const params = new URLSearchParams({ xi: currentXi, yi: currentYi });
+        let payload;
+        try {
+            payload = await fetchJSON(`${base}/spectrum?${params}`);
+        } catch (e) {
+            showError('spectrum-error', 'Failed to load spectrum: ' + e.message);
+            return;
+        }
+
+        const { y_values } = payload;
+
+        document.getElementById('spectrum-title').textContent =
+            `xi=${currentXi}, yi=${currentYi}`;
+
+        // Highlight selected range
+        const shapes = (specMin !== null && specMax !== null) ? [{
+            type: 'rect', xref: 'x', yref: 'paper',
+            x0: Math.min(specMin, specMax), x1: Math.max(specMin, specMax),
+            y0: 0, y1: 1,
+            fillcolor: 'rgba(13,110,253,0.12)',
+            line: { color: 'rgba(13,110,253,0.5)', width: 1 },
+            layer: 'below',
+        }] : [];
+
+        await Plotly.react('spectrum-plot', [{
+            x: xValues,
+            y: y_values,
+            type: 'scattergl',
+            mode: 'lines',
+            line: { color: '#0d6efd', width: 1.5 },
+        }], {
+            xaxis: { title: { text: xLabel }, showgrid: true },
+            yaxis: { title: { text: 'Intensity' }, showgrid: true, exponentformat: 'e' },
+            margin: { t: 10, r: 20, b: 60, l: 80 },
+            dragmode: 'select',
+            selectdirection: 'h',
+            shapes,
+        }, { responsive: true });
+
+    }
+
+    // ── Controls ─────────────────────────────────────────────────────────────
+    document.getElementById('apply-range').addEventListener('click', async () => {
+        const lo = parseFloat(document.getElementById('spec-min').value);
+        const hi = parseFloat(document.getElementById('spec-max').value);
+        if (!isNaN(lo) && !isNaN(hi)) {
+            specMin = lo; specMax = hi;
+            await loadMap();
+            await loadSpectrum();
+        }
+    });
+
+    document.getElementById('reset-range').addEventListener('click', async () => {
+        specMin = null; specMax = null;
+        document.getElementById('spec-min').value = '';
+        document.getElementById('spec-max').value = '';
+        await loadMap();
+        await loadSpectrum();
+    });
+
+    xAxisSel.addEventListener('change', async () => {
+        specMin = null; specMax = null;
+        document.getElementById('spec-min').value = '';
+        document.getElementById('spec-max').value = '';
+        await loadMap();
+        await loadSpectrum();
+    });
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    await loadMap();
+    currentXi = {{ (h_array | length) // 2 }};
+    currentYi = {{ (v_array | length) // 2 }};
+    await loadSpectrum();
+
+    // Register event listeners once — after both plots exist
+    document.getElementById('map-plot').on('plotly_click', async (e) => {
+        if (!e.points.length || e.points[0].curveNumber !== 0) return;
+        const pt = e.points[0];
+        currentXi = nearestIndex(hArray, pt.x);
+        currentYi = nearestIndex(vArray, pt.y);
+        Plotly.restyle('map-plot', { x: [[hArray[currentXi]]], y: [[vArray[currentYi]]] }, [1]);
+        await loadSpectrum();
+    });
+
+    document.getElementById('spectrum-plot').on('plotly_selected', async (e) => {
+        if (!e || !e.range) return;
+        specMin = e.range.x[0];
+        specMax = e.range.x[1];
+        document.getElementById('spec-min').value = specMin.toFixed(2);
+        document.getElementById('spec-max').value = specMax.toFixed(2);
+        await loadMap();
+        await loadSpectrum();
+    });
+})();
+</script>
+
+{% endblock %}
