@@ -62,7 +62,7 @@
 (async () => {
     const dsid      = {{ ds['unique_id'] | tojson }};
     const projectId = {{ project_id | tojson }};
-    const base      = `/dataset-view/hyperspec-picam-mcl-gcs/${projectId}/${dsid}`;
+    const base      = `/dataset-view/hyperspec-picam-mcl/${projectId}/${dsid}`;
 
     // ── State ────────────────────────────────────────────────────────────────
     let currentXi = null, currentYi = null;
@@ -84,6 +84,11 @@
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         return resp.json();
+    }
+
+    function debounce(fn, ms) {
+        let timer;
+        return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
     }
 
     // ── Map ──────────────────────────────────────────────────────────────────
@@ -175,15 +180,19 @@
             layer: 'below',
         }] : [];
 
-        await Plotly.react('spectrum-plot', [{
-            x: xValues,
-            y: y_values,
-            type: 'scattergl',
-            mode: 'lines',
-            line: { color: '#0d6efd', width: 1.5 },
-        }], {
+        let yMin = Infinity, yMax = -Infinity;
+        for (const v of y_values) { if (v < yMin) yMin = v; if (v > yMax) yMax = v; }
+        const yPad = (yMax - yMin) * 0.05 || 1;
+
+        await Plotly.react('spectrum-plot', [
+            { x: xValues, y: y_values, type: 'scattergl', mode: 'lines',
+              line: { color: '#0d6efd', width: 1.5 }, showlegend: false },
+            { x: xValues, y: [], type: 'scatter', mode: 'lines',
+              line: { color: '#adb5bd', width: 1 }, showlegend: false, hoverinfo: 'skip' },
+        ], {
             xaxis: { title: { text: xLabel }, showgrid: true },
-            yaxis: { title: { text: 'Intensity' }, showgrid: true, exponentformat: 'e' },
+            yaxis: { title: { text: 'Intensity' }, showgrid: true, exponentformat: 'e',
+                     range: [yMin - yPad, yMax + yPad], autorange: false },
             margin: { t: 10, r: 20, b: 60, l: 80 },
             dragmode: 'select',
             selectdirection: 'h',
@@ -233,6 +242,23 @@
         currentYi = nearestIndex(vArray, pt.y);
         Plotly.restyle('map-plot', { x: [[hArray[currentXi]]], y: [[vArray[currentYi]]] }, [1]);
         await loadSpectrum();
+    });
+
+    document.getElementById('map-plot').on('plotly_hover', debounce(async (e) => {
+        if (!e.points.length || e.points[0].curveNumber !== 0) return;
+        const pt = e.points[0];
+        const xi = nearestIndex(hArray, pt.x);
+        const yi = nearestIndex(vArray, pt.y);
+        if (xi === currentXi && yi === currentYi) return;
+        try {
+            const resp = await fetch(`${base}/spectrum?${new URLSearchParams({ xi, yi })}`);
+            if (!resp.ok) return;
+            Plotly.restyle('spectrum-plot', { y: [new Float32Array(await resp.arrayBuffer())] }, [1]);
+        } catch (_) {}
+    }, 40));
+
+    document.getElementById('map-plot').on('plotly_unhover', () => {
+        Plotly.restyle('spectrum-plot', { y: [[]] }, [1]);
     });
 
     document.getElementById('spectrum-plot').on('plotly_selected', async (e) => {

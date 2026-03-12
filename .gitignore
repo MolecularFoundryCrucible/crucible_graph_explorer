@@ -12,3 +12,4 @@ wheels/
 # secrets
 .env
 example_data
+crucible-downloads

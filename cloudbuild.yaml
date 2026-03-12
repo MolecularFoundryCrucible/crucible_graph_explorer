@@ -24,7 +24,8 @@ steps:
       - >-
         OIDC_REDIRECT_URI=https://${_SERVICE_NAME}-${PROJECT_NUMBER}.${_REGION}.run.app/redirect_uri,
         ANTHROPIC_BASE_URL=${_ANTHROPIC_BASE_URL},
-        ANTHROPIC_MODEL=${_ANTHROPIC_MODEL}
+        ANTHROPIC_MODEL=${_ANTHROPIC_MODEL},
+        CRUCIBLE_DOWNLOAD_DIR=/tmp/crucible-downloads
       - '--set-secrets'
       - >-
         CRUCIBLE_API_KEY=crucible_admin_apikey:latest,
