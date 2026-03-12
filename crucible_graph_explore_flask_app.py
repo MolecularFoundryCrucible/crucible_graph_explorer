@@ -2,6 +2,7 @@ import os
 import re
 import json
 import tempfile
+import time
 import networkx as nx
 import flask
 import markdown
@@ -103,13 +104,21 @@ def get_entity_graph_nx(entity_id):
 #     if project_id in app.project_sample_graphs:
 #         del app.project_sample_graphs[project_id]
 
+_project_membership_cache: dict = {}  # {orcid: (frozenset[project_id], timestamp)}
+_PROJECT_CACHE_TTL = 300  # seconds
+
 def is_user_in_project(project_id, orcid=None):
-    """Look up user from session unless orcid is defined"""
+    """Check project membership, caching the project list per ORCID for 5 min."""
     if not orcid:
         user_session = UserSession(flask.session)
-        orcid=user_session.userinfo['sub']
-    projects=app.crucible_client.list_projects(orcid=orcid)
-    project_names = [p['project_id'] for p in projects]
+        orcid = user_session.userinfo['sub']
+    now = time.time()
+    cached = _project_membership_cache.get(orcid)
+    if cached and now - cached[1] < _PROJECT_CACHE_TTL:
+        return project_id in cached[0]
+    projects = app.crucible_client.list_projects(orcid=orcid)
+    project_names = frozenset(p['project_id'] for p in projects)
+    _project_membership_cache[orcid] = (project_names, now)
     return project_id in project_names
 
 
