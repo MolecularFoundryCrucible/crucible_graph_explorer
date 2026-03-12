@@ -3,6 +3,7 @@ import re
 import json
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import networkx as nx
 import flask
 import markdown
@@ -66,16 +67,18 @@ from crucible_project_graph import \
 #    generate_sample_graph, load_project_sample_graph,\
 #    generate_project_sample_graph
 
-def get_project(project_id,  include_metadata=False):
-    return generate_project_cache(project_id, app.crucible_client,include_metadata=include_metadata, save=False)
-    if project_id in app.project_cache:
-        return app.project_cache[project_id]
-    try:
-        return load_project_cache(project_id)
-    except Exception as err:
-        print(f"failed to load project cache for {project_id}, regenerating...")
-        generate_project_cache(project_id, app.crucible_client)
-        return load_project_cache(project_id)
+_project_cache: dict = {}  # {(project_id, include_metadata): (data, timestamp)}
+_PROJECT_CACHE_TTL = 300  # seconds
+
+def get_project(project_id, include_metadata=False):
+    key = (project_id, include_metadata)
+    cached = _project_cache.get(key)
+    if cached and time.time() - cached[1] < _PROJECT_CACHE_TTL:
+        return cached[0]
+    data = generate_project_cache(project_id, app.crucible_client,
+                                  include_metadata=include_metadata, save=False)
+    _project_cache[key] = (data, time.time())
+    return data
     
 def get_project_sample_graph(project_id):
     node_link_data = app.crucible_client._request("GET",f"/projects/{project_id}/sample_graph")
@@ -304,26 +307,37 @@ def sample_graph_data(project_id, sample_id):
 @app.route("/<project_id>/dataset/<dsid>")
 @auth.oidc_auth('orcid')
 def dataset(project_id, dsid):
+    t0 = time.perf_counter()
+
     if not is_user_in_project(project_id):
         abort(403)
-    pc = get_project(project_id)
-    ds = app.crucible_client.get_dataset(dsid, include_metadata=True)
-    #ds = pc['datasets_by_id'][dsid] #cache
-    samples = app.crucible_client.list_samples(dataset_id=dsid)
 
-    thumbnails = app.crucible_client.get_thumbnails(dsid)
+    def _get_links():
+        try:
+            return app.crucible_client.get_dataset_download_links(dsid)
+        except Exception as err:
+            print(f"Failed to get download links for {dsid}: {err}")
+            return {}
 
-    associated_files = app.crucible_client.get_associated_files(dsid)
-    print(associated_files)
+    with ThreadPoolExecutor() as ex:
+        f_pc       = ex.submit(get_project, project_id)
+        f_ds       = ex.submit(app.crucible_client.get_dataset, dsid, include_metadata=True)
+        f_samples  = ex.submit(app.crucible_client.list_samples, dataset_id=dsid)
+        f_thumbs   = ex.submit(app.crucible_client.get_thumbnails, dsid)
+        f_files    = ex.submit(app.crucible_client.get_associated_files, dsid)
+        f_links    = ex.submit(_get_links)
+        f_children = ex.submit(app.crucible_client.list_children_of_dataset, dsid)
+        f_parents  = ex.submit(app.crucible_client.list_parents_of_dataset, dsid)
 
-    try:
-        download_links = app.crucible_client.get_dataset_download_links(dsid)
-    except Exception as err:
-        print(f"Failed to get download links for {dsid}: {err}")
-        download_links = {}
-
-    child_datasets = app.crucible_client.list_children_of_dataset(dsid)
-    parent_datasets = app.crucible_client.list_parents_of_dataset(dsid)
+    pc               = f_pc.result()
+    ds               = f_ds.result()
+    samples          = f_samples.result()
+    thumbnails       = f_thumbs.result()
+    associated_files = f_files.result()
+    download_links   = f_links.result()
+    child_datasets   = f_children.result()
+    parent_datasets  = f_parents.result()
+    print(f"dataset timing: parallel fetch={time.perf_counter()-t0:.3f}s")
 
     # Handle MDNote measurement type
     markdown_html = None
