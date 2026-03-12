@@ -47,7 +47,8 @@ def _get_h5(dsid, crucible_client):
         if not h5_file:
             abort(404)
         filename = os.path.basename(h5_file['filename'])
-        crucible_client.download_dataset(dsid, file_name=f'{dsid}/{filename}')
+        crucible_client.download_dataset(dsid, file_name=f'{dsid}/{filename}',
+                                         output_dir=_DOWNLOAD_DIR)
         _h5_cache[dsid] = h5py.File(os.path.join(dsid_dir, filename), 'r')
     return _h5_cache[dsid]
 
