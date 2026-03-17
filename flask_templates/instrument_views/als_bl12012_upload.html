@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}ALS-BL12012 — Upload Run{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/instruments/">Instruments</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Upload RGA/TEY Run</li>
+{% endblock %}
+
+{% block sidebar %}{% endblock %}
+{% block main_col_class %}col-12 col-md-9 col-lg-7{% endblock %}
+
+{% block content %}
+<h1 class="fs-4 fw-semibold mb-1">Upload RGA/TEY Run</h1>
+<p class="text-muted mb-4">
+    Select a run folder to create a batch dataset and per-sample child datasets in Crucible.
+</p>
+
+<!-- ── Upload form ─────────────────────────────────────────── -->
+<div id="formSection">
+    <form id="uploadForm">
+        <div class="mb-3">
+            <label for="project_id" class="form-label fw-semibold">Project</label>
+            <select name="project_id" id="project_id" class="form-select" required>
+                <option value="">— select a project —</option>
+                {% for p in projects %}
+                <option value="{{ p.project_id }}">
+                    {{ p.project_id }}{% if p.title %} — {{ p.title }}{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label for="files" class="form-label fw-semibold">Run folder</label>
+            <input type="file" name="files" id="files" class="form-control"
+                   webkitdirectory mozdirectory multiple required>
+            <div class="form-text">
+                Select the entire run directory (e.g. <code>2026-02-26_10k_RGA000013/</code>).
+                A <code>crucible.yaml</code> in the folder will be used to resume an existing dataset.
+            </div>
+        </div>
+
+        <div id="fileInfo" class="text-muted small mb-3"></div>
+
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+            <i class="bi bi-upload me-1"></i>Upload &amp; Create Datasets
+        </button>
+    </form>
+</div>
+
+<!-- ── Progress view ──────────────────────────────────────── -->
+<div id="progressSection" style="display:none;">
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="spinner-border spinner-border-sm text-primary" id="progressSpinner"></span>
+        <span class="fw-semibold" id="progressTitle">Starting upload…</span>
+    </div>
+
+    <div id="dryRunBanner" class="alert alert-warning py-2 mb-3" style="display:none;">
+        <i class="bi bi-cone-striped me-1"></i><strong>Dry run</strong> — no datasets are being created in Crucible.
+    </div>
+    <div id="batchInfo" class="mb-3" style="display:none;">
+        <span class="text-muted small">Batch dataset: </span>
+        <a id="batchLink" href="#" class="font-monospace small" target="_blank"></a>
+    </div>
+
+    <div class="mb-2 text-muted small fw-semibold text-uppercase" id="samplesHeading" style="display:none;">
+        Per-sample datasets
+        <span id="sampleCounter" class="badge bg-secondary rounded-pill ms-1">0</span>
+    </div>
+
+    <div class="list-group" id="sampleList"></div>
+</div>
+
+<!-- ── Results view ───────────────────────────────────────── -->
+<div id="resultSection" style="display:none;">
+    <div class="alert alert-success mb-3" id="resultAlert"></div>
+    <div id="unmatchedAlert" style="display:none;" class="alert alert-warning mb-3"></div>
+
+    <h2 class="fs-5 fw-semibold mb-2">Per-sample datasets</h2>
+    <div class="list-group mb-4" id="resultList"></div>
+
+    <a href="/instrument-view/als-bl12012/upload" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Upload another run
+    </a>
+</div>
+
+<!-- ── Error view ─────────────────────────────────────────── -->
+<div id="errorSection" style="display:none;">
+    <div class="alert alert-danger" id="errorMsg"></div>
+    <a href="/instrument-view/als-bl12012/upload" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Try again
+    </a>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ── file count hint ────────────────────────────────────────────────────────
+$('files').addEventListener('change', function () {
+    const all = Array.from(this.files);
+    $('fileInfo').textContent = `${all.length} file(s) selected.`;
+});
+
+// ── form submit ────────────────────────────────────────────────────────────
+$('uploadForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const btn = $('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-2"></span>Uploading files…';
+
+    const fd = new FormData(this);
+    let resp;
+    try {
+        resp = await fetch('/instrument-view/als-bl12012/upload', {
+            method: 'POST', body: fd,
+        });
+    } catch (err) {
+        showError('Network error: ' + err.message);
+        return;
+    }
+
+    const data = await resp.json();
+    if (!resp.ok || data.error) {
+        showError(data.error || `HTTP ${resp.status}`);
+        return;
+    }
+
+    // Switch to progress view and open SSE stream
+    $('formSection').style.display = 'none';
+    $('progressSection').style.display = '';
+    openStream(data.job_id);
+});
+
+// ── SSE stream ─────────────────────────────────────────────────────────────
+let samplesDone = 0;
+let samplesTotal = 0;
+
+function openStream(jobId) {
+    const es = new EventSource(`/instrument-view/als-bl12012/upload/stream/${jobId}`);
+
+    es.onmessage = function (e) {
+        const ev = JSON.parse(e.data);
+
+        if (ev.type === 'info') {
+            $('progressTitle').textContent = ev.message;
+
+        } else if (ev.type === 'batch') {
+            samplesTotal = ev.n_samples;
+            $('progressTitle').textContent =
+                `Batch dataset created — uploading ${samplesTotal} sample datasets…`;
+            if (ev.dry_run) {
+                $('dryRunBanner').style.display = '';
+                $('batchInfo').style.display = '';
+                $('batchLink').removeAttribute('href');
+                $('batchLink').textContent = ev.dataset_id;
+            } else {
+                $('batchInfo').style.display = '';
+                $('batchLink').href = `/${ev.project_id}/dataset/${ev.dataset_id}`;
+                $('batchLink').textContent = ev.dataset_id;
+            }
+            $('samplesHeading').style.display = '';
+
+        } else if (ev.type === 'sample') {
+            samplesDone++;
+            $('sampleCounter').textContent = `${samplesDone} / ${samplesTotal || '?'}`;
+
+            const item = document.createElement('div');
+            item.className = 'list-group-item d-flex align-items-center gap-3 py-2';
+            if (ev.skipped) {
+                item.innerHTML =
+                    `<span class="badge bg-body-secondary text-body border fw-normal" style="min-width:2.5rem;">${ev.spot}</span>` +
+                    `<span class="fw-semibold" style="min-width:7rem;">${ev.sample_name}</span>` +
+                    `<span class="text-muted small fst-italic">no files — skipped</span>`;
+            } else {
+                item.innerHTML =
+                    `<span class="badge bg-success-subtle text-success-emphasis border fw-normal" style="min-width:2.5rem;">${ev.spot}</span>` +
+                    `<span class="fw-semibold" style="min-width:7rem;">${ev.sample_name}</span>` +
+                    `<span class="font-monospace small text-truncate">${ev.dataset_id}</span>`;
+            }
+            $('sampleList').appendChild(item);
+
+        } else if (ev.type === 'done') {
+            es.close();
+            $('progressSpinner').style.display = 'none';
+            $('progressSection').style.display = 'none';
+            showResult(ev);
+
+        } else if (ev.type === 'error') {
+            es.close();
+            showError(ev.message);
+        }
+    };
+
+    es.onerror = function () {
+        es.close();
+        showError('Connection to server lost.');
+    };
+}
+
+// ── result / error helpers ─────────────────────────────────────────────────
+function showResult(ev) {
+    const created = ev.children.filter(c => !c.skipped).length;
+    const batchRef = ev.dry_run
+        ? `<span class="font-monospace">${ev.batch_id}</span>`
+        : `<a href="/${ev.project_id}/dataset/${ev.batch_id}" class="alert-link font-monospace">${ev.batch_id}</a>`;
+    const dryNote = ev.dry_run ? ' <span class="badge bg-warning text-dark ms-1">dry run</span>' : '';
+    $('resultAlert').innerHTML =
+        `<h5 class="alert-heading mb-1">Done — ${ev.dataset_name}${dryNote}</h5>` +
+        `<p class="mb-0">Batch dataset: ${batchRef} &nbsp;&bull; ${created} per-sample datasets created.</p>`;
+
+    if (ev.unmatched && ev.unmatched.length) {
+        $('unmatchedAlert').style.display = '';
+        $('unmatchedAlert').innerHTML =
+            `<i class="bi bi-exclamation-circle me-2"></i>` +
+            `<strong>${ev.unmatched.length} sample(s) not found in project</strong> ` +
+            `(datasets created but not linked to samples): ${ev.unmatched.join(', ')}`;
+    }
+
+    const list = $('resultList');
+    ev.children.forEach(child => {
+        const item = document.createElement('div');
+        item.className = 'list-group-item d-flex align-items-center gap-3 py-2';
+        if (child.skipped) {
+            item.innerHTML =
+                `<span class="badge bg-body-secondary text-body border fw-normal" style="min-width:2.5rem;">${child.spot}</span>` +
+                `<span class="fw-semibold" style="min-width:7rem;">${child.sample_name}</span>` +
+                `<span class="text-muted small fst-italic">no files — skipped</span>`;
+        } else {
+            const idEl = ev.dry_run
+                ? `<span class="font-monospace small text-muted">${child.dataset_id}</span>`
+                : `<a href="/${ev.project_id}/dataset/${child.dataset_id}" class="font-monospace small text-truncate">${child.dataset_id}</a>`;
+            item.innerHTML =
+                `<span class="badge bg-body-secondary text-body border fw-normal" style="min-width:2.5rem;">${child.spot}</span>` +
+                `<span class="fw-semibold" style="min-width:7rem;">${child.sample_name}</span>` +
+                idEl;
+        }
+        list.appendChild(item);
+    });
+
+    $('resultSection').style.display = '';
+}
+
+function showError(msg) {
+    $('formSection').style.display = 'none';
+    $('progressSection').style.display = 'none';
+    $('errorMsg').textContent = msg;
+    $('errorSection').style.display = '';
+}
+</script>
+{% endblock %}

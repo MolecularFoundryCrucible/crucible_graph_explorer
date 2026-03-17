@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% block title %}HiP Microscope — Upload Dataset{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/instruments/">Instruments</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Upload Dataset</li>
+{% endblock %}
+
+{% block sidebar %}{% endblock %}
+{% block main_col_class %}col-12 col-md-9 col-lg-7{% endblock %}
+
+{% block content %}
+<h1 class="fs-4 fw-semibold mb-1">Upload HiP Microscope Dataset</h1>
+<p class="text-muted mb-4">Select an H5 file — metadata is read automatically from the file.</p>
+
+<!-- ── Upload form ─────────────────────────────────────────── -->
+<div id="formSection">
+    <form id="uploadForm">
+
+        <div class="mb-4">
+            <label for="file" class="form-label fw-semibold">H5 file</label>
+            <input type="file" name="file" id="file" class="form-control" accept=".h5,.hdf5" required>
+            <div id="parseSpinner" class="text-muted small mt-1" style="display:none;">
+                <span class="spinner-border spinner-border-sm me-1"></span>Reading file metadata…
+            </div>
+            <div id="parseError" class="text-danger small mt-1" style="display:none;"></div>
+        </div>
+
+        <input type="hidden" name="file_token" id="file_token">
+
+        <div id="metaSection" style="display:none;">
+
+            <div class="mb-3">
+                <label for="dataset_name" class="form-label fw-semibold">Dataset name</label>
+                <input type="text" name="dataset_name" id="dataset_name" class="form-control" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="measurement" class="form-label fw-semibold">Measurement type</label>
+                <input type="text" name="measurement" id="measurement" class="form-control" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="project_id" class="form-label fw-semibold">Project</label>
+                <select name="project_id" id="project_id" class="form-select" required>
+                    <option value="">— select a project —</option>
+                    {% for p in projects %}
+                    <option value="{{ p.project_id }}">
+                        {{ p.project_id }}{% if p.title %} — {{ p.title }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Sample <span class="text-muted fw-normal">(optional)</span></label>
+                <div class="input-group">
+                    <input type="text" id="sampleSearch" class="form-control"
+                           placeholder="Search by name…" autocomplete="off">
+                    <button type="button" class="btn btn-outline-secondary" id="sampleSearchBtn">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+                <input type="hidden" name="sample_id" id="sample_id">
+                <div id="sampleResults" class="list-group mt-1" style="display:none;"></div>
+                <div id="sampleSelected" class="mt-1 small" style="display:none;">
+                    <i class="bi bi-check-circle-fill text-success me-1"></i>
+                    <span id="sampleSelectedName"></span>
+                    <button type="button" class="btn btn-sm btn-link p-0 ms-2 text-secondary" id="sampleClear">clear</button>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+                <i class="bi bi-upload me-1"></i>Upload Dataset
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- ── Progress view ──────────────────────────────────────── -->
+<div id="progressSection" style="display:none;">
+    <div id="dryRunBanner" class="alert alert-warning py-2 mb-3" style="display:none;">
+        <i class="bi bi-cone-striped me-1"></i><strong>Dry run</strong> — no datasets are being created in Crucible.
+    </div>
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="spinner-border spinner-border-sm text-primary" id="progressSpinner"></span>
+        <span class="fw-semibold" id="progressTitle">Starting upload…</span>
+    </div>
+</div>
+
+<!-- ── Result view ────────────────────────────────────────── -->
+<div id="resultSection" style="display:none;">
+    <div class="alert alert-success mb-3" id="resultAlert"></div>
+    <a href="/instrument-view/hip-microscope/upload" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Upload another file
+    </a>
+</div>
+
+<!-- ── Error view ─────────────────────────────────────────── -->
+<div id="errorSection" style="display:none;">
+    <div class="alert alert-danger" id="errorMsg"></div>
+    <a href="/instrument-view/hip-microscope/upload" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Try again
+    </a>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const BASE = '/instrument-view/hip-microscope';
+
+// ── File select → auto-parse H5 metadata ──────────────────────────────────
+$('file').addEventListener('change', async function () {
+    const file = this.files[0];
+    if (!file) return;
+
+    // clear any previous cached token
+    $('file_token').value = '';
+
+    $('metaSection').style.display = 'none';
+    $('parseError').style.display = 'none';
+    $('parseSpinner').style.display = '';
+
+    const fd = new FormData();
+    fd.append('file', file);
+    let meta;
+    try {
+        const resp = await fetch(`${BASE}/upload/parse`, { method: 'POST', body: fd });
+        meta = await resp.json();
+        if (!resp.ok || meta.error) throw new Error(meta.error || `HTTP ${resp.status}`);
+    } catch (err) {
+        $('parseSpinner').style.display = 'none';
+        $('parseError').textContent = 'Could not read file: ' + err.message;
+        $('parseError').style.display = '';
+        return;
+    }
+    $('parseSpinner').style.display = 'none';
+
+    // cache file token so the actual upload reuses the already-uploaded file
+    $('file_token').value = meta.file_token || '';
+
+    // populate fields
+    $('dataset_name').value = meta.dataset_name || '';
+    $('measurement').value  = meta.measurement  || '';
+
+    // pre-select project if proposal matches
+    if (meta.proposal) {
+        const opt = $('project_id').querySelector(`option[value="${meta.proposal}"]`);
+        if (opt) $('project_id').value = meta.proposal;
+    }
+
+    // pre-fill sample search and auto-look up
+    if (meta.sample_name) {
+        $('sampleSearch').value = meta.sample_name;
+        searchSample(meta.sample_name, $('project_id').value);
+    }
+
+    $('metaSection').style.display = '';
+});
+
+// ── project change → re-search sample ─────────────────────────────────────
+$('project_id').addEventListener('change', () => {
+    const q = $('sampleSearch').value.trim();
+    if (q) searchSample(q, $('project_id').value);
+});
+
+// ── sample search ──────────────────────────────────────────────────────────
+$('sampleSearchBtn').addEventListener('click', () =>
+    searchSample($('sampleSearch').value.trim(), $('project_id').value));
+$('sampleSearch').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); searchSample(e.target.value.trim(), $('project_id').value); }
+});
+$('sampleClear').addEventListener('click', () => {
+    $('sample_id').value = '';
+    $('sampleSearch').value = '';
+    $('sampleSelected').style.display = 'none';
+    $('sampleResults').style.display = 'none';
+});
+
+async function searchSample(q, projectId) {
+    if (!projectId || !q) return;
+    const resp = await fetch(`${BASE}/api/samples?project_id=${encodeURIComponent(projectId)}&q=${encodeURIComponent(q)}`);
+    const results = await resp.json();
+    const box = $('sampleResults');
+
+    // exact match → auto-select silently
+    const exact = results.find(s => s.name.toLowerCase() === q.toLowerCase());
+    if (exact) { selectSample(exact); return; }
+
+    if (!results.length) { box.style.display = 'none'; return; }
+
+    box.innerHTML = results.map(s =>
+        `<button type="button" class="list-group-item list-group-item-action py-1 small"
+                 data-id="${s.id}" data-name="${s.name}">${s.name}</button>`
+    ).join('');
+    box.style.display = '';
+    box.querySelectorAll('button').forEach(btn =>
+        btn.addEventListener('click', () => selectSample({ id: btn.dataset.id, name: btn.dataset.name }))
+    );
+}
+
+function selectSample(s) {
+    $('sample_id').value = s.id;
+    $('sampleSelectedName').textContent = s.name;
+    $('sampleSelected').style.display = '';
+    $('sampleResults').style.display = 'none';
+}
+
+// ── form submit ────────────────────────────────────────────────────────────
+$('uploadForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const btn = $('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading…';
+
+    const fd = new FormData(this);
+    // if we have a cached file token, don't resend the file
+    if ($('file_token').value) fd.delete('file');
+    let resp;
+    try {
+        resp = await fetch(`${BASE}/upload`, { method: 'POST', body: fd });
+    } catch (err) {
+        showError('Network error: ' + err.message);
+        return;
+    }
+    const data = await resp.json();
+    if (!resp.ok || data.error) { showError(data.error || `HTTP ${resp.status}`); return; }
+
+    $('formSection').style.display = 'none';
+    $('progressSection').style.display = '';
+    openStream(data.job_id);
+});
+
+// ── SSE stream ─────────────────────────────────────────────────────────────
+function openStream(jobId) {
+    const es = new EventSource(`${BASE}/upload/stream/${jobId}`);
+    es.onmessage = function (e) {
+        const ev = JSON.parse(e.data);
+        if (ev.type === 'info') {
+            $('progressTitle').textContent = ev.message;
+            if (ev.message.includes('DRY RUN')) $('dryRunBanner').style.display = '';
+        } else if (ev.type === 'done') {
+            es.close();
+            $('progressSpinner').style.display = 'none';
+            $('progressSection').style.display = 'none';
+            showResult(ev);
+        } else if (ev.type === 'error') {
+            es.close();
+            showError(ev.message);
+        }
+    };
+    es.onerror = () => { es.close(); showError('Connection to server lost.'); };
+}
+
+// ── result / error ─────────────────────────────────────────────────────────
+function showResult(ev) {
+    const dryNote = ev.dry_run ? ' <span class="badge bg-warning text-dark ms-1">dry run</span>' : '';
+    const dsLink  = ev.dry_run
+        ? `<span class="font-monospace">${ev.dataset_id}</span>`
+        : `<a href="/${ev.project_id}/dataset/${ev.dataset_id}" class="alert-link font-monospace">${ev.dataset_id}</a>`;
+    $('resultAlert').innerHTML =
+        `<h5 class="alert-heading mb-1">Done${dryNote}</h5>` +
+        `<p class="mb-1"><strong>${ev.dataset_name}</strong> (${ev.measurement})</p>` +
+        `<p class="mb-0">Dataset: ${dsLink}</p>`;
+    $('resultSection').style.display = '';
+}
+
+function showError(msg) {
+    $('formSection').style.display = 'none';
+    $('progressSection').style.display = 'none';
+    $('errorMsg').textContent = msg;
+    $('errorSection').style.display = '';
+}
+</script>
+{% endblock %}
