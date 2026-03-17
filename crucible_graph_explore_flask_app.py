@@ -14,7 +14,7 @@ from flask_vite import Vite
 from flask_pyoidc.user_session import UserSession
 from flask_pyoidc import OIDCAuthentication
 from flask_pyoidc.provider_configuration import ProviderConfiguration, ClientMetadata
-from pycrucible import CrucibleClient
+from crucible import CrucibleClient
 from dotenv import load_dotenv
 load_dotenv()
 

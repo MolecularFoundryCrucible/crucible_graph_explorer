@@ -544,7 +544,6 @@ dependencies = [
     { name = "pandas" },
     { name = "plotly" },
     { name = "pretty-jupyter" },
-    { name = "pycrucible" },
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "requests" },
@@ -566,13 +565,12 @@ requires-dist = [
     { name = "ipython", specifier = ">=9.10.0" },
     { name = "markdown", specifier = ">=3.7" },
     { name = "matplotlib", specifier = ">=3.10.8" },
-    { name = "nano-crucible", specifier = ">=2.0.1" },
+    { name = "nano-crucible", specifier = ">=2.0.2" },
     { name = "nbformat", specifier = ">=5.10.4" },
     { name = "networkx", specifier = ">=3.6.1" },
     { name = "pandas", specifier = ">=2.3.3" },
     { name = "plotly", specifier = ">=6.5.0" },
     { name = "pretty-jupyter", specifier = ">=2.0.8" },
-    { name = "pycrucible", git = "https://github.com/MolecularFoundryCrucible/pycrucible" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "requests", specifier = ">=2.32.5" },
@@ -2119,7 +2117,7 @@ wheels = [
 
 [[package]]
 name = "nano-crucible"
-version = "2.0.1"
+version = "2.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "argcomplete" },
@@ -2131,9 +2129,9 @@ dependencies = [
     { name = "pytz" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1e/a6/817d75ea80db7c5549d5bca0d41cb1bb8c60b8a04a5212c25a43981adf7e/nano_crucible-2.0.1.tar.gz", hash = "sha256:7359487dfb7038c43fde30da494e309343ea9b59d3f254f2a970b70a278f689a", size = 53334, upload-time = "2026-03-06T21:10:58.143Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9c/5c/eedcf14121e541472db7c18ff3254b486fb1dc0194a0947ae59607bb2d4e/nano_crucible-2.0.2.tar.gz", hash = "sha256:b060d9f5454e22446b71c77588062bd15be854525aa112a733f4334550653882", size = 54051, upload-time = "2026-03-16T20:51:46.211Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3d/8c/e8767c01c195963f76da4f54026de8d251c6508796ee53abb7d8af0b7079/nano_crucible-2.0.1-py3-none-any.whl", hash = "sha256:26e96ddf7f7ef262bebec48dcb58b7348e4ac4776ca812182433ad3aabee484c", size = 66095, upload-time = "2026-03-06T21:10:56.219Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/88/729b6ce6227eacae87c7aba8eb9fd922fdb5cc2809f7d33ac56b842182bb/nano_crucible-2.0.2-py3-none-any.whl", hash = "sha256:22dfc7ce6207146fc265574bd62791b1e764723d782c985e1fdbf256bf6dd0c5", size = 67739, upload-time = "2026-03-16T20:51:44.754Z" },
 ]
 
 [[package]]
@@ -2766,18 +2764,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz", hash = "sha256:600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29", size = 103492, upload-time = "2026-01-21T14:26:51.89Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0c/c3/44f3fbbfa403ea2a7c779186dc20772604442dde72947e7d01069cbe98e3/pycparser-3.0-py3-none-any.whl", hash = "sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992", size = 48172, upload-time = "2026-01-21T14:26:50.693Z" },
-]
-
-[[package]]
-name = "pycrucible"
-version = "1.0.0"
-source = { git = "https://github.com/MolecularFoundryCrucible/pycrucible#30e8195ca2246a2743121b0128d7783dab600d05" }
-dependencies = [
-    { name = "ipywidgets" },
-    { name = "pydantic" },
-    { name = "python-dotenv" },
-    { name = "pytz" },
-    { name = "requests" },
 ]
 
 [[package]]

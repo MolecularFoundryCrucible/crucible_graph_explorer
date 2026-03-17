@@ -17,7 +17,6 @@ dependencies = [
     "pandas>=2.3.3",
     "plotly>=6.5.0",
     "pretty-jupyter>=2.0.8",
-    "pycrucible",
     "pydantic>=2.12.5",
     "python-dotenv>=1.2.1",
     "requests>=2.32.5",
@@ -28,8 +27,5 @@ dependencies = [
     "gcsfs>=2025.3.0",
     "h5py>=3.15.1",
     "ipython>=9.10.0",
-    "nano-crucible>=2.0.1",
+    "nano-crucible>=2.0.2",
 ]
-
-[tool.uv.sources]
-pycrucible = { git = "https://github.com/MolecularFoundryCrucible/pycrucible" }
