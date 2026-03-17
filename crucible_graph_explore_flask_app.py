@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import shutil
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -14,7 +15,9 @@ from flask_vite import Vite
 from flask_pyoidc.user_session import UserSession
 from flask_pyoidc import OIDCAuthentication
 from flask_pyoidc.provider_configuration import ProviderConfiguration, ClientMetadata
+from PIL import Image
 from crucible import CrucibleClient
+from crucible.models import BaseDataset
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -268,6 +271,64 @@ def sample_new_post(project_id):
     for key in [k for k in _project_cache if k[0] == project_id]:
         del _project_cache[key]
     return redirect(f'/{project_id}/sample-graph/{result["unique_id"]}')
+
+
+@app.route("/<project_id>/samples/<sample_id>/upload-photo", methods=['GET'])
+@auth.oidc_auth('orcid')
+def upload_photo(project_id, sample_id):
+    if not is_user_in_project(project_id):
+        abort(403)
+    pc = get_project(project_id)
+    sample = pc['samples_by_id'].get(sample_id)
+    if not sample:
+        abort(404)
+    return render_template('upload_photo.html', pc=pc, sample=sample)
+
+
+@app.route("/<project_id>/samples/<sample_id>/upload-photo", methods=['POST'])
+@auth.oidc_auth('orcid')
+def upload_photo_post(project_id, sample_id):
+    if not is_user_in_project(project_id):
+        abort(403)
+
+    f = request.files.get('file')
+    if not f or not f.filename:
+        return jsonify({'error': 'No file received.'}), 400
+
+    filename = os.path.basename(f.filename) or 'photo'
+    dataset_name = request.form.get('dataset_name', '').strip() or os.path.splitext(filename)[0]
+    description  = request.form.get('description', '').strip() or None
+
+    tmpdir = tempfile.mkdtemp()
+    tmpfile = os.path.join(tmpdir, filename)
+    f.save(tmpfile)
+    try:
+        result = app.crucible_client.datasets.create(
+            BaseDataset(
+                dataset_name=dataset_name,
+                measurement='img',
+                project_id=project_id,
+            ),
+            files_to_upload=[tmpfile],
+            scientific_metadata={'description': description} if description else None,
+            wait_for_ingestion_response=False,
+        )
+        dataset_id = result['created_record']['unique_id']
+        app.crucible_client.add_sample_to_dataset(dataset_id, sample_id)
+
+        # generate and attach thumbnail
+        thumb_path = os.path.join(tmpdir, 'thumbnail.png')
+        with Image.open(tmpfile) as img:
+            img.thumbnail((512, 512))
+            img.save(thumb_path, 'PNG')
+        app.crucible_client.datasets.add_thumbnail(dataset_id, thumb_path,
+                                                    thumbnail_name=dataset_name)
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+    return jsonify({'dataset_id': dataset_id, 'project_id': project_id})
 
 
 @app.route("/<project_id>/sample-graph/<sample_id>")
