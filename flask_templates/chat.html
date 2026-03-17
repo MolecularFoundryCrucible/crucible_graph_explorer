@@ -103,7 +103,11 @@
 <div id="chat-wrapper">
     <div class="d-flex align-items-center justify-content-between mb-2">
         <h1 class="mb-0">Chat <em>{{pc['project_id']}}</em></h1>
-        <button class="btn btn-sm btn-outline-secondary" id="clear-btn">Clear</button>
+        <div class="d-flex align-items-center gap-2">
+            <span id="spend-badge" class="badge text-bg-secondary font-monospace fw-normal"
+                  style="display:none;" title="API token spend"></span>
+            <button class="btn btn-sm btn-outline-secondary" id="clear-btn">Clear</button>
+        </div>
     </div>
 
     <div id="chat-messages"></div>
@@ -120,6 +124,23 @@
 <script>
 const PROJECT_ID = {{ pc['project_id'] | tojson }};
 const API_URL = `/${PROJECT_ID}/api/chat`;
+
+async function fetchSpend() {
+    try {
+        const resp = await fetch('/api/key-info');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const spend = data?.info?.spend;
+        const max   = data?.info?.max_budget;
+        if (spend == null) return;
+        const badge = document.getElementById('spend-badge');
+        badge.textContent = max != null
+            ? `$${spend.toFixed(2)} / $${max.toFixed(2)}`
+            : `$${spend.toFixed(2)} spent`;
+        badge.style.display = '';
+    } catch { /* silently ignore */ }
+}
+fetchSpend();
 
 let history = [];       // [{role: 'user'|'assistant', content: '...'}]
 let streaming = false;
@@ -259,6 +280,7 @@ async function sendMessage() {
         streaming = false;
         sendBtn.disabled = false;
         inputEl.focus();
+        fetchSpend();
     }
 }
 

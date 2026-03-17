@@ -2,6 +2,7 @@ import json
 import os
 
 import anthropic
+import requests as _requests
 
 _anthropic_kwargs = {}
 if os.getenv("ANTHROPIC_BASE_URL"):
@@ -230,6 +231,19 @@ def create_blueprint(auth, helpers):
     get_project        = helpers['get_project']
     is_user_in_project = helpers['is_user_in_project']
     get_entity_graph_nx = helpers['get_entity_graph_nx']
+
+    _KEY_INFO_URL = 'https://api.cborg.lbl.gov/key/info'
+    _AUTH_TOKEN   = os.getenv('ANTHROPIC_AUTH_TOKEN', '')
+
+    @bp.route('/api/key-info')
+    @auth.oidc_auth('orcid')
+    def key_info():
+        if not _AUTH_TOKEN:
+            return {'error': 'ANTHROPIC_AUTH_TOKEN not set'}, 503
+        resp = _requests.get(_KEY_INFO_URL,
+                             headers={'Authorization': f'Bearer {_AUTH_TOKEN}'},
+                             timeout=5)
+        return resp.json(), resp.status_code
 
     @bp.route('/<project_id>/chat')
     @auth.oidc_auth('orcid')
