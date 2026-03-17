@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ instrument.instrument_name }} — Instrument{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/instruments/">Instruments</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ instrument.instrument_name }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <i class="bi bi-cpu fs-3 text-secondary flex-shrink-0"></i>
+    <h1 class="fs-4 fw-semibold mb-0">{{ instrument.instrument_name }}</h1>
+</div>
+
+<dl class="row mb-4">
+    <dt class="col-sm-3">ID</dt>
+    <dd class="col-sm-9"><span class="mfid">{{ instrument.unique_id }}</span></dd>
+
+    {% if instrument.get('location') %}
+    <dt class="col-sm-3">Location</dt>
+    <dd class="col-sm-9">{{ instrument.location }}</dd>
+    {% endif %}
+
+    {% if instrument.get('owner') %}
+    <dt class="col-sm-3">Owner</dt>
+    <dd class="col-sm-9">{{ instrument.owner }}</dd>
+    {% endif %}
+</dl>
+
+{% if custom_views %}
+<h2 class="fs-5 fw-semibold mb-2">Views</h2>
+<div class="d-flex flex-wrap gap-2 mb-4">
+    {% for view in custom_views %}
+    <a href="{{ view.url }}" class="btn btn-outline-primary btn-sm">
+        <i class="bi {{ view.icon if view.icon is defined else 'bi-bar-chart' }} me-1"></i>{{ view.label }}
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

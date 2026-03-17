@@ -670,6 +670,24 @@ def mdnote_edit(project_id, dsid):
                            md_content=md_content)
 
 
+@app.route("/instruments/")
+@auth.oidc_auth('orcid')
+def instrument_list():
+    instruments = app.crucible_client.list_instruments()
+    return render_template('instrument_list.html', instruments=instruments)
+
+
+@app.route("/instrument/<instrument_id>")
+@auth.oidc_auth('orcid')
+def instrument_detail(instrument_id):
+    instrument = app.crucible_client.get_instrument(instrument_id=instrument_id)
+    if not instrument:
+        abort(404)
+    instrument_name = instrument.get('instrument_name', '')
+    custom_views = instrument_views.get_views(instrument_name, instrument_id)
+    return render_template('instrument.html', instrument=instrument, custom_views=custom_views)
+
+
 @app.route("/auth-test/")
 @auth.oidc_auth('orcid')
 def auth_test():
@@ -711,3 +729,7 @@ project_views.register_all(app, auth, _plugin_helpers)
 # Dataset measurement-type views are loaded from the dataset_views/ package.
 import dataset_views
 dataset_views.register_all(app, auth, _plugin_helpers)
+
+# Instrument-specific views are loaded from the instrument_views/ package.
+import instrument_views
+instrument_views.register_all(app, auth, _plugin_helpers)
