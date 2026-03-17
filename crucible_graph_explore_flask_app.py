@@ -371,6 +371,22 @@ def sample_graph(project_id, sample_id):
     self_info = pc['samples_by_id'][sample_id]
     descendants_info = sorted([pc['samples_by_id'][sample_id] for sample_id in descendants], key=lambda x: x['unique_id'])
 
+    # Batch-fetch thumbnails for img datasets linked to this sample
+    img_datasets = [d for d in self_info.get('datasets', []) if d.get('measurement') == 'img']
+    img_thumbnails = {}
+    if img_datasets:
+        try:
+            batch = app.crucible_client._request(
+                "POST", "/datasets/first_thumbnails",
+                json=[d['unique_id'] for d in img_datasets]
+            )
+            img_thumbnails = {
+                dsid: f"data:image/png;base64,{data['thumbnail_b64str']}"
+                for dsid, data in batch.items()
+            }
+        except Exception:
+            pass
+
     # Sibling navigation: all samples of the same type, sorted by name
     sample_type = self_info.get('sample_type')
     if sample_type:
@@ -397,6 +413,8 @@ def sample_graph(project_id, sample_id):
                            next_sibling=next_sibling,
                            sibling_index=sibling_idx + 1,
                            sibling_count=len(siblings),
+                           img_datasets=img_datasets,
+                           img_thumbnails=img_thumbnails,
                            )
 
 @app.route("/<project_id>/api/sample-graph-data/<sample_id>")
