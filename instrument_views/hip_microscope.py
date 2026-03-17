@@ -14,7 +14,10 @@ from crucible.models import BaseDataset
 
 INSTRUMENT_TYPES = ['hip_microscope']
 URL_PREFIX = '/instrument-view/hip-microscope'
-VIEWS = [{'label': 'Upload Dataset', 'url': '/upload', 'icon': 'bi-upload'}]
+VIEWS = [
+    {'label': 'Upload Dataset', 'url': '/upload', 'icon': 'bi-upload'},
+    {'label': 'Upload Session', 'url': '/upload/session', 'icon': 'bi-folder-plus'},
+]
 
 DRY_RUN = False  # set False to actually create Crucible datasets
 
@@ -112,6 +115,115 @@ def _run_job(job_id, tmpfile_path, project_id, dataset_name, measurement, sample
         finally:
             _jobs[job_id]['done'] = True
             tmpdir = os.path.dirname(tmpfile_path)
+            threading.Timer(600, lambda d=tmpdir: shutil.rmtree(d, ignore_errors=True)).start()
+
+
+def _save_files(files, tmpdir):
+    """Save werkzeug FileStorage list to tmpdir, stripping the leading folder component."""
+    for f in files:
+        rel = f.filename.replace('\\', '/')
+        parts = rel.split('/', 1)
+        rel_path = parts[1] if len(parts) > 1 else parts[0]
+        dest = os.path.join(tmpdir, rel_path)
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        f.save(dest)
+
+
+def _run_session_job(job_id, tmpdir, project_id, dataset_name, sample_id, app):
+    """Background thread: upload session folder as parent + per-H5 child datasets."""
+    with app.app_context():
+        client = app.crucible_client
+        try:
+            h5_files = sorted(
+                os.path.join(root, fname)
+                for root, _, fnames in os.walk(tmpdir)
+                for fname in fnames
+                if fname.lower().endswith(('.h5', '.hdf5'))
+            )
+            all_files = [
+                os.path.join(root, fname)
+                for root, _, fnames in os.walk(tmpdir)
+                for fname in fnames
+            ]
+
+            # ── parent session dataset ──────────────────────────────────
+            _push(job_id, {'type': 'info',
+                           'message': f'{"[DRY RUN] " if DRY_RUN else ""}Creating session dataset ({len(h5_files)} measurements)…'})
+            if DRY_RUN:
+                time.sleep(0.5)
+                session_id = f'dry-run-session-{uuid.uuid4().hex[:8]}'
+            else:
+                result = client.datasets.create_from_files(
+                    BaseDataset(
+                        dataset_name=dataset_name,
+                        instrument_name='hip_microscope',
+                        measurement='hip_microscope_session',
+                        project_id=project_id,
+                    ),
+                    files_to_upload=all_files,
+                    wait_for_ingestion_response=False,
+                )
+                session_id = result['created_record']['unique_id']
+                if sample_id:
+                    client.add_sample_to_dataset(session_id, sample_id)
+
+            _push(job_id, {
+                'type': 'session',
+                'dataset_id': session_id,
+                'dataset_name': dataset_name,
+                'project_id': project_id,
+                'n_files': len(h5_files),
+                'dry_run': DRY_RUN,
+            })
+
+            # ── per-H5 child datasets ───────────────────────────────────
+            children = []
+            for h5_path in h5_files:
+                h5_name = os.path.splitext(os.path.basename(h5_path))[0]
+                try:
+                    measurement = _parse_h5_meta(h5_path).get('measurement') or 'hip_microscope_measurement'
+                except Exception:
+                    measurement = 'hip_microscope_measurement'
+
+                if DRY_RUN:
+                    time.sleep(0.1)
+                    child_id = f'dry-run-{uuid.uuid4().hex[:8]}'
+                else:
+                    child_result = client.datasets.create_from_files(
+                        BaseDataset(
+                            dataset_name=h5_name,
+                            instrument_name='hip_microscope',
+                            measurement=measurement,
+                            project_id=project_id,
+                        ),
+                        files_to_upload=[h5_path],
+                        wait_for_ingestion_response=False,
+                        ingestor=None,  # use default ingestor based on file type
+                    )
+                    child_id = child_result['created_record']['unique_id']
+                    client.datasets.link_parent_child(session_id, child_id)
+                    if sample_id:
+                        client.add_sample_to_dataset(child_id, sample_id)
+
+                ev = {'type': 'child', 'dataset_id': child_id,
+                      'dataset_name': h5_name, 'measurement': measurement}
+                _push(job_id, ev)
+                children.append(ev)
+
+            _push(job_id, {
+                'type': 'done',
+                'dataset_id': session_id,
+                'dataset_name': dataset_name,
+                'project_id': project_id,
+                'children': children,
+                'dry_run': DRY_RUN,
+            })
+
+        except Exception as exc:
+            app.logger.exception('hip_microscope session upload job failed')
+            _push(job_id, {'type': 'error', 'message': str(exc)})
+        finally:
+            _jobs[job_id]['done'] = True
             threading.Timer(600, lambda d=tmpdir: shutil.rmtree(d, ignore_errors=True)).start()
 
 
@@ -215,6 +327,64 @@ def create_blueprint(auth, helpers):
             mimetype='text/event-stream',
             headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
         )
+
+    @bp.route('/upload/session', methods=['GET'])
+    @auth.oidc_auth('orcid')
+    def upload_session():
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        projects = current_app.crucible_client.list_projects(orcid=orcid)
+        return render_template('instrument_views/hip_microscope_session_upload.html', projects=projects)
+
+    @bp.route('/upload/session/parse', methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def upload_session_parse():
+        """Parse a single H5 file from the folder for metadata — no caching."""
+        f = request.files.get('file')
+        if not f or not f.filename:
+            return jsonify({'error': 'No file.'}), 400
+        suffix = os.path.splitext(f.filename)[1] or '.h5'
+        fd, tmp = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        f.save(tmp)
+        try:
+            meta = _parse_h5_meta(tmp)
+        except Exception as exc:
+            return jsonify({'error': str(exc)}), 400
+        finally:
+            os.unlink(tmp)
+        return jsonify(meta)
+
+    @bp.route('/upload/session', methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def upload_session_post():
+        project_id = request.form.get('project_id', '').strip()
+        if not project_id or not is_user_in_project(project_id):
+            abort(403)
+
+        uploaded_files = request.files.getlist('files')
+        if not uploaded_files or not any(f.filename for f in uploaded_files):
+            return jsonify({'error': 'No files received.'}), 400
+
+        first = uploaded_files[0].filename.replace('\\', '/')
+        folder_name = first.split('/')[0] if '/' in first else 'hip_microscope_session'
+        dataset_name = request.form.get('dataset_name', '').strip() or folder_name
+        sample_id = request.form.get('sample_id', '').strip() or None
+
+        tmpdir = tempfile.mkdtemp()
+        _save_files(uploaded_files, tmpdir)
+
+        job_id = str(uuid.uuid4())
+        _jobs[job_id] = {'events': [], 'done': False, 'lock': threading.Lock()}
+
+        app = current_app._get_current_object()
+        threading.Thread(
+            target=_run_session_job,
+            args=(job_id, tmpdir, project_id, dataset_name, sample_id, app),
+            daemon=True,
+        ).start()
+
+        return jsonify({'job_id': job_id})
 
     @bp.route('/api/samples')
     @auth.oidc_auth('orcid')
