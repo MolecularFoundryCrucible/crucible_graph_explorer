@@ -201,6 +201,75 @@ def project_overview(project_id):
 #     #return (f"Regenerated Cache for {project_id}. {len(pc['samples'])} Samples and {len(pc['datasets'])} Datasets")
 #     return redirect(f"/{project_id}/")
 
+@app.route("/<project_id>/api/sample-types")
+@auth.oidc_auth('orcid')
+def project_api_sample_types(project_id):
+    if not is_user_in_project(project_id):
+        abort(403)
+    q = request.args.get('q', '').lower()
+    pc = get_project(project_id)
+    types = sorted({s.get('sample_type') for s in pc['samples'] if s.get('sample_type')})
+    if q:
+        types = [t for t in types if q in t.lower()]
+    return jsonify(types)
+
+
+@app.route("/<project_id>/api/samples")
+@auth.oidc_auth('orcid')
+def project_api_samples(project_id):
+    if not is_user_in_project(project_id):
+        abort(403)
+    q = request.args.get('q', '').lower()
+    pc = get_project(project_id)
+    samples = pc['samples']
+    if q:
+        samples = [s for s in samples if q in (s.get('sample_name') or '').lower()]
+    return jsonify([
+        {'id': s['unique_id'], 'name': s['sample_name'], 'type': s.get('sample_type') or ''}
+        for s in samples
+    ])
+
+
+@app.route("/<project_id>/samples/new", methods=['GET'])
+@auth.oidc_auth('orcid')
+def sample_new(project_id):
+    if not is_user_in_project(project_id):
+        abort(403)
+    pc = get_project(project_id)
+    return render_template('create_sample.html', pc=pc)
+
+
+@app.route("/<project_id>/samples/new", methods=['POST'])
+@auth.oidc_auth('orcid')
+def sample_new_post(project_id):
+    if not is_user_in_project(project_id):
+        abort(403)
+    sample_name = request.form.get('sample_name', '').strip()
+    sample_type = request.form.get('sample_type', '').strip()
+    if not sample_name or not sample_type:
+        abort(400)
+    description  = request.form.get('description', '').strip() or None
+    parent_ids   = [pid for pid in request.form.getlist('parent_ids') if pid]
+    child_ids    = [cid for cid in request.form.getlist('child_ids') if cid]
+
+    user_session = UserSession(flask.session)
+    orcid = user_session.userinfo['sub']
+
+    result = app.crucible_client.samples.create(
+        sample_name=sample_name,
+        sample_type=sample_type,
+        description=description,
+        project_id=project_id,
+        owner_orcid=orcid,
+        parents=[{'unique_id': pid} for pid in parent_ids],
+        children=[{'unique_id': cid} for cid in child_ids],
+    )
+    # evict cache so the sample graph page sees the new sample
+    for key in [k for k in _project_cache if k[0] == project_id]:
+        del _project_cache[key]
+    return redirect(f'/{project_id}/sample-graph/{result["unique_id"]}')
+
+
 @app.route("/<project_id>/sample-graph/<sample_id>")
 @auth.oidc_auth('orcid')
 def sample_graph(project_id, sample_id):
