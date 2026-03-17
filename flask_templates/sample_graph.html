@@ -331,7 +331,7 @@
 <div class="res-section" id="section-photos">
     <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-images text-muted"></i>
-        <span>Photos</span>
+        <span>Thumbnails</span>
         <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
             {{img_datasets|length}}
         </span>
@@ -342,15 +342,9 @@
         {% for ds in img_datasets %}
         {% set dsid = ds['unique_id'] %}
         <a href="/{{pid}}/dataset/{{dsid}}" class="text-decoration-none" title="{{ds['dataset_name']}}">
-            {% if img_thumbnails.get(dsid) %}
             <img src="{{img_thumbnails[dsid]}}"
                  alt="{{ds['dataset_name']}}"
                  style="width:120px;height:120px;object-fit:cover;border-radius:0.375rem;border:1px solid var(--bs-border-color);">
-            {% else %}
-            <div style="width:120px;height:120px;border-radius:0.375rem;border:1px solid var(--bs-border-color);background:var(--bs-tertiary-bg);display:flex;align-items:center;justify-content:center;">
-                <i class="bi bi-image text-muted fs-3"></i>
-            </div>
-            {% endif %}
             <div class="small text-muted text-center mt-1" style="width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ds['dataset_name']}}</div>
         </a>
         {% endfor %}

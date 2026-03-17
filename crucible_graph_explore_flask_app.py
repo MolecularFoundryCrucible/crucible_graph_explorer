@@ -371,14 +371,14 @@ def sample_graph(project_id, sample_id):
     self_info = pc['samples_by_id'][sample_id]
     descendants_info = sorted([pc['samples_by_id'][sample_id] for sample_id in descendants], key=lambda x: x['unique_id'])
 
-    # Batch-fetch thumbnails for img datasets linked to this sample
-    img_datasets = [d for d in self_info.get('datasets', []) if d.get('measurement') == 'img']
+    # Batch-fetch thumbnails for all datasets linked to this sample
+    all_datasets = self_info.get('datasets', [])
     img_thumbnails = {}
-    if img_datasets:
+    if all_datasets:
         try:
             batch = app.crucible_client._request(
                 "POST", "/datasets/first_thumbnails",
-                json=[d['unique_id'] for d in img_datasets]
+                json=[d['unique_id'] for d in all_datasets]
             )
             img_thumbnails = {
                 dsid: f"data:image/png;base64,{data['thumbnail_b64str']}"
@@ -386,6 +386,8 @@ def sample_graph(project_id, sample_id):
             }
         except Exception:
             pass
+    # Only show section if at least one thumbnail exists
+    img_datasets = [d for d in all_datasets if d['unique_id'] in img_thumbnails]
 
     # Sibling navigation: all samples of the same type, sorted by name
     sample_type = self_info.get('sample_type')
