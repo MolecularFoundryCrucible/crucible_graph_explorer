@@ -130,8 +130,8 @@ async function fetchSpend() {
         const resp = await fetch('/api/key-info');
         if (!resp.ok) return;
         const data = await resp.json();
-        const spend = data?.info?.spend;
-        const max   = data?.info?.max_budget;
+        const spend = data?.spend;
+        const max   = data?.max_budget;
         if (spend == null) return;
         const badge = document.getElementById('spend-badge');
         badge.textContent = max != null

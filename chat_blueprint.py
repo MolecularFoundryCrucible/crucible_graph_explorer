@@ -243,7 +243,14 @@ def create_blueprint(auth, helpers):
         resp = _requests.get(_KEY_INFO_URL,
                              headers={'Authorization': f'Bearer {_AUTH_TOKEN}'},
                              timeout=5)
-        return resp.json(), resp.status_code
+        data = resp.json()
+        info = data.get('info', {})
+        return {
+            'spend':            info.get('spend'),
+            'max_budget':       info.get('max_budget'),
+            'budget_reset_at':  info.get('budget_reset_at'),
+            'key_alias':        info.get('key_alias'),
+        }
 
     @bp.route('/<project_id>/chat')
     @auth.oidc_auth('orcid')
