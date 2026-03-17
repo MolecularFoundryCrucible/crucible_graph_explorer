@@ -30,11 +30,11 @@
 <script>
 (async () => {
     const url = `/dataset-view/rga-tey-run-plots/{{ project_id }}/{{ ds['unique_id'] }}/tey-data`;
-    let text;
+    let payload;
     try {
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        text = await resp.text();
+        payload = await resp.json();
     } catch (e) {
         const el = document.getElementById('tey-error');
         el.textContent = 'Failed to load TEY data: ' + e.message;
@@ -42,56 +42,25 @@
         return;
     }
 
-    // Parse tab-separated file (header row: "Time,s\tTEY,A\tShutter")
-    const lines = text.trim().split('\n');
-    const time = [], tey = [], shutter = [];
-    for (let i = 1; i < lines.length; i++) {
-        const parts = lines[i].split('\t');
-        if (parts.length < 3) continue;
-        time.push(parseFloat(parts[0]));
-        tey.push(parseFloat(parts[1]));
-        shutter.push(parseInt(parts[2], 10));
-    }
+    const { time, tey, shutter_spans } = payload;
 
-    // Find contiguous shutter-open (=1) intervals for shading
-    const shapes = [];
-    let spanStart = null;
-    for (let i = 0; i < shutter.length; i++) {
-        if (shutter[i] === 1 && spanStart === null) {
-            spanStart = time[i];
-        } else if (shutter[i] !== 1 && spanStart !== null) {
-            shapes.push({
-                type: 'rect', xref: 'x', yref: 'paper',
-                x0: spanStart, x1: time[i - 1],
-                y0: 0, y1: 1,
-                fillcolor: 'rgba(255, 200, 0, 0.15)',
-                line: { width: 0 },
-                layer: 'below',
-            });
-            spanStart = null;
-        }
-    }
-    if (spanStart !== null) {
-        shapes.push({
-            type: 'rect', xref: 'x', yref: 'paper',
-            x0: spanStart, x1: time[time.length - 1],
-            y0: 0, y1: 1,
-            fillcolor: 'rgba(255, 200, 0, 0.15)',
-            line: { width: 0 },
-            layer: 'below',
-        });
-    }
+    const shapes = shutter_spans.map(span => ({
+        type: 'rect', xref: 'x', yref: 'paper',
+        x0: span.x0, x1: span.x1,
+        y0: 0, y1: 1,
+        fillcolor: 'rgba(255, 200, 0, 0.15)',
+        line: { width: 0 },
+        layer: 'below',
+    }));
 
-    const trace = {
+    Plotly.newPlot('tey-plot', [{
         x: time,
         y: tey,
         type: 'scattergl',
         mode: 'lines',
         name: 'TEY',
         line: { color: '#0d6efd', width: 1.5 },
-    };
-
-    const layout = {
+    }], {
         xaxis: { title: { text: 'Time (s)' }, showgrid: true },
         yaxis: { title: { text: 'TEY (A)' }, showgrid: true, exponentformat: 'e' },
         shapes,
@@ -105,9 +74,7 @@
             showarrow: false,
             font: { size: 12 },
         }] : [],
-    };
-
-    Plotly.newPlot('tey-plot', [trace], layout, { responsive: true });
+    }, { responsive: true });
 })();
 </script>
 
@@ -130,11 +97,11 @@
 <script>
 (async () => {
     const url = `/dataset-view/rga-tey-run-plots/{{ project_id }}/{{ ds['unique_id'] }}/rga-data`;
-    let text;
+    let payload;
     try {
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        text = await resp.text();
+        payload = await resp.json();
     } catch (e) {
         const el = document.getElementById('rga-error');
         el.textContent = 'Failed to load RGA data: ' + e.message;
@@ -142,37 +109,21 @@
         return;
     }
 
-    // Line 0: instrument metadata (skip)
-    // Line 1: headers — "Time", "1", "2", ..., "300"
-    // Lines 2+: "YYYY/MM/DD HH:MM:SS.d" <tab> val1 <tab> val2 ...
-    const lines = text.trim().split('\n');
-    const headers = lines[1].split('\t');
-    const massLabels = headers.slice(1).map(Number);  // [1, 2, ..., 300]
+    const { elapsed, mass_labels, z_log, mean, shutter_spans } = payload;
 
-    // Parse data rows — store raw linear values for summing, log values for heatmap
-    const timestamps = [];
-    const rawByMass = massLabels.map(() => []);  // linear pressure per mass per time
-
-    for (let i = 2; i < lines.length; i++) {
-        const parts = lines[i].split('\t');
-        if (parts.length < 2) continue;
-        const iso = parts[0].trim().replace(/(\d{4})\/(\d{2})\/(\d{2}) /, '$1-$2-$3T');
-        timestamps.push(new Date(iso).getTime());
-        for (let m = 0; m < massLabels.length; m++) {
-            rawByMass[m].push(parseFloat(parts[m + 1]));
-        }
-    }
-
-    const t0 = timestamps[0];
-    const elapsed = timestamps.map(t => (t - t0) / 1000);
-
-    // Heatmap: log10 of raw values (floor at 1e-13)
-    const zLog = rawByMass.map(row => row.map(v => Math.log10(Math.max(v, 1e-13))));
+    const shutterShapes = shutter_spans.map(span => ({
+        type: 'rect', xref: 'x', yref: 'paper',
+        x0: span.x0, x1: span.x1,
+        y0: 0, y1: 1,
+        fillcolor: 'rgba(255, 200, 0, 0.15)',
+        line: { width: 0 },
+        layer: 'above',
+    }));
 
     Plotly.newPlot('rga-heatmap', [{
         x: elapsed,
-        y: massLabels,
-        z: zLog,
+        y: mass_labels,
+        z: z_log,
         type: 'heatmap',
         colorscale: 'Viridis',
         colorbar: { title: { text: 'log₁₀ Pressure (Torr)', side: 'right' }, thickness: 18 },
@@ -181,14 +132,17 @@
         xaxis: { title: { text: 'Elapsed time (s)' } },
         yaxis: { title: { text: 'Mass (amu)' }, dtick: 25 },
         margin: { t: 20, r: 100, b: 60, l: 65 },
+        shapes: shutterShapes,
+        annotations: shutterShapes.length ? [{
+            xref: 'paper', yref: 'paper',
+            x: 1, y: 1.02, xanchor: 'right', yanchor: 'bottom',
+            text: '<span style="background:rgba(255,200,0,0.3);padding:2px 6px;border-radius:3px;">■</span> Shutter open',
+            showarrow: false, font: { size: 12 },
+        }] : [],
     }, { responsive: true });
 
-    // Mean spectrum: average raw values across all time points per mass channel
-    const nTime = timestamps.length;
-    const mean = rawByMass.map(row => row.reduce((a, v) => a + Math.max(v, 0), 0) / nTime);
-
     Plotly.newPlot('rga-summed', [{
-        x: massLabels,
+        x: mass_labels,
         y: mean,
         type: 'bar',
         marker: { color: '#0d6efd' },
