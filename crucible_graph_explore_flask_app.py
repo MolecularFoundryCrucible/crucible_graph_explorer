@@ -268,8 +268,7 @@ def sample_new_post(project_id):
         children=[{'unique_id': cid} for cid in child_ids],
     )
     # evict cache so the sample graph page sees the new sample
-    for key in [k for k in _project_cache if k[0] == project_id]:
-        del _project_cache[key]
+    clear_project_cache(project_id)
     return redirect(f'/{project_id}/sample-graph/{result["unique_id"]}')
 
 
@@ -327,6 +326,8 @@ def upload_photo_post(project_id, sample_id):
         return jsonify({'error': str(exc)}), 500
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
+
+    clear_project_cache(project_id)
 
     return jsonify({'dataset_id': dataset_id, 'project_id': project_id})
 
@@ -860,12 +861,17 @@ def error(error=None, error_description=None):
 
 # ── LLM Chat ──────────────────────────────────────────────────────────────────
 
+def clear_project_cache(project_id):
+    for key in [k for k in _project_cache if k[0] == project_id]:
+        del _project_cache[key]
+
 _plugin_helpers = {
     'get_project': get_project,
     'is_user_in_project': is_user_in_project,
     'get_project_sample_graph': get_project_sample_graph,
     'get_sample_lineage_graph': get_sample_lineage_graph,
     'get_entity_graph_nx': get_entity_graph_nx,
+    'clear_project_cache': clear_project_cache,
 }
 
 # Chat

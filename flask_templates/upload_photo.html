@@ -76,14 +76,14 @@ $('uploadForm').addEventListener('submit', async function (e) {
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading…';
 
     const fd = new FormData(this);
-    let resp;
+    let resp, data;
     try {
         resp = await fetch(`/${PROJECT_ID}/samples/${SAMPLE_ID}/upload-photo`,
                           { method: 'POST', body: fd });
+        data = await resp.json();
     } catch (err) {
         showError('Network error: ' + err.message); return;
     }
-    const data = await resp.json();
     if (!resp.ok || data.error) { showError(data.error || `HTTP ${resp.status}`); return; }
 
     $('formSection').style.display = 'none';

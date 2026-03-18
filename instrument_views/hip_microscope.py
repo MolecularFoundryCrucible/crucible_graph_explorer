@@ -71,7 +71,7 @@ def _push(job_id: str, event: dict):
             job['events'].append(event)
 
 
-def _run_job(job_id, tmpfile_path, project_id, dataset_name, measurement, sample_id, app):
+def _run_job(job_id, tmpfile_path, project_id, dataset_name, measurement, sample_id, app, clear_cache=None):
     """Background thread: upload single H5 file and push SSE progress events."""
     with app.app_context():
         client = app.crucible_client
@@ -108,6 +108,8 @@ def _run_job(job_id, tmpfile_path, project_id, dataset_name, measurement, sample
                 'project_id': project_id,
                 'dry_run': DRY_RUN,
             })
+            if not DRY_RUN and clear_cache:
+                clear_cache(project_id)
 
         except Exception as exc:
             app.logger.exception('hip_microscope upload job failed')
@@ -129,7 +131,7 @@ def _save_files(files, tmpdir):
         f.save(dest)
 
 
-def _run_session_job(job_id, tmpdir, project_id, dataset_name, sample_id, app):
+def _run_session_job(job_id, tmpdir, project_id, dataset_name, sample_id, app, clear_cache=None):
     """Background thread: upload session folder as parent + per-H5 child datasets."""
     with app.app_context():
         client = app.crucible_client
@@ -218,6 +220,8 @@ def _run_session_job(job_id, tmpdir, project_id, dataset_name, sample_id, app):
                 'children': children,
                 'dry_run': DRY_RUN,
             })
+            if not DRY_RUN and clear_cache:
+                clear_cache(project_id)
 
         except Exception as exc:
             app.logger.exception('hip_microscope session upload job failed')
@@ -230,6 +234,7 @@ def _run_session_job(job_id, tmpdir, project_id, dataset_name, sample_id, app):
 def create_blueprint(auth, helpers):
     bp = Blueprint('iview_hip_microscope', __name__)
     is_user_in_project = helpers['is_user_in_project']
+    clear_project_cache = helpers.get('clear_project_cache')
 
     @bp.route('/upload', methods=['GET'])
     @auth.oidc_auth('orcid')
@@ -296,7 +301,7 @@ def create_blueprint(auth, helpers):
         app = current_app._get_current_object()
         threading.Thread(
             target=_run_job,
-            args=(job_id, tmpfile_path, project_id, dataset_name, measurement, sample_id, app),
+            args=(job_id, tmpfile_path, project_id, dataset_name, measurement, sample_id, app, clear_project_cache),
             daemon=True,
         ).start()
 
@@ -380,7 +385,7 @@ def create_blueprint(auth, helpers):
         app = current_app._get_current_object()
         threading.Thread(
             target=_run_session_job,
-            args=(job_id, tmpdir, project_id, dataset_name, sample_id, app),
+            args=(job_id, tmpdir, project_id, dataset_name, sample_id, app, clear_project_cache),
             daemon=True,
         ).start()
 
