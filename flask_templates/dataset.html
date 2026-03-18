@@ -328,8 +328,9 @@
     </div>
     <div class="res-section-body">
         <div class="px-3 py-2">
+            {% set _skip = ('scientific_metadata', 'id', 'instrument_id', 'owner_user_id', 'json_link') %}
             {% for k, v in ds.items() %}
-            {% if k != 'scientific_metadata' %}
+            {% if k not in _skip %}
             {% set display_key = 'sha256_hash_file' if k == 'sha256_hash_file_to_upload' else k %}
             <div class="meta-row">
                 <span class="meta-key">{{display_key}}</span>

@@ -268,8 +268,9 @@
     </div>
     <div class="res-section-body">
         <div class="px-3 py-2">
+            {% set _skip = ('datasets', 'id', 'owner_user_id') %}
             {% for k, v in s.items() %}
-            {% if k != 'datasets' %}
+            {% if k not in _skip %}
             <div class="meta-row">
                 <span class="meta-key">{{k}}</span>
                 <span class="text-break">
