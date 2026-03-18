@@ -272,6 +272,51 @@ def sample_new_post(project_id):
     return redirect(f'/{project_id}/sample-graph/{result["unique_id"]}')
 
 
+@app.route("/<project_id>/samples/<sample_id>/edit", methods=['GET'])
+@auth.oidc_auth('orcid')
+def sample_edit(project_id, sample_id):
+    if not is_user_in_project(project_id):
+        abort(403)
+    pc = get_project(project_id)
+    self_info = pc['samples_by_id'].get(sample_id)
+    if not self_info:
+        abort(404)
+    G = get_sample_lineage_graph(sample_id)
+    direct_parents  = [pc['samples_by_id'][sid] for sid in G.predecessors(sample_id) if sid in pc['samples_by_id']]
+    direct_children = [pc['samples_by_id'][sid] for sid in G.successors(sample_id)   if sid in pc['samples_by_id']]
+    return render_template('edit_sample.html', pc=pc, sample=self_info,
+                           direct_parents=direct_parents, direct_children=direct_children)
+
+
+@app.route("/<project_id>/samples/<sample_id>/edit", methods=['POST'])
+@auth.oidc_auth('orcid')
+def sample_edit_post(project_id, sample_id):
+    if not is_user_in_project(project_id):
+        abort(403)
+    G = get_sample_lineage_graph(sample_id)
+    existing_parent_ids  = set(G.predecessors(sample_id))
+    existing_child_ids   = set(G.successors(sample_id))
+
+    sample_name = request.form.get('sample_name', '').strip()
+    sample_type = request.form.get('sample_type', '').strip()
+    if not sample_name or not sample_type:
+        abort(400)
+    description = request.form.get('description', '').strip() or None
+    new_parent_ids = [pid for pid in request.form.getlist('parent_ids') if pid and pid not in existing_parent_ids]
+    new_child_ids  = [cid for cid in request.form.getlist('child_ids')  if cid and cid not in existing_child_ids]
+
+    app.crucible_client.samples.update(
+        unique_id=sample_id,
+        sample_name=sample_name,
+        sample_type=sample_type,
+        description=description,
+        parents=[{'unique_id': pid} for pid in new_parent_ids],
+        children=[{'unique_id': cid} for cid in new_child_ids],
+    )
+    clear_project_cache(project_id)
+    return redirect(f'/{project_id}/sample-graph/{sample_id}')
+
+
 @app.route("/<project_id>/samples/<sample_id>/upload-photo", methods=['GET'])
 @auth.oidc_auth('orcid')
 def upload_photo(project_id, sample_id):
