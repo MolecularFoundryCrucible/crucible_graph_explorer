@@ -309,7 +309,7 @@ def create_blueprint(auth, helpers):
                                         if thumbs:
                                             src = f"data:image/png;base64,{thumbs[0]['thumbnail_b64str']}"
                                             label = pc['datasets_by_id'].get(dsid, {}).get('dataset_name', dsid[:13])
-                                            yield f"data: {json.dumps({'type': 'image', 'src': src, 'label': label})}\n\n"
+                                            yield f"data: {json.dumps({'type': 'image', 'src': src, 'label': label, 'dataset_id': dsid})}\n\n"
                                             result_text = f"Thumbnail for '{label}' retrieved and displayed to the user."
                                         else:
                                             result_text = "No thumbnail available for this dataset."

@@ -307,12 +307,11 @@ function handleEvent(event) {
         img.src = event.src;
         img.alt = event.label || 'thumbnail';
         img.title = event.label || '';
-        img.style.cssText = 'max-width:220px;max-height:180px;object-fit:contain;border:1px solid #dee2e6;border-radius:4px;display:block;margin:6px 0;cursor:pointer;';
-        img.addEventListener('click', () => {
-            const w = window.open('', '_blank');
-            w.document.write(`<!doctype html><title>${img.title || 'Thumbnail'}</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img src="${event.src}" style="max-width:100%;max-height:100vh;object-fit:contain;"></body>`);
-            w.document.close();
-        });
+        img.style.cssText = 'max-width:220px;max-height:180px;object-fit:contain;border:1px solid #dee2e6;border-radius:4px;display:block;margin:6px 0;';
+        if (event.dataset_id) {
+            img.style.cursor = 'pointer';
+            img.addEventListener('click', () => window.open(`/${PROJECT_ID}/dataset/${event.dataset_id}`, '_blank'));
+        }
         _currentBubble.appendChild(img);
         scrollToBottom();
 
