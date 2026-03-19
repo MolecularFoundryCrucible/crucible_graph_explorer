@@ -124,6 +124,7 @@
 <script>
 const PROJECT_ID = {{ pc['project_id'] | tojson }};
 const API_URL = `/${PROJECT_ID}/api/chat`;
+const STORAGE_KEY = `chat_history_${PROJECT_ID}_{{ orcid | tojson }}`;
 
 async function fetchSpend() {
     try {
@@ -145,12 +146,36 @@ fetchSpend();
 let history = [];       // [{role: 'user'|'assistant', content: '...'}]
 let streaming = false;
 
+function saveHistory() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch {}
+}
+
+function renderHistory() {
+    for (const msg of history) {
+        if (msg.role === 'user') {
+            addUserBubble(msg.content);
+        } else if (msg.role === 'assistant') {
+            const bubble = createAssistantBubble();
+            const textEl = document.createElement('div');
+            textEl.innerHTML = marked.parse(msg.content);
+            bubble.appendChild(textEl);
+        }
+    }
+}
+
 const messagesEl = document.getElementById('chat-messages');
 const inputEl    = document.getElementById('chat-input');
 const sendBtn    = document.getElementById('send-btn');
 const clearBtn   = document.getElementById('clear-btn');
 
 marked.setOptions({ breaks: true, gfm: true });
+
+// Restore history from localStorage
+try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) history = JSON.parse(saved);
+} catch {}
+renderHistory();
 
 function escHtml(s) {
     return String(s)
@@ -337,6 +362,7 @@ function handleEvent(event) {
         if (_rawText) {
             history.push({ role: 'assistant', content: _rawText });
         }
+        saveHistory();
         scrollToBottom();
     }
 }
@@ -367,6 +393,7 @@ sendBtn.addEventListener('click', sendMessage);
 
 clearBtn.addEventListener('click', function() {
     history = [];
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
     messagesEl.innerHTML = '';
     _rawText = '';
     _currentBubble = null;

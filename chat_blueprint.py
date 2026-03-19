@@ -16,8 +16,9 @@ anthropic_client = anthropic.Anthropic(**_anthropic_kwargs)
 
 from flask import (
     Blueprint, abort, current_app, render_template,
-    request, Response, stream_with_context,
+    request, Response, session, stream_with_context,
 )
+from flask_pyoidc.user_session import UserSession
 
 CHAT_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-haiku-20241022")
 
@@ -258,7 +259,8 @@ def create_blueprint(auth, helpers):
         if not is_user_in_project(project_id):
             abort(403)
         pc = get_project(project_id)
-        return render_template('chat.html', pc=pc)
+        orcid = UserSession(session).userinfo.get('sub', 'unknown')
+        return render_template('chat.html', pc=pc, orcid=orcid)
 
     @bp.route('/<project_id>/api/chat', methods=['POST'])
     @auth.oidc_auth('orcid')
