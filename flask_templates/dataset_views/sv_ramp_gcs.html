@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}{{ds['dataset_name']}} — SV Ramp Viewer{% endblock %}
+
+{% block head %}
+{{ super() }}
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+#frame-img {
+    width: 100%;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 4px;
+    display: block;
+}
+#frame-spinner {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(var(--bs-body-bg-rgb), 0.6);
+    pointer-events: none;
+}
+#frame-wrapper { position: relative; }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
+    <li class="breadcrumb-item"><a href="/{{project_id}}/dataset/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">SV Ramp Viewer</li>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h1 class="fs-4 fw-semibold mb-0" style="overflow-wrap:break-word;">{{ds['dataset_name']}}</h1>
+    <a href="/{{project_id}}/dataset/{{ds['unique_id']}}" class="btn btn-sm btn-outline-secondary flex-shrink-0">
+        <i class="bi bi-database me-1"></i>Dataset
+    </a>
+</div>
+
+<!-- ── IV curve ────────────────────────────────────────────────────────── -->
+<h2 class="fs-6 fw-semibold mb-1">IV Curve
+    <span class="text-muted fw-normal small">(click to jump to frame)</span>
+</h2>
+<div id="iv-plot" style="height:280px;"></div>
+
+<hr class="my-3">
+
+<!-- ── Frame image ─────────────────────────────────────────────────────── -->
+<div class="row g-3 align-items-start">
+    <div class="col-md-7">
+
+        <!-- SV readout + nav -->
+        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+            <span class="badge bg-primary fs-6 px-3 py-2" id="sv-badge">SV — V</span>
+            <span class="text-muted small" id="frame-badge">frame — / {{n_frames}}</span>
+            <div class="ms-auto d-flex gap-1">
+                <button id="btn-prev" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <button id="btn-next" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Slider -->
+        <input id="frame-slider" type="range" class="form-range mb-2"
+               min="0" max="{{ n_frames - 1 }}" step="1" value="0">
+
+        <!-- Frame image -->
+        <div id="frame-wrapper">
+            <img id="frame-img" alt="LEEM frame" src="">
+            <div id="frame-spinner">
+                <div class="spinner-border text-secondary" role="status">
+                    <span class="visually-hidden">Loading…</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+(function () {
+    const dsid      = {{ ds['unique_id'] | tojson }};
+    const projectId = {{ project_id | tojson }};
+    const base      = `/dataset-view/sv-ramp-gcs/${projectId}/${dsid}`;
+
+    const svArray   = {{ sv_array   | tojson }};
+    const imavg     = {{ imavg_array | tojson }};
+    const nFrames   = {{ n_frames }};
+
+    // ── State ──────────────────────────────────────────────────────────────
+    let currentFi = 0;
+    let loading   = false;
+
+    // ── DOM refs ───────────────────────────────────────────────────────────
+    const img        = document.getElementById('frame-img');
+    const spinner    = document.getElementById('frame-spinner');
+    const slider     = document.getElementById('frame-slider');
+    const svBadge    = document.getElementById('sv-badge');
+    const frameBadge = document.getElementById('frame-badge');
+    const btnPrev    = document.getElementById('btn-prev');
+    const btnNext    = document.getElementById('btn-next');
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    function updateBadges(fi) {
+        const sv = svArray[fi];
+        svBadge.textContent   = `SV ${sv.toFixed(2)} V`;
+        frameBadge.textContent = `frame ${fi + 1} / ${nFrames}`;
+    }
+
+    function loadFrame(fi) {
+        if (loading) return;
+        fi = Math.max(0, Math.min(nFrames - 1, fi));
+        currentFi = fi;
+        updateBadges(fi);
+        slider.value = fi;
+
+        // Move IV curve marker
+        Plotly.restyle('iv-plot', { x: [[svArray[fi]]], y: [[imavg[fi]]] }, [1]);
+
+        // Load image
+        loading = true;
+        spinner.style.display = 'flex';
+        const newSrc = `${base}/frame?fi=${fi}`;
+        img.src = newSrc;
+    }
+
+    img.addEventListener('load',  () => { spinner.style.display = 'none'; loading = false; });
+    img.addEventListener('error', () => { spinner.style.display = 'none'; loading = false; });
+
+    // ── Controls ───────────────────────────────────────────────────────────
+    slider.addEventListener('input', () => loadFrame(parseInt(slider.value)));
+
+    btnPrev.addEventListener('click', () => loadFrame(currentFi - 1));
+    btnNext.addEventListener('click', () => loadFrame(currentFi + 1));
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft')  loadFrame(currentFi - 1);
+        if (e.key === 'ArrowRight') loadFrame(currentFi + 1);
+    });
+
+    // ── IV Curve ───────────────────────────────────────────────────────────
+    const lineTrace = {
+        x: svArray, y: imavg,
+        type: 'scattergl', mode: 'lines',
+        line: { color: '#0d6efd', width: 1.5 },
+        name: 'Mean intensity',
+        hovertemplate: 'SV: %{x:.2f} V<br>Intensity: %{y:.3e}<extra></extra>',
+    };
+
+    const markerTrace = {
+        x: [svArray[0]], y: [imavg[0]],
+        type: 'scatter', mode: 'markers',
+        marker: { color: 'red', size: 10, symbol: 'circle',
+                  line: { color: 'white', width: 1.5 } },
+        showlegend: false, hoverinfo: 'skip',
+    };
+
+    const layout = {
+        xaxis: { title: { text: 'Sample Voltage (V)' }, showgrid: true },
+        yaxis: { title: { text: 'Mean Intensity (counts)' }, showgrid: true,
+                 exponentformat: 'e' },
+        margin: { t: 10, r: 20, b: 50, l: 70 },
+        dragmode: 'zoom',
+    };
+
+    Plotly.newPlot('iv-plot', [lineTrace, markerTrace], layout, { responsive: true });
+
+    document.getElementById('iv-plot').on('plotly_click', (e) => {
+        if (!e.points.length) return;
+        const pt = e.points[0];
+        // Find nearest frame index by SV value
+        let best = 0, bestDist = Infinity;
+        for (let i = 0; i < svArray.length; i++) {
+            const d = Math.abs(svArray[i] - pt.x);
+            if (d < bestDist) { bestDist = d; best = i; }
+        }
+        loadFrame(best);
+    });
+
+    // ── Init ───────────────────────────────────────────────────────────────
+    loadFrame(0);
+})();
+</script>
+
+{% endblock %}
