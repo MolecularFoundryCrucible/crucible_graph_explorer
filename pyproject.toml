@@ -29,4 +29,5 @@ dependencies = [
     "ipython>=9.10.0",
     "nano-crucible>=2.0.2",
     "pillow>=12.1.0",
+    "fsspec>=2026.2.0",
 ]
