@@ -93,12 +93,48 @@
                 <div class="fw-semibold fs-5">{{ shared_projects | length }}</div>
                 <div class="text-muted small">project{{ '' if shared_projects | length == 1 else 's' }}</div>
             </div>
-            <div class="flex-fill py-2">
+            <div class="flex-fill py-2 border-end">
                 <div class="fw-semibold fs-5">{{ recent_datasets | length }}</div>
                 <div class="text-muted small">dataset{{ '' if recent_datasets | length == 1 else 's' }}</div>
             </div>
+            <div class="flex-fill py-2">
+                <div class="fw-semibold fs-5">{{ recent_samples | length }}</div>
+                <div class="text-muted small">sample{{ '' if recent_samples | length == 1 else 's' }}</div>
+            </div>
         </div>
     </div>
+
+    <!-- projects — expanded -->
+    {% if shared_projects %}
+    <div class="res-section">
+        <div class="res-section-header" onclick="toggleSection(this)">
+            <i class="bi bi-folder2 text-muted"></i>
+            <span>My Projects</span>
+            <span class="badge fw-normal border text-muted ms-1"
+                  style="background:var(--bs-body-bg); font-size:0.75rem;">
+                {{ shared_projects | length }}
+            </span>
+            <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
+        </div>
+        <div class="res-section-body">
+            {% for p in shared_projects %}
+            <a class="proj-row" href="/{{ p['project_id'] }}/" data-proj-color="{{ p['project_id'] }}">
+                <div style="min-width:0; flex:1;">
+                    <div class="fw-medium">{{ p.get('title') or p['project_id'] }}</div>
+                    <div class="small text-muted d-flex gap-2 flex-wrap">
+                        <span class="mfid">{{ p['project_id'] }}</span>
+                        {% if p.get('organization') %}<span>{{ p['organization'] }}</span>{% endif %}
+                    </div>
+                </div>
+                {% if p.get('status') and p['status'] != 'active' %}
+                <span class="badge fw-normal border text-muted flex-shrink-0"
+                      style="background:var(--bs-tertiary-bg); font-size:0.72rem;">{{ p['status'] }}</span>
+                {% endif %}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- recent datasets — expanded -->
     {% if recent_datasets %}
@@ -140,34 +176,43 @@
     </div>
     {% endif %}
 
-    <!-- projects — expanded -->
-    {% if shared_projects %}
+    <!-- recent samples — collapsed -->
+    {% if recent_samples %}
     <div class="res-section">
         <div class="res-section-header" onclick="toggleSection(this)">
-            <i class="bi bi-folder2 text-muted"></i>
-            <span>My Projects</span>
+            <i class="bi bi-eyedropper text-muted"></i>
+            <span>Recent Samples</span>
             <span class="badge fw-normal border text-muted ms-1"
                   style="background:var(--bs-body-bg); font-size:0.75rem;">
-                {{ shared_projects | length }}
+                {{ recent_samples | length }}
             </span>
-            <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
+            <i class="bi bi-chevron-right res-section-chevron"></i>
         </div>
-        <div class="res-section-body">
-            {% for p in shared_projects %}
-            <a class="proj-row" href="/{{ p['project_id'] }}/" data-proj-color="{{ p['project_id'] }}">
-                <div style="min-width:0; flex:1;">
-                    <div class="fw-medium">{{ p.get('title') or p['project_id'] }}</div>
-                    <div class="small text-muted d-flex gap-2 flex-wrap">
-                        <span class="mfid">{{ p['project_id'] }}</span>
-                        {% if p.get('organization') %}<span>{{ p['organization'] }}</span>{% endif %}
+        <div class="res-section-body" style="display:none;">
+            {% for s in recent_samples[:50] %}
+            {% if s.get('unique_id') %}
+            <a class="list-row"
+               {% if s.get('project_id') %}href="/{{ s['project_id'] }}/sample-graph/{{ s['unique_id'] }}"{% else %}style="pointer-events:none;"{% endif %}>
+                <div style="flex:1; min-width:0;">
+                    <div class="fw-medium text-truncate">{{ s.get('sample_name') or s['unique_id'] }}</div>
+                    <div class="small text-muted">
+                        {% if s.get('sample_type') %}<span>{{ s['sample_type'] }}</span>{% endif %}
+                        {% if s.get('sample_type') and s.get('project_id') %}<span class="mx-1">·</span>{% endif %}
+                        {% if s.get('project_id') %}<span class="mfid">{{ s['project_id'] }}</span>{% endif %}
                     </div>
                 </div>
-                {% if p.get('status') and p['status'] != 'active' %}
-                <span class="badge fw-normal border text-muted flex-shrink-0"
-                      style="background:var(--bs-tertiary-bg); font-size:0.72rem;">{{ p['status'] }}</span>
+                {% if s.get('timestamp') %}
+                <span class="text-muted small text-nowrap flex-shrink-0">{{ s['timestamp'][:10] }}</span>
                 {% endif %}
+                <span class="mfid small text-nowrap flex-shrink-0">{{ s['unique_id'] }}</span>
             </a>
+            {% endif %}
             {% endfor %}
+            {% if recent_samples | length > 50 %}
+            <div class="px-3 py-2 text-muted small border-top" style="background:var(--bs-tertiary-bg);">
+                <i class="bi bi-info-circle me-1"></i>Showing 50 most recent of {{ recent_samples | length }} total
+            </div>
+            {% endif %}
         </div>
     </div>
     {% endif %}
@@ -278,7 +323,48 @@
     </div>
     {% endif %}
 
-    {% if not shared_projects and not recent_datasets %}
+    <!-- recent samples — collapsed -->
+    {% if recent_samples %}
+    <div class="res-section">
+        <div class="res-section-header" onclick="toggleSection(this)">
+            <i class="bi bi-eyedropper text-muted"></i>
+            <span>Recent Samples</span>
+            <span class="badge fw-normal border text-muted ms-1"
+                  style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
+                {{ recent_samples | length }}
+            </span>
+            <i class="bi bi-chevron-right res-section-chevron"></i>
+        </div>
+        <div class="res-section-body" style="display:none;">
+            {% for s in recent_samples[:50] %}
+            {% if s.get('unique_id') %}
+            <a class="list-row"
+               {% if s.get('project_id') %}href="/{{ s['project_id'] }}/sample-graph/{{ s['unique_id'] }}"{% else %}style="pointer-events:none;"{% endif %}>
+                <div style="flex:1; min-width:0;">
+                    <div class="fw-medium text-truncate">{{ s.get('sample_name') or s['unique_id'] }}</div>
+                    <div class="small text-muted">
+                        {% if s.get('sample_type') %}<span>{{ s['sample_type'] }}</span>{% endif %}
+                        {% if s.get('sample_type') and s.get('project_id') %}<span class="mx-1">·</span>{% endif %}
+                        {% if s.get('project_id') %}<span class="mfid">{{ s['project_id'] }}</span>{% endif %}
+                    </div>
+                </div>
+                {% if s.get('timestamp') %}
+                <span class="text-muted small text-nowrap flex-shrink-0">{{ s['timestamp'][:10] }}</span>
+                {% endif %}
+                <span class="mfid small text-nowrap flex-shrink-0">{{ s['unique_id'] }}</span>
+            </a>
+            {% endif %}
+            {% endfor %}
+            {% if recent_samples | length > 50 %}
+            <div class="px-3 py-2 text-muted small border-top" style="background:var(--bs-tertiary-bg);">
+                <i class="bi bi-info-circle me-1"></i>Showing 50 most recent of {{ recent_samples | length }} total
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not shared_projects and not recent_datasets and not recent_samples %}
     <p class="text-muted">No accessible data found for this user.</p>
     {% endif %}
 

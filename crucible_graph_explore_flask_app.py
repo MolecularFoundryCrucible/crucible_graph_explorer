@@ -212,11 +212,19 @@ def user_detail(target_orcid):
     except Exception:
         recent_datasets = []
 
+    recent_samples = []
+    try:
+        recent_samples = app.crucible_client.samples.list(owner_orcid=target_orcid, limit=None)
+        recent_samples.sort(key=lambda s: s.get('timestamp') or '', reverse=True)
+    except Exception:
+        recent_samples = []
+
     return render_template('user.html',
                            user_info=user_info,
                            target_orcid=target_orcid,
                            shared_projects=shared_projects,
                            recent_datasets=recent_datasets,
+                           recent_samples=recent_samples,
                            is_own_profile=is_own_profile)
 
 
