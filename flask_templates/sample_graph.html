@@ -35,9 +35,10 @@
         display: flex; align-items: center; flex-wrap: wrap; gap: 0.15rem 0.5rem;
         padding: 0.5rem 1rem; cursor: pointer;
         border-bottom: 1px solid var(--bs-border-color); transition: background 0.1s;
+        text-decoration: none; color: inherit;
     }
     .list-row:last-child { border-bottom: none; }
-    .list-row:hover { background: var(--bs-tertiary-bg); }
+    .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
 
     /* ── metadata rows ──────────────────────────────────────────────────── */
     .meta-row {
@@ -408,11 +409,10 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for ds in s['datasets'] %}
-        <div class="list-row"
-             onmouseup="navIfNoSelection(event, '/{{pid}}/dataset/{{ds['unique_id']}}')">
+        <a class="list-row" href="/{{pid}}/dataset/{{ds['unique_id']}}">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{ds['dataset_name']}}</span>
             <span class="mfid small ms-auto">{{ds['unique_id']}}</span>
-        </div>
+        </a>
         {% endfor %}
     </div>
 </div>
@@ -432,8 +432,7 @@
     <div class="res-section-body" style="display:none;">
         {% for anc in ancestors_info %}
         {% set aname = anc['sample_name'] %}
-        <div class="list-row"
-             onmouseup="navIfNoSelection(event, '/{{pid}}/sample-graph/{{anc['unique_id']}}')">
+        <a class="list-row" href="/{{pid}}/sample-graph/{{anc['unique_id']}}">
             <div style="flex:1; min-width:8rem;">
                 <div class="fw-medium">{{aname}}</div>
                 <div class="small text-muted text-truncate">
@@ -441,7 +440,7 @@
                 </div>
             </div>
             <span class="mfid small ms-auto">{{anc['unique_id']}}</span>
-        </div>
+        </a>
         {% endfor %}
     </div>
 </div>
@@ -466,8 +465,7 @@
         {% endif %}
         {% for desc in descendants_info %}
         {% set dname = desc['sample_name'] %}
-        <div class="list-row"
-             onmouseup="navIfNoSelection(event, '/{{pid}}/sample-graph/{{desc['unique_id']}}')">
+        <a class="list-row" href="/{{pid}}/sample-graph/{{desc['unique_id']}}">
             <div style="flex:1; min-width:8rem;">
                 <div class="fw-medium">{{dname}}</div>
                 <div class="small text-muted text-truncate">
@@ -475,7 +473,7 @@
                 </div>
             </div>
             <span class="mfid small ms-auto">{{desc['unique_id']}}</span>
-        </div>
+        </a>
         {% endfor %}
     </div>
 </div>
