@@ -63,6 +63,16 @@ PROVIDER_CONFIG = ProviderConfiguration(issuer='https://orcid.org/', client_meta
 auth = OIDCAuthentication({PROVIDER_NAME: PROVIDER_CONFIG}, app)
 
 
+@app.context_processor
+def inject_current_user():
+    try:
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo.get('sub')
+        return {'current_user_orcid': orcid}
+    except Exception:
+        return {'current_user_orcid': None}
+
+
 from crucible_project_graph import \
      generate_project_cache
     #load_project_cache, \

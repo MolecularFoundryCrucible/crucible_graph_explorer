@@ -47,10 +47,26 @@
             {% block breadcrumb %}
             {% endblock %}
         </ol>
-        <button id="darkModeToggle" class="btn btn-sm btn-link text-secondary ms-auto me-1 px-2"
-                title="Toggle dark mode" style="font-size:1rem;">
-            <i class="bi bi-moon"></i>
-        </button>
+        <div class="d-flex align-items-center ms-auto">
+            <a href="/search" class="btn btn-sm btn-link text-secondary px-2" title="Search">
+                <i class="bi bi-search"></i>
+            </a>
+            <a href="/users" class="btn btn-sm btn-link text-secondary px-2" title="Users">
+                <i class="bi bi-people"></i>
+            </a>
+            <a href="/instruments/" class="btn btn-sm btn-link text-secondary px-2" title="Instruments">
+                <i class="bi bi-cpu"></i>
+            </a>
+            {% if current_user_orcid %}
+            <a href="/user/{{ current_user_orcid }}" class="btn btn-sm btn-link text-secondary px-2" title="My Profile">
+                <i class="bi bi-person-circle"></i>
+            </a>
+            {% endif %}
+            <button id="darkModeToggle" class="btn btn-sm btn-link text-secondary me-1 px-2"
+                    title="Toggle dark mode" style="font-size:1rem;">
+                <i class="bi bi-moon"></i>
+            </button>
+        </div>
     </div>
     </nav>
 

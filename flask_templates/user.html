@@ -126,7 +126,7 @@
             <i class="bi bi-chevron-right res-section-chevron"></i>
         </div>
         <div class="res-section-body" style="display:none;">
-            {% for ds in recent_datasets %}
+            {% for ds in recent_datasets[:50] %}
             {% if ds.get('project_id') and ds.get('unique_id') %}
             <a class="list-row" href="/{{ ds['project_id'] }}/dataset/{{ ds['unique_id'] }}">
                 <div style="flex:1; min-width:0;">
@@ -146,6 +146,11 @@
             </a>
             {% endif %}
             {% endfor %}
+            {% if recent_datasets | length > 50 %}
+            <div class="px-3 py-2 text-muted small border-top" style="background:var(--bs-tertiary-bg);">
+                <i class="bi bi-info-circle me-1"></i>Showing 50 most recent of {{ recent_datasets | length }} total
+            </div>
+            {% endif %}
         </div>
     </div>
     {% endif %}
