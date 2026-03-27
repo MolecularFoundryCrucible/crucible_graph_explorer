@@ -118,6 +118,8 @@
         </div>
         <div class="res-section-body">
             {% for p in shared_projects %}
+            {% set ds_count = dataset_counts.get(p['project_id'], 0) %}
+            {% set s_count  = sample_counts.get(p['project_id'], 0) %}
             <a class="proj-row" href="/{{ p['project_id'] }}/" data-proj-color="{{ p['project_id'] }}">
                 <div style="min-width:0; flex:1;">
                     <div class="fw-medium">{{ p.get('title') or p['project_id'] }}</div>
@@ -126,17 +128,29 @@
                         {% if p.get('organization') %}<span>{{ p['organization'] }}</span>{% endif %}
                     </div>
                 </div>
-                {% if p.get('status') and p['status'] != 'active' %}
-                <span class="badge fw-normal border text-muted flex-shrink-0"
-                      style="background:var(--bs-tertiary-bg); font-size:0.72rem;">{{ p['status'] }}</span>
-                {% endif %}
+                <div class="d-flex gap-2 flex-shrink-0 align-items-center">
+                    {% if ds_count %}
+                    <span class="text-muted small text-nowrap">
+                        <i class="bi bi-database me-1" style="font-size:0.75rem;"></i>{{ ds_count }}
+                    </span>
+                    {% endif %}
+                    {% if s_count %}
+                    <span class="text-muted small text-nowrap">
+                        <i class="bi bi-eyedropper me-1" style="font-size:0.75rem;"></i>{{ s_count }}
+                    </span>
+                    {% endif %}
+                    {% if p.get('status') and p['status'] != 'active' %}
+                    <span class="badge fw-normal border text-muted"
+                          style="background:var(--bs-tertiary-bg); font-size:0.72rem;">{{ p['status'] }}</span>
+                    {% endif %}
+                </div>
             </a>
             {% endfor %}
         </div>
     </div>
     {% endif %}
 
-    <!-- recent datasets — expanded -->
+    <!-- recent datasets — expanded, capped at 10 -->
     {% if recent_datasets %}
     <div class="res-section">
         <div class="res-section-header" onclick="toggleSection(this)">
@@ -149,7 +163,7 @@
             <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
         </div>
         <div class="res-section-body">
-            {% for ds in recent_datasets[:50] %}
+            {% for ds in recent_datasets[:10] %}
             {% if ds.get('project_id') and ds.get('unique_id') %}
             <a class="list-row" href="/{{ ds['project_id'] }}/dataset/{{ ds['unique_id'] }}">
                 <div style="flex:1; min-width:0;">
@@ -167,16 +181,16 @@
             </a>
             {% endif %}
             {% endfor %}
-            {% if recent_datasets | length > 50 %}
+            {% if recent_datasets | length > 10 %}
             <div class="px-3 py-2 text-muted small border-top" style="background:var(--bs-tertiary-bg);">
-                <i class="bi bi-info-circle me-1"></i>Showing 50 most recent of {{ recent_datasets | length }} total
+                <i class="bi bi-info-circle me-1"></i>Showing 10 most recent of {{ recent_datasets | length }} total — use project pages to browse all
             </div>
             {% endif %}
         </div>
     </div>
     {% endif %}
 
-    <!-- recent samples — collapsed -->
+    <!-- recent samples — collapsed, capped at 10 -->
     {% if recent_samples %}
     <div class="res-section">
         <div class="res-section-header" onclick="toggleSection(this)">
@@ -189,7 +203,7 @@
             <i class="bi bi-chevron-right res-section-chevron"></i>
         </div>
         <div class="res-section-body" style="display:none;">
-            {% for s in recent_samples[:50] %}
+            {% for s in recent_samples[:10] %}
             {% if s.get('unique_id') %}
             <a class="list-row"
                {% if s.get('project_id') %}href="/{{ s['project_id'] }}/sample-graph/{{ s['unique_id'] }}"{% else %}style="pointer-events:none;"{% endif %}>
@@ -208,9 +222,9 @@
             </a>
             {% endif %}
             {% endfor %}
-            {% if recent_samples | length > 50 %}
+            {% if recent_samples | length > 10 %}
             <div class="px-3 py-2 text-muted small border-top" style="background:var(--bs-tertiary-bg);">
-                <i class="bi bi-info-circle me-1"></i>Showing 50 most recent of {{ recent_samples | length }} total
+                <i class="bi bi-info-circle me-1"></i>Showing 10 most recent of {{ recent_samples | length }} total
             </div>
             {% endif %}
         </div>
@@ -297,7 +311,7 @@
             <i class="bi bi-chevron-right res-section-chevron"></i>
         </div>
         <div class="res-section-body" style="display:none;">
-            {% for ds in recent_datasets[:50] %}
+            {% for ds in recent_datasets[:10] %}
             {% if ds.get('project_id') and ds.get('unique_id') %}
             <a class="list-row" href="/{{ ds['project_id'] }}/dataset/{{ ds['unique_id'] }}">
                 <div style="flex:1; min-width:0;">
@@ -314,9 +328,9 @@
             </a>
             {% endif %}
             {% endfor %}
-            {% if recent_datasets | length > 50 %}
+            {% if recent_datasets | length > 10 %}
             <div class="px-3 py-2 text-muted small border-top" style="background:var(--bs-tertiary-bg);">
-                <i class="bi bi-info-circle me-1"></i>Showing 50 most recent of {{ recent_datasets | length }} total
+                <i class="bi bi-info-circle me-1"></i>Showing 10 most recent of {{ recent_datasets | length }} total
             </div>
             {% endif %}
         </div>
@@ -336,7 +350,7 @@
             <i class="bi bi-chevron-right res-section-chevron"></i>
         </div>
         <div class="res-section-body" style="display:none;">
-            {% for s in recent_samples[:50] %}
+            {% for s in recent_samples[:10] %}
             {% if s.get('unique_id') %}
             <a class="list-row"
                {% if s.get('project_id') %}href="/{{ s['project_id'] }}/sample-graph/{{ s['unique_id'] }}"{% else %}style="pointer-events:none;"{% endif %}>
@@ -355,9 +369,9 @@
             </a>
             {% endif %}
             {% endfor %}
-            {% if recent_samples | length > 50 %}
+            {% if recent_samples | length > 10 %}
             <div class="px-3 py-2 text-muted small border-top" style="background:var(--bs-tertiary-bg);">
-                <i class="bi bi-info-circle me-1"></i>Showing 50 most recent of {{ recent_samples | length }} total
+                <i class="bi bi-info-circle me-1"></i>Showing 10 most recent of {{ recent_samples | length }} total
             </div>
             {% endif %}
         </div>

@@ -1,6 +1,7 @@
 import os
 import re
 import json
+from collections import Counter
 import shutil
 import tempfile
 import time
@@ -219,12 +220,17 @@ def user_detail(target_orcid):
     except Exception:
         recent_samples = []
 
+    dataset_counts = Counter(d.get('project_id') for d in recent_datasets if d.get('project_id'))
+    sample_counts  = Counter(s.get('project_id') for s in recent_samples  if s.get('project_id'))
+
     return render_template('user.html',
                            user_info=user_info,
                            target_orcid=target_orcid,
                            shared_projects=shared_projects,
                            recent_datasets=recent_datasets,
                            recent_samples=recent_samples,
+                           dataset_counts=dataset_counts,
+                           sample_counts=sample_counts,
                            is_own_profile=is_own_profile)
 
 
