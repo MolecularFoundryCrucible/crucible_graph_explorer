@@ -83,11 +83,24 @@
 
     /* ── metadata rows ──────────────────────────────────────────────────── */
     .meta-row {
-        display: flex; gap: 0.5rem; padding: 0.35rem 0;
-        border-bottom: 1px solid var(--bs-border-color); font-size: 0.875rem;
+        display: flex; gap: 0.75rem; padding: 0.28rem 0;
+        font-size: 0.875rem; align-items: baseline;
     }
-    .meta-row:last-child { border-bottom: none; }
-    .meta-key { min-width: 9rem; color: var(--bs-secondary-color); flex-shrink: 0; }
+    .meta-key {
+        min-width: 8rem; flex-shrink: 0;
+        font-size: 0.7rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.05em;
+        color: var(--bs-secondary-color); padding-top: 0.15rem;
+    }
+    .meta-divider {
+        display: flex; align-items: center; gap: 0.6rem;
+        margin: 0.9rem 0 0.4rem;
+    }
+    .meta-divider-label {
+        font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.07em; color: var(--bs-secondary-color); white-space: nowrap;
+    }
+    .meta-divider-line { flex: 1; height: 1px; background: var(--bs-border-color); }
 
     /* ── metadata tree ──────────────────────────────────────────────────── */
     .metadata-tree { font-family: monospace; font-size: 0.9rem; }
@@ -327,24 +340,19 @@
         <i class="bi bi-chevron-right res-section-chevron" style="transform: rotate(90deg);"></i>
     </div>
     <div class="res-section-body">
-        <div class="px-3 py-2">
-            {# Helper: render one labelled row, suppressing None/empty values #}
+        <div class="px-3 pt-2 pb-3">
             {%- macro mrow(label, value) -%}
             <div class="meta-row">
                 <span class="meta-key">{{ label }}</span>
                 <span class="text-break">
-                    {%- if value is none or value == '' -%}
-                        <span class="text-muted">—</span>
-                    {%- elif value is sequence and value is not string -%}
-                        {{ value | join(', ') }}
-                    {%- else -%}
-                        {{ value }}
-                    {%- endif -%}
+                    {%- if value is none or value == '' -%}<span class="text-muted">—</span>
+                    {%- elif value is sequence and value is not string -%}{{ value | join(', ') }}
+                    {%- else -%}{{ value }}{%- endif -%}
                 </span>
             </div>
             {%- endmacro -%}
 
-            {# ── Basic view — mirrors 'crucible get <id>' ── #}
+            {# ── Basic view ── #}
             {{ mrow("Measurement",  ds.get('measurement')) }}
             {{ mrow("Session",      ds.get('session_name')) }}
             {{ mrow("Instrument",   ds.get('instrument_name')) }}
@@ -352,28 +360,31 @@
             {{ mrow("Timestamp",    ds.get('timestamp')) }}
             {{ mrow("Description",  ds.get('description')) }}
 
-            {# ── Advanced toggle ── #}
-            <div class="meta-row" style="cursor:pointer; margin-top:0.25rem; border-top: 1px dashed var(--bs-border-color);"
-                 id="details-adv-toggle" onclick="toggleDetailsAdv()">
-                <span class="meta-key text-muted" style="font-size:0.8rem;">Advanced</span>
-                <i class="bi bi-chevron-right text-muted" id="details-adv-chevron"
-                   style="font-size:0.8rem; transition:transform 0.2s;"></i>
+            {# ── Advanced toggle button ── #}
+            <div class="mt-3 pt-2" style="border-top: 1px solid var(--bs-border-color);">
+                <button onclick="toggleDetailsAdv()"
+                        class="btn btn-sm d-inline-flex align-items-center gap-1 text-muted border-0 bg-transparent px-0 py-0"
+                        style="font-size:0.78rem;">
+                    <i class="bi bi-chevron-right" id="details-adv-chevron"
+                       style="font-size:0.65rem; transition:transform 0.2s;"></i>
+                    Advanced
+                </button>
             </div>
 
-            {# ── Advanced view — mirrors 'crucible get <id> -v' ── #}
+            {# ── Advanced view ── #}
             <div id="details-advanced" style="display:none;">
-                <div class="meta-row pt-2">
-                    <span class="meta-key fw-semibold text-muted"
-                          style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Ownership</span>
+                <div class="meta-divider">
+                    <span class="meta-divider-label">Ownership</span>
+                    <div class="meta-divider-line"></div>
                 </div>
                 {% set pub = ds.get('public') %}
                 {{ mrow("Public",      "Yes" if pub == true else ("No" if pub == false else None)) }}
                 {{ mrow("Owner ORCID", ds.get('owner_orcid')) }}
                 {{ mrow("Owner ID",    ds.get('owner_user_id')) }}
 
-                <div class="meta-row pt-2">
-                    <span class="meta-key fw-semibold text-muted"
-                          style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">File</span>
+                <div class="meta-divider">
+                    <span class="meta-divider-label">File</span>
+                    <div class="meta-divider-line"></div>
                 </div>
                 {{ mrow("Data Format",  ds.get('data_format')) }}
                 {% set sz = ds.get('size') %}
@@ -383,9 +394,9 @@
                 {{ mrow("JSON Link",    ds.get('json_link')) }}
                 {{ mrow("SHA256",       ds.get('sha256_hash_file_to_upload')) }}
 
-                <div class="meta-row pt-2">
-                    <span class="meta-key fw-semibold text-muted"
-                          style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Timing</span>
+                <div class="meta-divider">
+                    <span class="meta-divider-label">Timing</span>
+                    <div class="meta-divider-line"></div>
                 </div>
                 {{ mrow("Created",  ds.get('creation_time')) }}
                 {{ mrow("Modified", ds.get('modification_time')) }}
@@ -731,6 +742,7 @@
         const open    = adv.style.display !== 'none';
         adv.style.display = open ? 'none' : '';
         if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+        if (chevron) chevron.style.color = open ? '' : 'var(--bs-body-color)';
     }
 
     function navIfNoSelection(event, url) {
