@@ -12,7 +12,7 @@
 
 {% block content %}
 
-    <div class="d-flex flex-wrap align-items-center gap-2 justify-content-between mb-4">
+    <div class="d-flex flex-wrap align-items-center gap-2 justify-content-between mb-3">
         <h1 class="mb-0">Welcome to Crucible{% if user_name %}, {{ user_name }}{% endif %}</h1>
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <span class="text-muted small text-nowrap" id="projectCount"></span>
@@ -36,6 +36,18 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-4 flex-wrap">
+        <a href="/search" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-search me-1"></i>Search
+        </a>
+        <a href="/users" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-people me-1"></i>Users
+        </a>
+        <a href="/instruments/" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-cpu me-1"></i>Instruments
+        </a>
     </div>
 
     <div class="d-flex align-items-center gap-3 px-3 py-1 mb-0 small fw-semibold text-uppercase border-bottom border-top bg-body-tertiary text-muted"
