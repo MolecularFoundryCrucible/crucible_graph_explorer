@@ -18,7 +18,7 @@ def create_blueprint(auth, helpers):
         datasets = current_app.crucible_client.list_datasets(
             instrument_name='nirvana spectrometer', limit=500
         )
-        datasets.sort(key=lambda d: d.get('creation_time') or '', reverse=True)
+        datasets.sort(key=lambda d: d.get('timestamp') or '', reverse=True)
         return render_template(
             'instrument_views/nirvana.html',
             instrument=instrument,

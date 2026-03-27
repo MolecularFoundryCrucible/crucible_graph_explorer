@@ -17,7 +17,7 @@
 {% if datasets %}
 <div class="list-group">
     {% for ds in datasets %}
-    {% set date = ds.get('creation_time', '')[:10] %}
+    {% set date = ds.get('timestamp', '')[:10] %}
     <a href="/{{ ds.project_id }}/dataset/{{ ds.unique_id }}"
        class="list-group-item list-group-item-action py-2">
         <div class="d-flex align-items-center gap-3">
