@@ -193,6 +193,7 @@ def user_detail(target_orcid):
     recent_datasets = []
     try:
         recent_datasets = app.crucible_client.list_datasets(owner_orcid=target_orcid, limit=50)
+        recent_datasets.sort(key=lambda d: d.get('timestamp') or '', reverse=True)
     except Exception:
         recent_datasets = []
 
@@ -1000,6 +1001,7 @@ def instrument_detail(instrument_id):
     if instrument_name:
         try:
             recent_datasets = app.crucible_client.list_datasets(instrument_name=instrument_name, limit=50)
+            recent_datasets.sort(key=lambda d: d.get('timestamp') or '', reverse=True)
         except Exception:
             recent_datasets = []
     return render_template('instrument.html', instrument=instrument, custom_views=custom_views,
