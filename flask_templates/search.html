@@ -4,8 +4,14 @@
 {% block head %}
     {{ super() }}
     <style>
-        .result-card { transition: background 0.1s; }
-        .result-card:hover { background: var(--bs-tertiary-bg); }
+        .list-row {
+            display: block; padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--bs-border-color);
+            text-decoration: none; color: inherit;
+            transition: background 0.1s;
+        }
+        .list-row:last-child { border-bottom: none; }
+        .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
         mark { background: #fff3cd; border-radius: 2px; padding: 0 2px; }
         .result-meta { font-size: 0.8em; color: var(--bs-secondary-color); }
         #results-summary { font-size: 0.85em; color: var(--bs-secondary-color); min-height: 1.4em; }
@@ -19,7 +25,7 @@
 
 {% block content %}
 
-<h1><i class="bi bi-search me-2 text-muted"></i>Search <em>{{pc['project_id']}}</em></h1>
+<h1 class="fs-4 fw-semibold mb-3"><i class="bi bi-search me-2 text-secondary"></i>Search <span class="mfid">{{pc['project_id']}}</span></h1>
 
 <div class="mb-3">
     <input id="search-input" type="text" class="form-control form-control-lg"
@@ -63,8 +69,8 @@ function matches(item, fields, q) {
 }
 
 function renderSample(s, q) {
-    return `<a href="${s.url}" class="d-block text-decoration-none text-reset result-card rounded p-2 mb-1">
-        <div class="fw-semibold">${highlight(s.name, q)}</div>
+    return `<a href="${s.url}" class="list-row">
+        <div class="fw-medium">${highlight(s.name, q)}</div>
         <div class="result-meta">
             ${s.type ? highlight(s.type, q) + ' &nbsp;·&nbsp; ' : ''}
             <span class="mfid">${s.id}</span>
@@ -89,8 +95,8 @@ function renderDataset(d, q) {
             </div>`;
         }).join('');
     }
-    return `<a href="${d.url}" class="d-block text-decoration-none text-reset result-card rounded p-2 mb-1">
-        <div class="fw-semibold">${highlight(d.name, q)}</div>
+    return `<a href="${d.url}" class="list-row">
+        <div class="fw-medium">${highlight(d.name, q)}</div>
         <div class="result-meta">
             ${d.measurement ? highlight(d.measurement, q) + ' &nbsp;·&nbsp; ' : ''}
             <span class="mfid">${d.id}</span>
@@ -117,8 +123,12 @@ function search(q) {
     const matchedSamples  = SAMPLES.filter(s  => matches(s,  ['name','description','type','id'], ql));
     const matchedDatasets = DATASETS.filter(d => matches(d, ['name','measurement','id','metadata_str'], ql));
 
-    sampleEl.innerHTML  = matchedSamples.map(s => renderSample(s, q)).join('') || '<p class="text-muted small">No matches</p>';
-    datasetEl.innerHTML = matchedDatasets.map(d => renderDataset(d, q)).join('') || '<p class="text-muted small">No matches</p>';
+    sampleEl.innerHTML  = matchedSamples.length
+        ? `<div class="border rounded overflow-hidden">${matchedSamples.map(s => renderSample(s, q)).join('')}</div>`
+        : '<p class="text-muted small">No matches</p>';
+    datasetEl.innerHTML = matchedDatasets.length
+        ? `<div class="border rounded overflow-hidden">${matchedDatasets.map(d => renderDataset(d, q)).join('')}</div>`
+        : '<p class="text-muted small">No matches</p>';
 
     sampleCnt.textContent  = matchedSamples.length;
     datasetCnt.textContent = matchedDatasets.length;

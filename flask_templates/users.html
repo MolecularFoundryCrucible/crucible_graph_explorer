@@ -1,46 +1,183 @@
 {% extends "base.html" %}
 {% block title %}Users{% endblock %}
 
+{% block sidebar %}{% endblock %}
+{% block main_col_class %}col-12{% endblock %}
+
 {% block breadcrumb %}
     <li class="breadcrumb-item active" aria-current="page">Users</li>
 {% endblock %}
 
 {% block content %}
+<style>
+    .user-avatar {
+        width: 2.25rem; height: 2.25rem; min-width: 2.25rem; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.72rem; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .proj-header {
+        display: flex; align-items: center; gap: 0.5rem;
+        padding: 0.55rem 0.75rem;
+        font-size: 0.875rem; font-weight: 600;
+        background: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color);
+        border-left-width: 4px;
+        border-radius: 0.375rem 0.375rem 0 0;
+    }
+    .list-row {
+        display: flex; align-items: center; gap: 0.75rem;
+        padding: 0.55rem 0.75rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        transition: background 0.1s; text-decoration: none; color: inherit;
+    }
+    .list-row:last-child { border-bottom: none; }
+    .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
+</style>
 
-<h1>Users by Project</h1>
+<div style="max-width: 680px; margin: 0 auto;">
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h1 class="fs-4 fw-semibold mb-0">
+        <i class="bi bi-people me-2 text-secondary"></i>Users
+    </h1>
+</div>
+
+<div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+    <input type="search" class="form-control form-control-sm" id="filterInput"
+           placeholder="Search name, email, ORCID…"
+           style="flex:1; min-width:180px;" oninput="applyFilter()">
+    <button id="uniqueToggle" class="btn btn-sm btn-outline-secondary text-nowrap"
+            onclick="toggleUnique()">
+        <i class="bi bi-person-check me-1"></i>Unique users
+    </button>
+</div>
+
+<div id="noResults" style="display:none;" class="text-center text-muted py-5">
+    <i class="bi bi-search fs-2 d-block mb-2 opacity-50"></i>
+    No users match your filter.
+</div>
 
 {% for entry in projects_with_users %}
-{% set p = entry['project'] %}
+{% set p       = entry['project'] %}
 {% set members = entry['members'] %}
+{% set title   = p.get('title') %}
 
-<h2>
-    <a href="/{{p['project_id']}}/" class="text-decoration-none" style="font-family:monospace;">{{p['project_id']}}</a>
-    {% if p.get('title') %}<small class="text-muted fw-normal fs-6 ms-2">{{p['title']}}</small>{% endif %}
-</h2>
+<div class="mb-4 proj-section">
+    <div class="proj-header" data-hash-color="{{ p['project_id'] }}">
+        <i class="bi bi-folder2 text-muted" style="font-size:0.85rem;"></i>
+        <a href="/{{ p['project_id'] }}/" class="text-decoration-none text-body fw-semibold">
+            {{ title if title and title != p['project_id'] else p['project_id'] }}
+        </a>
+        {% if title and title != p['project_id'] %}
+        <span class="mfid fw-normal" style="font-size:0.78rem; color:var(--bs-secondary-color);">{{ p['project_id'] }}</span>
+        {% endif %}
+        <span class="badge fw-normal border text-muted ms-auto member-count"
+              style="background:var(--bs-body-bg); font-size:0.72rem;"
+              data-total="{{ members | length }}">
+            {{ members | length }} member{{ '' if members | length == 1 else 's' }}
+        </span>
+    </div>
 
-{% if members %}
-<table class="table table-sm table-hover mb-4" style="max-width:700px;">
-    <thead class="table-light">
-        <tr>
-            <th>Name</th>
-            <th>ORCID</th>
-            <th>Email</th>
-        </tr>
-    </thead>
-    <tbody>
+    <div class="border border-top-0" style="border-radius:0 0 0.375rem 0.375rem; overflow:hidden;">
+    {% if members %}
         {% for m in members %}
-        <tr>
-            <td>{{ m.get('name') or '—' }}</td>
-            <td><span class="mfid">{{ m.get('orcid') or '—' }}</span></td>
-            <td>{{ m.get('email') or m.get('lbl_email') or '—' }}</td>
-        </tr>
+        {% set first    = m.get('first_name') or '' %}
+        {% set last     = m.get('last_name')  or '' %}
+        {% set name     = (first ~ ' ' ~ last).strip() %}
+        {% set email    = m.get('lbl_email') or m.get('email') or '' %}
+        {% set initials = ((first[:1] if first else '') ~ (last[:1] if last else '')) | upper or '?' %}
+        <div class="list-row"
+             data-search="{{ (name ~ ' ' ~ email ~ ' ' ~ (m.get('orcid') or '')).lower() }}"
+             data-orcid="{{ m.get('orcid') or '' }}">
+            <div class="user-avatar" data-avatar-for="{{ name or m.get('orcid') or '?' }}">
+                {{ initials }}
+            </div>
+            <div style="min-width:0; flex:1;">
+                <div class="fw-medium">{{ name or '—' }}</div>
+                {% if email %}
+                <div class="text-muted small">{{ email }}</div>
+                {% endif %}
+            </div>
+            {% if m.get('orcid') %}
+            <span class="mfid small text-nowrap">{{ m['orcid'] }}</span>
+            {% endif %}
+        </div>
         {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p class="text-muted small mb-4">No member information available.</p>
-{% endif %}
-
+    {% else %}
+        <div class="px-3 py-2 text-muted small">No member information available.</div>
+    {% endif %}
+    </div>
+</div>
 {% endfor %}
+</div>
+
+<script>
+    const PALETTE = [
+        '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
+        '#b07aa1','#9c755f','#6b6ecf','#e05c5c','#3a9e7e'
+    ];
+    function hashColor(str) {
+        let h = 0;
+        for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+        return PALETTE[Math.abs(h) % PALETTE.length];
+    }
+    document.querySelectorAll('[data-hash-color]').forEach(el => {
+        el.style.borderLeftColor = hashColor(el.dataset.hashColor);
+    });
+    document.querySelectorAll('[data-avatar-for]').forEach(el => {
+        el.style.background = hashColor(el.dataset.avatarFor);
+    });
+
+    // ── filtering ─────────────────────────────────────────────────────────────
+    let showUnique = false;
+
+    function toggleUnique() {
+        showUnique = !showUnique;
+        const btn = document.getElementById('uniqueToggle');
+        btn.classList.toggle('btn-outline-secondary', !showUnique);
+        btn.classList.toggle('btn-primary', showUnique);
+        applyFilter();
+    }
+
+    function applyFilter() {
+        const q    = document.getElementById('filterInput').value.toLowerCase().trim();
+        const seen = new Set();  // ORCIDs already shown (for unique mode)
+        let totalVisible = 0;
+
+        document.querySelectorAll('.proj-section').forEach(section => {
+            let visible = 0;
+            section.querySelectorAll('.list-row[data-search]').forEach(row => {
+                const orcid       = row.dataset.orcid;
+                const matchSearch = !q    || row.dataset.search.includes(q);
+                const matchUnique = !showUnique || !orcid || !seen.has(orcid);
+                const show        = matchSearch && matchUnique;
+
+                row.style.display = show ? '' : 'none';
+                if (show) {
+                    visible++;
+                    if (orcid) seen.add(orcid);
+                }
+            });
+
+            // hide whole section if nothing matches a search query
+            section.style.display = (visible > 0 || !q) ? '' : 'none';
+
+            // update member count badge
+            const badge = section.querySelector('.member-count');
+            if (badge) {
+                const total = parseInt(badge.dataset.total, 10);
+                const active = q || showUnique;
+                badge.textContent = active
+                    ? `${visible} / ${total}`
+                    : `${total} member${total === 1 ? '' : 's'}`;
+            }
+
+            totalVisible += visible;
+        });
+
+        document.getElementById('noResults').style.display =
+            (totalVisible === 0 && q) ? '' : 'none';
+    }
+</script>
 
 {% endblock %}

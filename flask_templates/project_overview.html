@@ -5,6 +5,7 @@
 {{ super() }}
 {% endblock %}
 
+
 {% block breadcrumb %}
     <li class="breadcrumb-item active">
         <a href="/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a>
@@ -24,17 +25,7 @@
                  style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bs-primary);">
                 <i class="bi bi-eyedropper"></i> Samples
             </div>
-            <ul class="nav flex-column" id="sampleNav">
-                {% for stype, s_list in samples_by_type.items() %}
-                <li class="nav-item" id="snav-{{ loop.index }}">
-                    <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
-                       href="#stype-{{ loop.index }}"
-                       onclick="expandAndScroll('stype-{{ loop.index }}', event)">
-                        {{stype}} <span class="text-muted">({{s_list|length}})</span>
-                    </a>
-                </li>
-                {% endfor %}
-            </ul>
+            <ul class="nav flex-column" id="sampleNav"></ul>
         </div>
 
         <div class="mb-3">
@@ -43,17 +34,7 @@
                  style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bs-secondary-color); opacity: 0.6;">
                 <i class="bi bi-database"></i> Datasets
             </div>
-            <ul class="nav flex-column" id="datasetNav">
-                {% for mtype, ds_list in datasets_by_type.items() %}
-                <li class="nav-item" id="dnav-{{ loop.index }}">
-                    <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
-                       href="#mtype-{{ loop.index }}"
-                       onclick="expandAndScroll('mtype-{{ loop.index }}', event)">
-                        {{mtype}} <span class="text-muted">({{ds_list|length}})</span>
-                    </a>
-                </li>
-                {% endfor %}
-            </ul>
+            <ul class="nav flex-column" id="datasetNav"></ul>
         </div>
 
     </div>
@@ -106,15 +87,17 @@
         display: flex; align-items: center; justify-content: space-between;
         padding: 0.5rem 1rem; cursor: pointer;
         border-bottom: 1px solid var(--bs-border-color); transition: background 0.1s;
+        text-decoration: none; color: inherit;
     }
     .list-row:last-child { border-bottom: none; }
-    .list-row:hover { background: var(--bs-tertiary-bg); }
+    .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
 </style>
 
 {% set title = project_meta.get('title') %}
 {% set pid   = pc['project_id'] %}
 
-<div style="max-width: 860px;">
+<div class="d-flex gap-4 align-items-start">
+<div style="max-width: 860px; flex: 1; min-width: 0;">
 
     <!-- ── project header card ────────────────────────────────────────── -->
     <div class="mb-3 rounded border overflow-hidden" id="projectCard"
@@ -188,8 +171,8 @@
                     <i class="bi bi-eyedropper fs-5 tab-icon"></i>
                     <span class="fw-semibold fs-5">Samples</span>
                 </div>
-                <div class="small text-muted text-truncate">
-                    {{pc['samples'] | length}} &middot; {{samples_by_type | length}} type{{'' if samples_by_type | length == 1 else 's'}}
+                <div class="small text-muted text-truncate" id="tabSamplesSubtitle">
+                    {{pc['samples'] | length}} samples
                 </div>
             </div>
         </div>
@@ -201,22 +184,49 @@
                     <i class="bi bi-database fs-5 tab-icon"></i>
                     <span class="fw-semibold fs-5">Datasets</span>
                 </div>
-                <div class="small text-muted text-truncate">
-                    {{pc['datasets'] | length}} &middot; {{datasets_by_type | length}} type{{'' if datasets_by_type | length == 1 else 's'}}
+                <div class="small text-muted text-truncate" id="tabDatasetsSubtitle">
+                    {{pc['datasets'] | length}} datasets
                 </div>
             </div>
         </div>
 
         <div class="d-flex flex-column justify-content-center gap-1 px-3 border-start flex-shrink-0"
              style="background:var(--bs-tertiary-bg);">
-            <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;"
-                    onclick="setAllGroups(true); event.stopPropagation();">
-                <i class="bi bi-chevron-expand"></i> Expand
-            </button>
-            <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;"
-                    onclick="setAllGroups(false); event.stopPropagation();">
-                <i class="bi bi-chevron-contract"></i> Collapse
-            </button>
+
+            <!-- group-by row -->
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-muted text-nowrap" style="font-size:0.7rem; letter-spacing:0.03em;">Group by</span>
+                <select class="form-select form-select-sm" id="sampleGroupBySelect"
+                        style="font-size:0.8rem; width:auto;"
+                        onclick="event.stopPropagation()" onchange="onSettingChange()">
+                    <option value="sample_type">Type</option>
+                    <option value="owner_orcid">Owner</option>
+                    <option value="timestamp">Date</option>
+                </select>
+                <select class="form-select form-select-sm" id="datasetGroupBySelect"
+                        style="font-size:0.8rem; width:auto; display:none;"
+                        onclick="event.stopPropagation()" onchange="onSettingChange()">
+                    <option value="measurement">Measurement</option>
+                    <option value="instrument_name">Instrument</option>
+                    <option value="session_name">Session</option>
+                    <option value="data_format">Format</option>
+                    <option value="owner_orcid">Owner</option>
+                    <option value="timestamp">Date</option>
+                </select>
+            </div>
+
+            <!-- expand / collapse row -->
+            <div class="d-flex gap-1">
+                <button class="btn btn-sm text-muted border-0 bg-transparent px-1 py-0 d-flex align-items-center gap-1"
+                        style="font-size:0.75rem;" onclick="setAllGroups(true); event.stopPropagation();">
+                    <i class="bi bi-arrows-expand"></i> expand
+                </button>
+                <button class="btn btn-sm text-muted border-0 bg-transparent px-1 py-0 d-flex align-items-center gap-1"
+                        style="font-size:0.75rem;" onclick="setAllGroups(false); event.stopPropagation();">
+                    <i class="bi bi-arrows-collapse"></i> collapse
+                </button>
+            </div>
+
         </div>
     </div>
 
@@ -232,30 +242,7 @@
             No samples match your filter.
         </div>
 
-        {% for stype, s_list in samples_by_type.items() %}
-        <div class="sample-group mb-3" id="stype-{{ loop.index }}">
-            <div class="group-header" onclick="toggleGroup(this)">
-                <i class="bi bi-eyedropper text-muted" style="font-size:0.85rem; opacity:0.7;"></i>
-                <span>{{stype}}</span>
-                <span class="badge fw-normal border text-muted sample-count"
-                      style="background:var(--bs-tertiary-bg); font-size:0.75rem;">{{s_list | length}}</span>
-                <i class="bi bi-chevron-right group-chevron"></i>
-            </div>
-            <div class="collapse-body" style="display:none;">
-                <div class="border border-top-0"
-                     style="border-radius:0 0 0.375rem 0.375rem; overflow:hidden;">
-                    {% for s in s_list %}
-                    <div class="list-row sample-item"
-                         data-search="{{(s['sample_name'] ~ ' ' ~ s.get('sample_type', ''))|lower}}"
-                         onmouseup="navIfNoSelection(event, '/{{pc['project_id']}}/sample-graph/{{s['unique_id']}}')">
-                        <span>{{s['sample_name']}}</span>
-                        <span class="mfid small ms-3 text-nowrap">{{s['unique_id']}}</span>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-        {% endfor %}
+        <div id="samples-groups"></div>
     </div>
 
     <!-- ── datasets section ───────────────────────────────────────────── -->
@@ -265,33 +252,63 @@
             No datasets match your filter.
         </div>
 
-        {% for mtype, ds_list in datasets_by_type.items() %}
-        <div class="dataset-group mb-3" id="mtype-{{ loop.index }}">
-            <div class="group-header" onclick="toggleGroup(this)">
-                <i class="bi bi-database text-muted" style="font-size:0.85rem; opacity:0.7;"></i>
-                <span>{{mtype}}</span>
-                <span class="badge fw-normal border text-muted dataset-count"
-                      style="background:var(--bs-tertiary-bg); font-size:0.75rem;">{{ds_list | length}}</span>
-                <i class="bi bi-chevron-right group-chevron"></i>
-            </div>
-            <div class="collapse-body" style="display:none;">
-                <div class="border border-top-0"
-                     style="border-radius:0 0 0.375rem 0.375rem; overflow:hidden;">
-                    {% for ds in ds_list %}
-                    <div class="list-row dataset-item"
-                         data-search="{{(ds['dataset_name'] ~ ' ' ~ ds.get('measurement', ''))|lower}}"
-                         onmouseup="navIfNoSelection(event, '/{{pc['project_id']}}/dataset/{{ds['unique_id']}}')">
-                        <span class="text-truncate me-3">{{ds['dataset_name']}}</span>
-                        <span class="mfid small text-nowrap">{{ds['unique_id']}}</span>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-        {% endfor %}
+        <div id="datasets-groups"></div>
     </div>
 
+</div>{# end main content #}
+
+<!-- ── members panel (right, xl+ only) ───────────────────────────────────── -->
+{% if project_users %}
+<div class="d-none d-xl-block flex-shrink-0" style="width:220px;">
+    <div class="sticky-top" style="top:5em;">
+        <div class="rounded border overflow-hidden">
+
+            <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
+                 style="background:var(--bs-tertiary-bg);">
+                <span class="fw-semibold" style="font-size:0.8rem;">
+                    <i class="bi bi-people me-1 text-secondary"></i>Members
+                </span>
+                <span class="badge fw-normal border text-muted"
+                      style="background:var(--bs-body-bg); font-size:0.7rem;">
+                    {{ project_users | length }}
+                </span>
+            </div>
+
+            {% for u in project_users %}
+            <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom"
+                 style="{% if loop.last %}border-bottom:none;{% endif %}">
+                <div style="width:1.85rem; height:1.85rem; min-width:1.85rem; border-radius:50%;
+                            display:flex; align-items:center; justify-content:center;
+                            font-size:0.65rem; font-weight:700; color:#fff; flex-shrink:0;"
+                     data-avatar-for="{{ u.name or u.orcid }}">
+                    {{ u.initials }}
+                </div>
+                <div style="min-width:0;">
+                    <div class="fw-medium text-truncate" style="font-size:0.8rem;">
+                        {{ u.name or '—' }}
+                    </div>
+                    {% if u.email %}
+                    <div class="text-muted text-truncate" style="font-size:0.7rem;">
+                        {{ u.email }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="px-3 py-2 border-top" style="background:var(--bs-tertiary-bg);">
+                <a href="/users" class="text-muted text-decoration-none"
+                   style="font-size:0.75rem;">
+                    <i class="bi bi-arrow-right me-1"></i>All users
+                </a>
+            </div>
+
+        </div>
+    </div>
 </div>
+{% endif %}
+
+</div>{# end flex row #}
 
 <!-- ── back-to-top button ─────────────────────────────────────────────── -->
 <button id="backToTop" title="Back to top"
@@ -305,11 +322,11 @@
 </button>
 
 <script>
-    function navIfNoSelection(event, url) {
-        if (window.getSelection().toString()) return;
-        if (event.target.closest('a, button')) return;
-        window.location.href = url;
-    }
+    // ── raw data from server ──────────────────────────────────────────────────
+    const PID       = {{ pid | tojson }};
+    const SAMPLES   = {{ pc['samples'] | tojson }};
+    const DATASETS  = {{ pc['datasets'] | tojson }};
+    const OWNER_MAP = {{ owner_map | tojson }};  // orcid → display name
 
     // ── color helpers ─────────────────────────────────────────────────────────
     const PALETTE = [
@@ -322,11 +339,191 @@
         return PALETTE[Math.abs(h) % PALETTE.length];
     }
 
+    function escHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── grouping ──────────────────────────────────────────────────────────────
+    const GROUP_NOUN = {
+        sample_type:     'type',
+        owner_orcid:     'owner',
+        measurement:     'measurement',
+        instrument_name: 'instrument',
+        session_name:    'session',
+        data_format:     'format',
+        timestamp:       'month',
+    };
+
+    const MONTH_NAMES = ['January','February','March','April','May','June',
+                         'July','August','September','October','November','December'];
+
+    function timestampBucket(val) {
+        if (!val) return '(no date)';
+        const d = new Date(val);
+        if (isNaN(d)) return '(no date)';
+        return MONTH_NAMES[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+    }
+
+    function groupLabel(item, field) {
+        const val = item[field];
+        if (!val) return '(none)';
+        if (field === 'owner_orcid') return OWNER_MAP[val] || val;
+        if (field === 'timestamp')   return timestampBucket(val);
+        return val;
+    }
+
+    function groupBy(items, field) {
+        const groups = {};
+        items.forEach(item => {
+            const key = groupLabel(item, field);
+            (groups[key] = groups[key] || []).push(item);
+        });
+
+        const isDate = field === 'timestamp';
+        let keys = Object.keys(groups);
+
+        if (isDate) {
+            // reverse-chronological; '(no date)' always last
+            keys.sort((a, b) => {
+                if (a === '(no date)') return  1;
+                if (b === '(no date)') return -1;
+                // compare by the timestamp of the first item in each group
+                return (groups[b][0].timestamp || '').localeCompare(groups[a][0].timestamp || '');
+            });
+        } else {
+            keys.sort((a, b) => a.localeCompare(b));
+        }
+
+        const sorted = {};
+        keys.forEach(k => {
+            sorted[k] = groups[k].slice().sort((a, b) => {
+                if (isDate) {
+                    // within a month, most recent first
+                    return (b.timestamp || '').localeCompare(a.timestamp || '');
+                }
+                return (a.sample_name || a.dataset_name || '')
+                    .localeCompare(b.sample_name || b.dataset_name || '');
+            });
+        });
+        return sorted;
+    }
+
+    // ── render helpers ────────────────────────────────────────────────────────
+    function buildGroupEl(gid, icon, gkey, items, itemClass, countClass, rowFn, navPrefix) {
+        const div = document.createElement('div');
+        div.className = `${icon.includes('eyedropper') ? 'sample' : 'dataset'}-group mb-3`;
+        div.id = gid;
+
+        const rows = items.map(rowFn).join('');
+        div.innerHTML = `
+            <div class="group-header" onclick="toggleGroup(this)">
+                <i class="bi bi-${icon} text-muted" style="font-size:0.85rem; opacity:0.7;"></i>
+                <span>${escHtml(gkey)}</span>
+                <span class="badge fw-normal border text-muted ${countClass}"
+                      style="background:var(--bs-tertiary-bg); font-size:0.75rem;">${items.length}</span>
+                <i class="bi bi-chevron-right group-chevron"></i>
+            </div>
+            <div class="collapse-body" style="display:none;">
+                <div class="border border-top-0"
+                     style="border-radius:0 0 0.375rem 0.375rem; overflow:hidden;">
+                    ${rows}
+                </div>
+            </div>`;
+        div.querySelector('.group-header').style.borderLeftColor = hashColor(gkey);
+        return div;
+    }
+
+    function buildNavLi(navPrefix, idx, gid, gkey, count) {
+        const li = document.createElement('li');
+        li.className = 'nav-item';
+        li.id = `${navPrefix}-${idx}`;
+        li.innerHTML = `<a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
+            href="#${gid}" onclick="expandAndScroll('${gid}', event)">
+            ${escHtml(gkey)} <span class="text-muted">(${count})</span>
+        </a>`;
+        return li;
+    }
+
+    // ── render sample groups ──────────────────────────────────────────────────
+    function renderSampleGroups(field) {
+        const grouped   = groupBy(SAMPLES, field);
+        const container = document.getElementById('samples-groups');
+        const nav       = document.getElementById('sampleNav');
+        container.innerHTML = '';
+        nav.innerHTML       = '';
+
+        let idx = 0;
+        for (const [gkey, items] of Object.entries(grouped)) {
+            idx++;
+            const gid = `stype-${idx}`;
+            const groupEl = buildGroupEl(gid, 'eyedropper', gkey, items,
+                'sample-item', 'sample-count',
+                s => `<a class="list-row sample-item"
+                         href="/${PID}/sample-graph/${escHtml(s.unique_id)}"
+                         data-search="${escHtml((s.sample_name + ' ' + (s.sample_type || '')).toLowerCase())}">
+                         <span>${escHtml(s.sample_name || s.unique_id)}</span>
+                         <span class="mfid small ms-3 text-nowrap">${escHtml(s.unique_id)}</span>
+                      </a>`);
+            container.appendChild(groupEl);
+            nav.appendChild(buildNavLi('snav', idx, gid, gkey, items.length));
+        }
+
+        const ng   = Object.keys(grouped).length;
+        const noun = GROUP_NOUN[field] || 'group';
+        document.getElementById('tabSamplesSubtitle').textContent =
+            `${SAMPLES.length} · ${ng} ${noun}${ng === 1 ? '' : 's'}`;
+
+        applyFilter();
+    }
+
+    // ── render dataset groups ─────────────────────────────────────────────────
+    function renderDatasetGroups(field) {
+        const grouped   = groupBy(DATASETS, field);
+        const container = document.getElementById('datasets-groups');
+        const nav       = document.getElementById('datasetNav');
+        container.innerHTML = '';
+        nav.innerHTML       = '';
+
+        let idx = 0;
+        for (const [gkey, items] of Object.entries(grouped)) {
+            idx++;
+            const gid = `mtype-${idx}`;
+            const groupEl = buildGroupEl(gid, 'database', gkey, items,
+                'dataset-item', 'dataset-count',
+                ds => `<a class="list-row dataset-item"
+                          href="/${PID}/dataset/${escHtml(ds.unique_id)}"
+                          data-search="${escHtml((ds.dataset_name + ' ' + (ds.measurement || '')).toLowerCase())}">
+                          <span class="text-truncate me-3">${escHtml(ds.dataset_name || ds.unique_id)}</span>
+                          <span class="mfid small text-nowrap">${escHtml(ds.unique_id)}</span>
+                       </a>`);
+            container.appendChild(groupEl);
+            nav.appendChild(buildNavLi('dnav', idx, gid, gkey, items.length));
+        }
+
+        const ng   = Object.keys(grouped).length;
+        const noun = GROUP_NOUN[field] || 'group';
+        document.getElementById('tabDatasetsSubtitle').textContent =
+            `${DATASETS.length} · ${ng} ${noun}${ng === 1 ? '' : 's'}`;
+
+        applyFilter();
+    }
+
+    // ── settings ──────────────────────────────────────────────────────────────
+    function onSettingChange() {
+        const sgb = document.getElementById('sampleGroupBySelect')?.value  || 'sample_type';
+        const dgb = document.getElementById('datasetGroupBySelect')?.value || 'measurement';
+        localStorage.setItem('pref_sample_groupby',  sgb);
+        localStorage.setItem('pref_dataset_groupby', dgb);
+        renderSampleGroups(sgb);
+        renderDatasetGroups(dgb);
+    }
+
     // ── avatar + project card accent ──────────────────────────────────────────
     (function () {
-        const pid      = {{ pid | tojson }};
-        const color    = hashColor(pid);
-        const initials = pid.replace(/[_-]/g, ' ').split(' ')
+        const color    = hashColor(PID);
+        const initials = PID.replace(/[_-]/g, ' ').split(' ')
                             .filter(Boolean).slice(0, 2)
                             .map(w => w[0].toUpperCase()).join('');
         const av = document.getElementById('projectAvatar');
@@ -337,10 +534,9 @@
         document.getElementById('projectCard').style.borderLeftColor = color;
     })();
 
-    // colour group header left borders by type name
-    document.querySelectorAll('.group-header').forEach(h => {
-        const label = h.querySelector('span:not(.badge)');
-        if (label) h.style.borderLeftColor = hashColor(label.textContent.trim());
+    // ── member avatars ────────────────────────────────────────────────────────
+    document.querySelectorAll('[data-avatar-for]').forEach(el => {
+        el.style.background = hashColor(el.dataset.avatarFor || '?');
     });
 
     // ── sticky tab bar ────────────────────────────────────────────────────────
@@ -374,6 +570,10 @@
         document.getElementById('tabSamples').classList.toggle('inactive', tab !== 'samples');
         document.getElementById('tabDatasets').classList.toggle('active',   tab === 'datasets');
         document.getElementById('tabDatasets').classList.toggle('inactive', tab !== 'datasets');
+
+        // swap group-by dropdown
+        document.getElementById('sampleGroupBySelect').style.display  = tab === 'samples'  ? '' : 'none';
+        document.getElementById('datasetGroupBySelect').style.display = tab === 'datasets' ? '' : 'none';
 
         const sLbl = document.getElementById('sampleNavLabel');
         const dLbl = document.getElementById('datasetNavLabel');
@@ -488,6 +688,24 @@
 
         updateSidebarNav();
     }
+</script>
+
+<script>
+    // ── init: load saved settings and render groups ───────────────────────────
+    (function () {
+        const sgb = localStorage.getItem('pref_sample_groupby')  || 'sample_type';
+        const dgb = localStorage.getItem('pref_dataset_groupby') || 'measurement';
+
+        // reflect saved prefs in settings panel dropdowns
+        const sgbEl = document.getElementById('sampleGroupBySelect');
+        if (sgbEl) sgbEl.value = sgb;
+
+        const dgbEl = document.getElementById('datasetGroupBySelect');
+        if (dgbEl) dgbEl.value = dgb;
+
+        renderSampleGroups(sgb);
+        renderDatasetGroups(dgb);
+    })();
 </script>
 
 {% endblock %}

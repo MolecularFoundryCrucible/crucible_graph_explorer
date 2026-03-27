@@ -1,41 +1,160 @@
 {% extends "base.html" %}
-{% block title %}{{ instrument.instrument_name }} — Instrument{% endblock %}
+{% block title %}{{ instrument.get('instrument_name') }} — Instrument{% endblock %}
+
+{% block sidebar %}{% endblock %}
+{% block main_col_class %}col-12{% endblock %}
 
 {% block breadcrumb %}
     <li class="breadcrumb-item"><a href="/instruments/">Instruments</a></li>
-    <li class="breadcrumb-item active" aria-current="page">{{ instrument.instrument_name }}</li>
+    <li class="breadcrumb-item active" aria-current="page">{{ instrument.get('instrument_name') }}</li>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-    <i class="bi bi-cpu fs-3 text-secondary flex-shrink-0"></i>
-    <h1 class="fs-4 fw-semibold mb-0">{{ instrument.instrument_name }}</h1>
+<style>
+    .meta-row {
+        display: flex; gap: 0.75rem; align-items: baseline;
+        padding: 0.3rem 0;
+    }
+    .meta-key {
+        font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.05em; color: var(--bs-secondary-color);
+        white-space: nowrap; min-width: 7rem; flex-shrink: 0;
+    }
+    .meta-divider {
+        display: flex; align-items: center; gap: 0.6rem;
+        margin: 0.75rem 0 0.4rem;
+    }
+    .meta-divider-label {
+        font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--bs-secondary-color); white-space: nowrap;
+    }
+    .meta-divider-line {
+        flex: 1; height: 1px; background: var(--bs-border-color);
+    }
+</style>
+
+<div style="max-width:680px; margin: 0 auto;">
+
+    <!-- ── header card ──────────────────────────────────────────────────── -->
+    <div class="rounded border overflow-hidden mb-4" id="instrumentCard"
+         style="border-left-width:5px !important;">
+        <div class="d-flex align-items-start gap-3 p-3">
+
+            <div style="flex-shrink:0; width:3rem; height:3rem; min-width:3rem; border-radius:50%;
+                        background:var(--bs-secondary); color:#fff;
+                        display:flex; align-items:center; justify-content:center; font-size:1.2rem;"
+                 id="instrumentIcon">
+                <i class="bi bi-cpu"></i>
+            </div>
+
+            <div style="min-width:0; flex:1;">
+                <div class="small fw-semibold text-uppercase mb-1"
+                     style="font-size:0.7rem; letter-spacing:0.05em; color:var(--bs-secondary-color);">
+                    <i class="bi bi-cpu me-1"></i>Instrument
+                </div>
+                <h1 class="fs-4 fw-semibold mb-0 lh-sm">
+                    {{ instrument.get('instrument_name') or instrument.get('unique_id') }}
+                </h1>
+
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                    {% if instrument.get('instrument_type') %}
+                    <span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
+                          style="background:var(--bs-tertiary-bg); font-size:0.78rem;">
+                        <i class="bi bi-tag"></i>{{ instrument['instrument_type'] }}
+                    </span>
+                    {% endif %}
+                    {% if instrument.get('location') %}
+                    <span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
+                          style="background:var(--bs-tertiary-bg); font-size:0.78rem;">
+                        <i class="bi bi-geo-alt"></i>{{ instrument['location'] }}
+                    </span>
+                    {% endif %}
+                    {% if instrument.get('manufacturer') %}
+                    <span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
+                          style="background:var(--bs-tertiary-bg); font-size:0.78rem;">
+                        <i class="bi bi-building"></i>{{ instrument['manufacturer'] }}
+                    </span>
+                    {% endif %}
+                </div>
+
+                {% if instrument.get('description') %}
+                <p class="mt-2 mb-0 text-secondary" style="font-size:0.875rem;">
+                    {{ instrument['description'] }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if custom_views %}
+        <div class="d-flex flex-wrap gap-2 border-top px-3 py-2"
+             style="background:var(--bs-tertiary-bg);">
+            {% for view in custom_views %}
+            <a href="{{ view.url }}" class="btn btn-sm btn-outline-secondary">
+                {% if view.icon %}<i class="bi {{ view.icon }} me-1"></i>{% endif %}{{ view.label }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ── details ──────────────────────────────────────────────────────── -->
+    <div class="rounded border p-3">
+
+        <div class="meta-divider">
+            <span class="meta-divider-label">Identity</span>
+            <div class="meta-divider-line"></div>
+        </div>
+
+        <div class="meta-row">
+            <span class="meta-key">ID</span>
+            <span class="mfid">{{ instrument.get('unique_id') or '—' }}</span>
+        </div>
+        {% if instrument.get('model') %}
+        <div class="meta-row">
+            <span class="meta-key">Model</span>
+            <span>{{ instrument['model'] }}</span>
+        </div>
+        {% endif %}
+        {% if instrument.get('other_id') %}
+        <div class="meta-row">
+            <span class="meta-key">
+                {{ instrument.get('other_id_source') or 'Other ID' }}
+            </span>
+            <span class="mfid">{{ instrument['other_id'] }}</span>
+        </div>
+        {% endif %}
+
+        {% if instrument.get('owner') %}
+        <div class="meta-divider">
+            <span class="meta-divider-label">Ownership</span>
+            <div class="meta-divider-line"></div>
+        </div>
+        <div class="meta-row">
+            <span class="meta-key">Owner</span>
+            <span>{{ instrument['owner'] }}</span>
+        </div>
+        {% endif %}
+
+    </div>
+
 </div>
 
-<dl class="row mb-4">
-    <dt class="col-sm-3">ID</dt>
-    <dd class="col-sm-9"><span class="mfid">{{ instrument.unique_id }}</span></dd>
-
-    {% if instrument.get('location') %}
-    <dt class="col-sm-3">Location</dt>
-    <dd class="col-sm-9">{{ instrument.location }}</dd>
-    {% endif %}
-
-    {% if instrument.get('owner') %}
-    <dt class="col-sm-3">Owner</dt>
-    <dd class="col-sm-9">{{ instrument.owner }}</dd>
-    {% endif %}
-</dl>
-
-{% if custom_views %}
-<h2 class="fs-5 fw-semibold mb-2">Views</h2>
-<div class="d-flex flex-wrap gap-2 mb-4">
-    {% for view in custom_views %}
-    <a href="{{ view.url }}" class="btn btn-outline-primary btn-sm">
-        <i class="bi {{ view.icon if view.icon is defined else 'bi-bar-chart' }} me-1"></i>{{ view.label }}
-    </a>
-    {% endfor %}
-</div>
-{% endif %}
+<script>
+    (function () {
+        const PALETTE = [
+            '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
+            '#b07aa1','#9c755f','#6b6ecf','#e05c5c','#3a9e7e'
+        ];
+        function hashColor(str) {
+            let h = 0;
+            for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+            return PALETTE[Math.abs(h) % PALETTE.length];
+        }
+        const uid   = {{ instrument.get('unique_id') | tojson }};
+        const color = hashColor(uid || '');
+        document.getElementById('instrumentCard').style.borderLeftColor = color;
+        document.getElementById('instrumentIcon').style.background = color;
+    })();
+</script>
 
 {% endblock %}

@@ -147,14 +147,19 @@ def users_overview():
     orcid = user_session.userinfo['sub']
     user_projects = app.crucible_client.list_projects(orcid=orcid)
 
-    projects_with_users = []
-    for p in user_projects:
-        pid = p['project_id']
+    def fetch_members(p):
         try:
-            members = app.crucible_client.get_project_users(pid) or []
+            return app.crucible_client.get_project_users(p['project_id']) or []
         except Exception:
-            members = []
-        projects_with_users.append({'project': p, 'members': members})
+            return []
+
+    with ThreadPoolExecutor() as ex:
+        all_members = list(ex.map(fetch_members, user_projects))
+
+    projects_with_users = [
+        {'project': p, 'members': m}
+        for p, m in zip(user_projects, all_members)
+    ]
 
     return render_template('users.html', projects_with_users=projects_with_users)
 
@@ -185,11 +190,36 @@ def project_overview(project_id):
     datasets_by_type = {k: sorted(v, key=lambda x: x['dataset_name'] or '')
                         for k, v in sorted(datasets_by_type.items(), key=lambda item: item[0] or '')}
 
+    # orcid → display name map for owner grouping + full member list for sidebar
+    owner_map    = {}
+    project_users = []
+    try:
+        for u in (app.crucible_client.get_project_users(project_id) or []):
+            orcid = u.get('orcid')
+            if not orcid:
+                continue
+            first = u.get('first_name') or ''
+            last  = u.get('last_name')  or ''
+            name  = (first + ' ' + last).strip()
+            email = u.get('lbl_email') or u.get('email') or ''
+            owner_map[orcid] = name or email or orcid
+            project_users.append({
+                'orcid':    orcid,
+                'name':     name,
+                'email':    email,
+                'initials': ((first[:1] if first else '') + (last[:1] if last else '')).upper() or '?',
+            })
+        project_users.sort(key=lambda u: u['name'].lower() or u['orcid'])
+    except Exception:
+        pass
+
     return render_template('project_overview.html', pc=pc,
                         project_meta=project_meta,
                         sample_info=sorted(pc['samples_by_name'].values(), key=lambda x:x['sample_name']),
                         samples_by_type=samples_by_type,
                         datasets_by_type=datasets_by_type,
+                        owner_map=owner_map,
+                        project_users=project_users,
                         custom_views=project_views.get_views(project_id),
                         )
 
