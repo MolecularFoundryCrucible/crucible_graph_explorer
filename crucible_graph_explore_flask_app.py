@@ -164,6 +164,91 @@ def users_overview():
     return render_template('users.html', projects_with_users=projects_with_users)
 
 
+@app.route("/user/<target_orcid>")
+@auth.oidc_auth('orcid')
+def user_detail(target_orcid):
+    user_session = UserSession(flask.session)
+    orcid = user_session.userinfo['sub']
+    user_projects = app.crucible_client.list_projects(orcid=orcid)
+
+    def fetch_members(p):
+        try:
+            return app.crucible_client.get_project_users(p['project_id']) or []
+        except Exception:
+            return []
+
+    with ThreadPoolExecutor() as ex:
+        all_members = list(ex.map(fetch_members, user_projects))
+
+    user_info = {}
+    shared_projects = []
+    for p, members in zip(user_projects, all_members):
+        for m in members:
+            if m.get('orcid') == target_orcid:
+                if not user_info:
+                    user_info = m
+                shared_projects.append(p)
+                break
+
+    recent_datasets = []
+    try:
+        recent_datasets = app.crucible_client.list_datasets(owner_orcid=target_orcid, limit=50)
+    except Exception:
+        recent_datasets = []
+
+    return render_template('user.html',
+                           user_info=user_info,
+                           target_orcid=target_orcid,
+                           shared_projects=shared_projects,
+                           recent_datasets=recent_datasets)
+
+
+@app.route("/search")
+@auth.oidc_auth('orcid')
+def global_search():
+    user_session = UserSession(flask.session)
+    orcid = user_session.userinfo['sub']
+    user_projects = app.crucible_client.list_projects(orcid=orcid)
+    q = flask.request.args.get('q', '').strip()
+
+    sample_results  = []
+    dataset_results = []
+
+    def search_project(p):
+        pid = p['project_id']
+        try:
+            pc = get_project(pid, include_metadata=False)
+        except Exception:
+            return [], []
+        ql = q.lower()
+        s_hits, d_hits = [], []
+        for s in pc.get('samples', []):
+            if (ql in (s.get('sample_name') or '').lower()
+                    or ql in (s.get('sample_type') or '').lower()
+                    or ql in (s.get('description') or '').lower()):
+                s_hits.append({**s, '_pid': pid,
+                                '_url': f'/{pid}/sample-graph/{s["unique_id"]}'})
+        for d in pc.get('datasets', []):
+            if (ql in (d.get('dataset_name') or '').lower()
+                    or ql in (d.get('measurement') or '').lower()
+                    or ql in (d.get('session_name') or '').lower()):
+                d_hits.append({**d, '_pid': pid,
+                               '_url': f'/{pid}/dataset/{d["unique_id"]}'})
+        return s_hits, d_hits
+
+    if q:
+        with ThreadPoolExecutor() as ex:
+            for s_hits, d_hits in ex.map(search_project, user_projects):
+                sample_results.extend(s_hits)
+                dataset_results.extend(d_hits)
+
+    return render_template('global_search.html',
+                           q=q,
+                           sample_results=sample_results,
+                           dataset_results=dataset_results,
+                           projects_total=len(user_projects))
+
+
 @app.route("/<project_id>/")
 @auth.oidc_auth('orcid')
 def project_overview(project_id):
@@ -911,7 +996,14 @@ def instrument_detail(instrument_id):
         abort(404)
     instrument_name = instrument.get('instrument_name', '')
     custom_views = instrument_views.get_views(instrument_name, instrument_id)
-    return render_template('instrument.html', instrument=instrument, custom_views=custom_views)
+    recent_datasets = []
+    if instrument_name:
+        try:
+            recent_datasets = app.crucible_client.list_datasets(instrument_name=instrument_name, limit=50)
+        except Exception:
+            recent_datasets = []
+    return render_template('instrument.html', instrument=instrument, custom_views=custom_views,
+                           recent_datasets=recent_datasets)
 
 
 @app.route("/auth-test/")

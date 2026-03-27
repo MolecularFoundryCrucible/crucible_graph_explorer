@@ -147,8 +147,8 @@
 {% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
-    <li class="breadcrumb-item active" aria-current="page"><b>Dataset</b> {{ds['dataset_name']}}</li>
+    <li class="breadcrumb-item"><a href="/{{project_id}}/">{{project_id}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ds['dataset_name']}}</li>
 {% endblock %}
 
 {% block sidebar %}
@@ -614,11 +614,10 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for fname, link in download_links.items() %}
-        <div class="list-row" style="overflow-x: auto;">
-            <a href="{{link}}" target="_blank" class="text-decoration-none text-nowrap">
-                <i class="bi bi-box-arrow-up-right me-1 small"></i>{{fname}}
-            </a>
-        </div>
+        <a href="{{link}}" target="_blank" class="list-row" style="overflow-x: auto;">
+            <i class="bi bi-box-arrow-up-right me-1 small text-muted"></i>
+            <span class="text-nowrap">{{fname}}</span>
+        </a>
         {% endfor %}
     </div>
 </div>
@@ -741,12 +740,6 @@
         adv.style.display = open ? 'none' : '';
         if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
         if (chevron) chevron.style.color = open ? '' : 'var(--bs-body-color)';
-    }
-
-    function navIfNoSelection(event, url) {
-        if (window.getSelection().toString()) return;
-        if (event.target.closest('a, button')) return;
-        window.location.href = url;
     }
 
     function toggleSection(header) {
