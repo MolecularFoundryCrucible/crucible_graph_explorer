@@ -3,14 +3,20 @@
 {% set last      = user_info.get('last_name')  or '' %}
 {% set full_name = (first ~ ' ' ~ last).strip() %}
 {% set display   = full_name or target_orcid %}
-{% block title %}{{ display }} — User{% endblock %}
+{% set email     = user_info.get('lbl_email') or user_info.get('email') or '' %}
+{% set initials  = ((first[:1] if first else '') ~ (last[:1] if last else '')) | upper or '?' %}
+{% block title %}{% if is_own_profile %}My Profile{% else %}{{ display }}{% endif %}{% endblock %}
 
 {% block sidebar %}{% endblock %}
 {% block main_col_class %}col-12{% endblock %}
 
 {% block breadcrumb %}
+    {% if not is_own_profile %}
     <li class="breadcrumb-item"><a href="/users">Users</a></li>
-    <li class="breadcrumb-item active" aria-current="page">{{ display }}</li>
+    {% endif %}
+    <li class="breadcrumb-item active" aria-current="page">
+        {% if is_own_profile %}My Profile{% else %}{{ display }}{% endif %}
+    </li>
 {% endblock %}
 
 {% block content %}
@@ -46,20 +52,143 @@
     }
     .list-row:last-child { border-bottom: none; }
     .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
+    .proj-row {
+        display: flex; align-items: center; gap: 0.75rem;
+        padding: 0.6rem 1rem; border-bottom: 1px solid var(--bs-border-color);
+        text-decoration: none; color: inherit; transition: background 0.1s;
+        border-left: 3px solid transparent;
+    }
+    .proj-row:last-child { border-bottom: none; }
+    .proj-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
 </style>
 
+{% if is_own_profile %}
+{# ════════════════════════════════════════════════════════════════════════════
+   OWN PROFILE — personal dashboard layout
+   ════════════════════════════════════════════════════════════════════════════ #}
+<div style="max-width:720px; margin:0 auto;">
+
+    <!-- header card -->
+    <div class="rounded border overflow-hidden mb-4" id="userCard"
+         style="border-left-width:5px !important;">
+        <div class="d-flex align-items-center gap-4 p-4">
+            <div id="userAvatar"
+                 style="width:4.5rem; height:4.5rem; min-width:4.5rem; border-radius:50%;
+                        color:#fff; display:flex; align-items:center; justify-content:center;
+                        font-size:1.5rem; font-weight:700; flex-shrink:0;"
+                 data-avatar-for="{{ display }}">
+                {{ initials }}
+            </div>
+            <div style="min-width:0; flex:1;">
+                <h1 class="fs-3 fw-semibold mb-1 lh-sm">{{ full_name or '—' }}</h1>
+                {% if email %}
+                <div class="text-muted mb-1">{{ email }}</div>
+                {% endif %}
+                <div class="mfid" style="font-size:0.82rem;">{{ target_orcid }}</div>
+            </div>
+        </div>
+        <!-- stats bar -->
+        <div class="d-flex border-top text-center" style="background:var(--bs-tertiary-bg);">
+            <div class="flex-fill py-2 border-end">
+                <div class="fw-semibold fs-5">{{ shared_projects | length }}</div>
+                <div class="text-muted small">project{{ '' if shared_projects | length == 1 else 's' }}</div>
+            </div>
+            <div class="flex-fill py-2">
+                <div class="fw-semibold fs-5">{{ recent_datasets | length }}</div>
+                <div class="text-muted small">dataset{{ '' if recent_datasets | length == 1 else 's' }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- recent datasets — expanded -->
+    {% if recent_datasets %}
+    <div class="res-section">
+        <div class="res-section-header" onclick="toggleSection(this)">
+            <i class="bi bi-database text-muted"></i>
+            <span>Recent Datasets</span>
+            <span class="badge fw-normal border text-muted ms-1"
+                  style="background:var(--bs-body-bg); font-size:0.75rem;">
+                {{ recent_datasets | length }}
+            </span>
+            <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
+        </div>
+        <div class="res-section-body">
+            {% for ds in recent_datasets[:50] %}
+            {% if ds.get('project_id') and ds.get('unique_id') %}
+            <a class="list-row" href="/{{ ds['project_id'] }}/dataset/{{ ds['unique_id'] }}">
+                <div style="flex:1; min-width:0;">
+                    <div class="fw-medium text-truncate">{{ ds.get('dataset_name') or ds['unique_id'] }}</div>
+                    <div class="small text-muted">
+                        {% if ds.get('measurement') %}<span>{{ ds['measurement'] }}</span>{% endif %}
+                        {% if ds.get('measurement') %}<span class="mx-1">·</span>{% endif %}
+                        <span class="mfid">{{ ds['project_id'] }}</span>
+                    </div>
+                </div>
+                {% if ds.get('timestamp') %}
+                <span class="text-muted small text-nowrap flex-shrink-0">{{ ds['timestamp'][:10] }}</span>
+                {% endif %}
+                <span class="mfid small text-nowrap flex-shrink-0">{{ ds['unique_id'] }}</span>
+            </a>
+            {% endif %}
+            {% endfor %}
+            {% if recent_datasets | length > 50 %}
+            <div class="px-3 py-2 text-muted small border-top" style="background:var(--bs-tertiary-bg);">
+                <i class="bi bi-info-circle me-1"></i>Showing 50 most recent of {{ recent_datasets | length }} total
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- projects — expanded -->
+    {% if shared_projects %}
+    <div class="res-section">
+        <div class="res-section-header" onclick="toggleSection(this)">
+            <i class="bi bi-folder2 text-muted"></i>
+            <span>My Projects</span>
+            <span class="badge fw-normal border text-muted ms-1"
+                  style="background:var(--bs-body-bg); font-size:0.75rem;">
+                {{ shared_projects | length }}
+            </span>
+            <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
+        </div>
+        <div class="res-section-body">
+            {% for p in shared_projects %}
+            <a class="proj-row" href="/{{ p['project_id'] }}/" data-proj-color="{{ p['project_id'] }}">
+                <div style="min-width:0; flex:1;">
+                    <div class="fw-medium">{{ p.get('title') or p['project_id'] }}</div>
+                    <div class="small text-muted d-flex gap-2 flex-wrap">
+                        <span class="mfid">{{ p['project_id'] }}</span>
+                        {% if p.get('organization') %}<span>{{ p['organization'] }}</span>{% endif %}
+                    </div>
+                </div>
+                {% if p.get('status') and p['status'] != 'active' %}
+                <span class="badge fw-normal border text-muted flex-shrink-0"
+                      style="background:var(--bs-tertiary-bg); font-size:0.72rem;">{{ p['status'] }}</span>
+                {% endif %}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+{% else %}
+{# ════════════════════════════════════════════════════════════════════════════
+   OTHER USER — compact view
+   ════════════════════════════════════════════════════════════════════════════ #}
 <div style="max-width:680px; margin:0 auto;">
 
-    <!-- ── header card ────────────────────────────────────────────────── -->
+    <!-- header card -->
     <div class="rounded border overflow-hidden mb-4" id="userCard"
          style="border-left-width:5px !important;">
         <div class="d-flex align-items-start gap-3 p-3">
             <div id="userAvatar"
-                 style="width:3rem;height:3rem;min-width:3rem;border-radius:50%;
-                        color:#fff;display:flex;align-items:center;justify-content:center;
-                        font-size:1rem;font-weight:700;flex-shrink:0;"
+                 style="width:3rem; height:3rem; min-width:3rem; border-radius:50%;
+                        color:#fff; display:flex; align-items:center; justify-content:center;
+                        font-size:1rem; font-weight:700; flex-shrink:0;"
                  data-avatar-for="{{ display }}">
-                {% set initials = ((first[:1] if first else '') ~ (last[:1] if last else '')) | upper or '?' %}
                 {{ initials }}
             </div>
             <div style="min-width:0; flex:1;">
@@ -68,7 +197,6 @@
                     <i class="bi bi-person me-1"></i>User
                 </div>
                 <h1 class="fs-4 fw-semibold mb-0 lh-sm">{{ full_name or '—' }}</h1>
-                {% set email = user_info.get('lbl_email') or user_info.get('email') or '' %}
                 {% if email %}
                 <div class="text-muted small mt-1">{{ email }}</div>
                 {% endif %}
@@ -81,7 +209,7 @@
         </div>
     </div>
 
-    <!-- ── shared projects ────────────────────────────────────────────── -->
+    <!-- shared projects — expanded -->
     {% if shared_projects %}
     <div class="res-section">
         <div class="res-section-header" onclick="toggleSection(this)">
@@ -97,9 +225,7 @@
             {% for p in shared_projects %}
             <a class="list-row" href="/{{ p['project_id'] }}/">
                 <div style="flex:1; min-width:0;">
-                    <div class="fw-medium">
-                        {{ p.get('title') or p['project_id'] }}
-                    </div>
+                    <div class="fw-medium">{{ p.get('title') or p['project_id'] }}</div>
                     {% if p.get('title') %}
                     <div class="small mfid">{{ p['project_id'] }}</div>
                     {% endif %}
@@ -113,7 +239,7 @@
     </div>
     {% endif %}
 
-    <!-- ── recent datasets ────────────────────────────────────────────── -->
+    <!-- recent datasets — collapsed -->
     {% if recent_datasets %}
     <div class="res-section">
         <div class="res-section-header" onclick="toggleSection(this)">
@@ -131,13 +257,10 @@
             <a class="list-row" href="/{{ ds['project_id'] }}/dataset/{{ ds['unique_id'] }}">
                 <div style="flex:1; min-width:0;">
                     <div class="fw-medium text-truncate">{{ ds.get('dataset_name') or ds['unique_id'] }}</div>
-                    {% if ds.get('measurement') or ds.get('project_id') %}
                     <div class="small text-muted">
-                        {% if ds.get('measurement') %}<span>{{ ds['measurement'] }}</span>{% endif %}
-                        {% if ds.get('measurement') and ds.get('project_id') %}<span class="mx-1">·</span>{% endif %}
+                        {% if ds.get('measurement') %}<span>{{ ds['measurement'] }}</span><span class="mx-1">·</span>{% endif %}
                         <span class="mfid">{{ ds['project_id'] }}</span>
                     </div>
-                    {% endif %}
                 </div>
                 {% if ds.get('timestamp') %}
                 <span class="text-muted small text-nowrap flex-shrink-0">{{ ds['timestamp'][:10] }}</span>
@@ -160,6 +283,7 @@
     {% endif %}
 
 </div>
+{% endif %}
 
 <script>
     function toggleSection(header) {
@@ -182,10 +306,14 @@
 
     const avatarEl = document.getElementById('userAvatar');
     const cardEl   = document.getElementById('userCard');
-    const key      = avatarEl.dataset.avatarFor || '?';
-    const color    = hashColor(key);
+    const color    = hashColor(avatarEl.dataset.avatarFor || '?');
     avatarEl.style.background    = color;
     cardEl.style.borderLeftColor = color;
+
+    // Color project row left borders
+    document.querySelectorAll('[data-proj-color]').forEach(el => {
+        el.style.borderLeftColor = hashColor(el.dataset.projColor);
+    });
 </script>
 
 {% endblock %}

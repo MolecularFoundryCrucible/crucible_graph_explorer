@@ -179,6 +179,7 @@ def users_overview():
 def user_detail(target_orcid):
     user_session = UserSession(flask.session)
     orcid = user_session.userinfo['sub']
+    is_own_profile = (target_orcid == orcid)
     user_projects = app.crucible_client.list_projects(orcid=orcid)
 
     def fetch_members(p):
@@ -200,6 +201,10 @@ def user_detail(target_orcid):
                 shared_projects.append(p)
                 break
 
+    # For own profile use the authoritative project list, not the member-lookup result
+    if is_own_profile:
+        shared_projects = user_projects
+
     recent_datasets = []
     try:
         recent_datasets = app.crucible_client.list_datasets(owner_orcid=target_orcid, limit=None)
@@ -211,7 +216,8 @@ def user_detail(target_orcid):
                            user_info=user_info,
                            target_orcid=target_orcid,
                            shared_projects=shared_projects,
-                           recent_datasets=recent_datasets)
+                           recent_datasets=recent_datasets,
+                           is_own_profile=is_own_profile)
 
 
 @app.route("/search")
