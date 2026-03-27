@@ -328,26 +328,68 @@
     </div>
     <div class="res-section-body">
         <div class="px-3 py-2">
-            {% set _skip = ('scientific_metadata', 'id', 'instrument_id', 'owner_user_id', 'json_link') %}
-            {% for k, v in ds.items() %}
-            {% if k not in _skip %}
-            {% set display_key = 'sha256_hash_file' if k == 'sha256_hash_file_to_upload' else k %}
+            {# Helper: render one labelled row, suppressing None/empty values #}
+            {%- macro mrow(label, value) -%}
             <div class="meta-row">
-                <span class="meta-key">{{display_key}}</span>
+                <span class="meta-key">{{ label }}</span>
                 <span class="text-break">
-                    {%- if v is mapping -%}
-                        <span class="text-muted fst-italic">object</span>
-                    {%- elif v is sequence and v is not string -%}
-                        {{v | join(', ')}}
-                    {%- elif v is none -%}
+                    {%- if value is none or value == '' -%}
                         <span class="text-muted">—</span>
+                    {%- elif value is sequence and value is not string -%}
+                        {{ value | join(', ') }}
                     {%- else -%}
-                        {{v}}
+                        {{ value }}
                     {%- endif -%}
                 </span>
             </div>
-            {% endif %}
-            {% endfor %}
+            {%- endmacro -%}
+
+            {# ── Basic view — mirrors 'crucible get <id>' ── #}
+            {{ mrow("Measurement",  ds.get('measurement')) }}
+            {{ mrow("Session",      ds.get('session_name')) }}
+            {{ mrow("Instrument",   ds.get('instrument_name')) }}
+            {{ mrow("Project",      ds.get('project_id')) }}
+            {{ mrow("Timestamp",    ds.get('timestamp')) }}
+            {{ mrow("Description",  ds.get('description')) }}
+
+            {# ── Advanced toggle ── #}
+            <div class="meta-row" style="cursor:pointer; margin-top:0.25rem; border-top: 1px dashed var(--bs-border-color);"
+                 id="details-adv-toggle" onclick="toggleDetailsAdv()">
+                <span class="meta-key text-muted" style="font-size:0.8rem;">Advanced</span>
+                <i class="bi bi-chevron-right text-muted" id="details-adv-chevron"
+                   style="font-size:0.8rem; transition:transform 0.2s;"></i>
+            </div>
+
+            {# ── Advanced view — mirrors 'crucible get <id> -v' ── #}
+            <div id="details-advanced" style="display:none;">
+                <div class="meta-row pt-2">
+                    <span class="meta-key fw-semibold text-muted"
+                          style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Ownership</span>
+                </div>
+                {% set pub = ds.get('public') %}
+                {{ mrow("Public",      "Yes" if pub == true else ("No" if pub == false else None)) }}
+                {{ mrow("Owner ORCID", ds.get('owner_orcid')) }}
+                {{ mrow("Owner ID",    ds.get('owner_user_id')) }}
+
+                <div class="meta-row pt-2">
+                    <span class="meta-key fw-semibold text-muted"
+                          style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">File</span>
+                </div>
+                {{ mrow("Data Format",  ds.get('data_format')) }}
+                {% set sz = ds.get('size') %}
+                {{ mrow("Size",         sz | humanize_size if sz else None) }}
+                {{ mrow("Instrument ID",ds.get('instrument_id')) }}
+                {{ mrow("Source",       ds.get('source_folder')) }}
+                {{ mrow("JSON Link",    ds.get('json_link')) }}
+                {{ mrow("SHA256",       ds.get('sha256_hash_file_to_upload')) }}
+
+                <div class="meta-row pt-2">
+                    <span class="meta-key fw-semibold text-muted"
+                          style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Timing</span>
+                </div>
+                {{ mrow("Created",  ds.get('creation_time')) }}
+                {{ mrow("Modified", ds.get('modification_time')) }}
+            </div>
         </div>
     </div>
 </div>
@@ -683,6 +725,14 @@
 </button>
 
 <script>
+    function toggleDetailsAdv() {
+        const adv     = document.getElementById('details-advanced');
+        const chevron = document.getElementById('details-adv-chevron');
+        const open    = adv.style.display !== 'none';
+        adv.style.display = open ? 'none' : '';
+        if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+    }
+
     function navIfNoSelection(event, url) {
         if (window.getSelection().toString()) return;
         if (event.target.closest('a, button')) return;

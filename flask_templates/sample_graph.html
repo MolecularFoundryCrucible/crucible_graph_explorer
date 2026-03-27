@@ -268,25 +268,52 @@
     </div>
     <div class="res-section-body">
         <div class="px-3 py-2">
-            {% set _skip = ('datasets', 'id', 'owner_user_id') %}
-            {% for k, v in s.items() %}
-            {% if k not in _skip %}
+            {# Helper: render one labelled row, suppressing None/empty values #}
+            {%- macro mrow(label, value) -%}
             <div class="meta-row">
-                <span class="meta-key">{{k}}</span>
+                <span class="meta-key">{{ label }}</span>
                 <span class="text-break">
-                    {%- if v is mapping -%}
-                        <span class="text-muted fst-italic">object</span>
-                    {%- elif v is sequence and v is not string -%}
-                        {{v | join(', ')}}
-                    {%- elif v is none -%}
+                    {%- if value is none or value == '' -%}
                         <span class="text-muted">—</span>
+                    {%- elif value is sequence and value is not string -%}
+                        {{ value | join(', ') }}
                     {%- else -%}
-                        {{v}}
+                        {{ value }}
                     {%- endif -%}
                 </span>
             </div>
-            {% endif %}
-            {% endfor %}
+            {%- endmacro -%}
+
+            {# ── Basic view — mirrors 'crucible get <id>' ── #}
+            {{ mrow("Type",        s.get('sample_type')) }}
+            {{ mrow("Project",     s.get('project_id')) }}
+            {{ mrow("Timestamp",   s.get('timestamp')) }}
+            {{ mrow("Description", s.get('description')) }}
+
+            {# ── Advanced toggle ── #}
+            <div class="meta-row" style="cursor:pointer; margin-top:0.25rem; border-top: 1px dashed var(--bs-border-color);"
+                 id="details-adv-toggle" onclick="toggleDetailsAdv()">
+                <span class="meta-key text-muted" style="font-size:0.8rem;">Advanced</span>
+                <i class="bi bi-chevron-right text-muted" id="details-adv-chevron"
+                   style="font-size:0.8rem; transition:transform 0.2s;"></i>
+            </div>
+
+            {# ── Advanced view — mirrors 'crucible get <id> -v' ── #}
+            <div id="details-advanced" style="display:none;">
+                <div class="meta-row pt-2">
+                    <span class="meta-key fw-semibold text-muted"
+                          style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Ownership</span>
+                </div>
+                {{ mrow("Owner ORCID", s.get('owner_orcid')) }}
+                {{ mrow("Owner ID",    s.get('owner_user_id')) }}
+
+                <div class="meta-row pt-2">
+                    <span class="meta-key fw-semibold text-muted"
+                          style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Timing</span>
+                </div>
+                {{ mrow("Created",  s.get('creation_time')) }}
+                {{ mrow("Modified", s.get('modification_time')) }}
+            </div>
         </div>
     </div>
 </div>
@@ -593,6 +620,14 @@
 </script>
 
 <script>
+    function toggleDetailsAdv() {
+        const adv     = document.getElementById('details-advanced');
+        const chevron = document.getElementById('details-adv-chevron');
+        const open    = adv.style.display !== 'none';
+        adv.style.display = open ? 'none' : '';
+        if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+    }
+
     function navIfNoSelection(event, url) {
         if (window.getSelection().toString()) return;
         if (event.target.closest('a, button')) return;
