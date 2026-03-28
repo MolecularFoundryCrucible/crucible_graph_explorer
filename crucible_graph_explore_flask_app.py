@@ -151,6 +151,35 @@ def list_projects():
     user_name = info.get('given_name') or info.get('name') or orcid
     return render_template('project_list.html', projects=user_projects, user_name=user_name)
 
+
+@app.route("/api/dashboard-stats")
+@auth.oidc_auth('orcid')
+def dashboard_stats():
+    """Return dataset/sample counts for requested projects. Served async by the dashboard JS."""
+    ids = [i.strip() for i in flask.request.args.get('ids', '').split(',') if i.strip()]
+    if not ids:
+        return jsonify({})
+
+    def get_stats(pid):
+        # Warm cache: free
+        cached = _project_cache.get((pid, False))
+        if cached and time.time() - cached[1] < _PROJECT_CACHE_TTL:
+            pc = cached[0]
+            return pid, len(pc.get('datasets', [])), len(pc.get('samples', []))
+        # Cold: fetch from API
+        try:
+            datasets = app.crucible_client.list_datasets(project_id=pid, limit=None) or []
+            samples  = app.crucible_client.samples.list(project_id=pid, limit=None)  or []
+            return pid, len(datasets), len(samples)
+        except Exception:
+            return pid, None, None
+
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        results = list(ex.map(get_stats, ids))
+
+    return jsonify({pid: {'datasets': ds, 'samples': s} for pid, ds, s in results})
+
+
 @app.route("/users")
 @auth.oidc_auth('orcid')
 def users_overview():
@@ -189,8 +218,25 @@ def user_detail(target_orcid):
         except Exception:
             return []
 
+    # Kick off members, datasets, and samples fetches all in parallel
     with ThreadPoolExecutor() as ex:
-        all_members = list(ex.map(fetch_members, user_projects))
+        f_members  = [ex.submit(fetch_members, p) for p in user_projects]
+        f_datasets = ex.submit(app.crucible_client.list_datasets,
+                               owner_orcid=target_orcid, limit=None)
+        f_samples  = ex.submit(app.crucible_client.samples.list,
+                               owner_orcid=target_orcid, limit=None)
+        all_members = [f.result() for f in f_members]
+        try:
+            recent_datasets = f_datasets.result() or []
+        except Exception:
+            recent_datasets = []
+        try:
+            recent_samples = f_samples.result() or []
+        except Exception:
+            recent_samples = []
+
+    recent_datasets.sort(key=lambda d: d.get('timestamp') or '', reverse=True)
+    recent_samples.sort(key=lambda s: s.get('timestamp') or '', reverse=True)
 
     user_info = {}
     shared_projects = []
@@ -205,20 +251,6 @@ def user_detail(target_orcid):
     # For own profile use the authoritative project list, not the member-lookup result
     if is_own_profile:
         shared_projects = user_projects
-
-    recent_datasets = []
-    try:
-        recent_datasets = app.crucible_client.list_datasets(owner_orcid=target_orcid, limit=None)
-        recent_datasets.sort(key=lambda d: d.get('timestamp') or '', reverse=True)
-    except Exception:
-        recent_datasets = []
-
-    recent_samples = []
-    try:
-        recent_samples = app.crucible_client.samples.list(owner_orcid=target_orcid, limit=None)
-        recent_samples.sort(key=lambda s: s.get('timestamp') or '', reverse=True)
-    except Exception:
-        recent_samples = []
 
     dataset_counts = Counter(d.get('project_id') for d in recent_datasets if d.get('project_id'))
     sample_counts  = Counter(s.get('project_id') for s in recent_samples  if s.get('project_id'))
