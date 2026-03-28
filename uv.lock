@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -568,7 +568,7 @@ requires-dist = [
     { name = "ipython", specifier = ">=9.10.0" },
     { name = "markdown", specifier = ">=3.7" },
     { name = "matplotlib", specifier = ">=3.10.8" },
-    { name = "nano-crucible", specifier = ">=2.0.2" },
+    { name = "nano-crucible", specifier = ">=2.1.0" },
     { name = "nbformat", specifier = ">=5.10.4" },
     { name = "networkx", specifier = ">=3.6.1" },
     { name = "pandas", specifier = ">=2.3.3" },
@@ -2121,7 +2121,7 @@ wheels = [
 
 [[package]]
 name = "nano-crucible"
-version = "2.0.2"
+version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "argcomplete" },
@@ -2129,13 +2129,14 @@ dependencies = [
     { name = "mfid" },
     { name = "platformdirs" },
     { name = "pydantic" },
+    { name = "python-dateutil" },
     { name = "python-dotenv" },
     { name = "pytz" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9c/5c/eedcf14121e541472db7c18ff3254b486fb1dc0194a0947ae59607bb2d4e/nano_crucible-2.0.2.tar.gz", hash = "sha256:b060d9f5454e22446b71c77588062bd15be854525aa112a733f4334550653882", size = 54051, upload-time = "2026-03-16T20:51:46.211Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/96/2d50d3f5ab7a042135c6a39ff35d87e08d348cd9969aefdfe411beea93d3/nano_crucible-2.1.0.tar.gz", hash = "sha256:186d791dd8ac98aec21ff20f2f329ff79b7f4ab149c6b3520868bb7abd0eab93", size = 82826, upload-time = "2026-03-28T00:13:10.962Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bf/88/729b6ce6227eacae87c7aba8eb9fd922fdb5cc2809f7d33ac56b842182bb/nano_crucible-2.0.2-py3-none-any.whl", hash = "sha256:22dfc7ce6207146fc265574bd62791b1e764723d782c985e1fdbf256bf6dd0c5", size = 67739, upload-time = "2026-03-16T20:51:44.754Z" },
+    { url = "https://files.pythonhosted.org/packages/d2/c8/d0090378a73bb26f5083f25df8e04a5484308d681b395ea7549cf7c256b2/nano_crucible-2.1.0-py3-none-any.whl", hash = "sha256:c310434397be2508eeabe8d562102a0c92a30cfee3525a86f6230b32b5d2e391", size = 100559, upload-time = "2026-03-28T00:13:09.511Z" },
 ]
 
 [[package]]
