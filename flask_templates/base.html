@@ -23,6 +23,28 @@
             background: none; border: none; padding: 0 0 0 0.25em; cursor: pointer;
         }
         .mfid-copy-btn:hover { opacity: 1; color: var(--bs-body-color); }
+
+        /* ── nav icon buttons (profile, dark mode) ─────────────────────── */
+        .nav-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 2rem; height: 2rem; border-radius: 0.4rem;
+            border: none; background: transparent;
+            color: var(--bs-secondary-color);
+            font-size: 1.05rem; text-decoration: none;
+            transition: background 0.15s, color 0.15s, transform 0.1s;
+            cursor: pointer; flex-shrink: 0;
+        }
+        .nav-icon:hover  { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+        .nav-icon:active { transform: scale(0.88); }
+
+        /* ── breadcrumb home link ───────────────────────────────────────── */
+        .breadcrumb-item a { transition: color 0.15s; }
+
+        /* ── subtle active feedback on all buttons ──────────────────────── */
+        .btn:active:not(:disabled) { transform: scale(0.97); }
+
+        /* ── list-row active press feedback ────────────────────────────── */
+        .list-row:active { background: var(--bs-secondary-bg) !important; }
     </style>
 
     <title>{% block title %}{% endblock %} - Crucible</title>
@@ -47,10 +69,16 @@
             {% block breadcrumb %}
             {% endblock %}
         </ol>
-        <button id="darkModeToggle" class="btn btn-sm btn-link text-secondary ms-auto me-1 px-2"
-                title="Toggle dark mode" style="font-size:1rem;">
-            <i class="bi bi-moon"></i>
-        </button>
+        <div class="d-flex align-items-center gap-1 ms-auto me-1">
+            {% if current_user_orcid %}
+            <a href="/user/{{ current_user_orcid }}" class="nav-icon" title="My Profile">
+                <i class="bi bi-person-circle"></i>
+            </a>
+            {% endif %}
+            <button id="darkModeToggle" class="nav-icon" title="Toggle dark mode">
+                <i class="bi bi-moon"></i>
+            </button>
+        </div>
     </div>
     </nav>
 

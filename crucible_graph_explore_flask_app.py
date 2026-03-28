@@ -1,6 +1,7 @@
 import os
 import re
 import json
+from collections import Counter
 import shutil
 import tempfile
 import time
@@ -61,6 +62,16 @@ CLIENT_META = ClientMetadata(client_id=os.getenv("ORCID_CLIENT_ID"), client_secr
 PROVIDER_CONFIG = ProviderConfiguration(issuer='https://orcid.org/', client_metadata=CLIENT_META)
 
 auth = OIDCAuthentication({PROVIDER_NAME: PROVIDER_CONFIG}, app)
+
+
+@app.context_processor
+def inject_current_user():
+    try:
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo.get('sub')
+        return {'current_user_orcid': orcid}
+    except Exception:
+        return {'current_user_orcid': None}
 
 
 from crucible_project_graph import \
@@ -140,6 +151,35 @@ def list_projects():
     user_name = info.get('given_name') or info.get('name') or orcid
     return render_template('project_list.html', projects=user_projects, user_name=user_name)
 
+
+@app.route("/api/dashboard-stats")
+@auth.oidc_auth('orcid')
+def dashboard_stats():
+    """Return dataset/sample counts for requested projects. Served async by the dashboard JS."""
+    ids = [i.strip() for i in flask.request.args.get('ids', '').split(',') if i.strip()]
+    if not ids:
+        return jsonify({})
+
+    def get_stats(pid):
+        # Warm cache: free
+        cached = _project_cache.get((pid, False))
+        if cached and time.time() - cached[1] < _PROJECT_CACHE_TTL:
+            pc = cached[0]
+            return pid, len(pc.get('datasets', [])), len(pc.get('samples', []))
+        # Cold: fetch from API
+        try:
+            datasets = app.crucible_client.list_datasets(project_id=pid, limit=None) or []
+            samples  = app.crucible_client.samples.list(project_id=pid, limit=None)  or []
+            return pid, len(datasets), len(samples)
+        except Exception:
+            return pid, None, None
+
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        results = list(ex.map(get_stats, ids))
+
+    return jsonify({pid: {'datasets': ds, 'samples': s} for pid, ds, s in results})
+
+
 @app.route("/users")
 @auth.oidc_auth('orcid')
 def users_overview():
@@ -162,6 +202,114 @@ def users_overview():
     ]
 
     return render_template('users.html', projects_with_users=projects_with_users)
+
+
+@app.route("/user/<target_orcid>")
+@auth.oidc_auth('orcid')
+def user_detail(target_orcid):
+    user_session = UserSession(flask.session)
+    orcid = user_session.userinfo['sub']
+    is_own_profile = (target_orcid == orcid)
+    user_projects = app.crucible_client.list_projects(orcid=orcid)
+
+    def fetch_members(p):
+        try:
+            return app.crucible_client.get_project_users(p['project_id']) or []
+        except Exception:
+            return []
+
+    # Kick off members, datasets, and samples fetches all in parallel
+    with ThreadPoolExecutor() as ex:
+        f_members  = [ex.submit(fetch_members, p) for p in user_projects]
+        f_datasets = ex.submit(app.crucible_client.list_datasets,
+                               owner_orcid=target_orcid, limit=None)
+        f_samples  = ex.submit(app.crucible_client.samples.list,
+                               owner_orcid=target_orcid, limit=None)
+        all_members = [f.result() for f in f_members]
+        try:
+            recent_datasets = f_datasets.result() or []
+        except Exception:
+            recent_datasets = []
+        try:
+            recent_samples = f_samples.result() or []
+        except Exception:
+            recent_samples = []
+
+    recent_datasets.sort(key=lambda d: d.get('timestamp') or '', reverse=True)
+    recent_samples.sort(key=lambda s: s.get('timestamp') or '', reverse=True)
+
+    user_info = {}
+    shared_projects = []
+    for p, members in zip(user_projects, all_members):
+        for m in members:
+            if m.get('orcid') == target_orcid:
+                if not user_info:
+                    user_info = m
+                shared_projects.append(p)
+                break
+
+    # For own profile use the authoritative project list, not the member-lookup result
+    if is_own_profile:
+        shared_projects = user_projects
+
+    dataset_counts = Counter(d.get('project_id') for d in recent_datasets if d.get('project_id'))
+    sample_counts  = Counter(s.get('project_id') for s in recent_samples  if s.get('project_id'))
+
+    return render_template('user.html',
+                           user_info=user_info,
+                           target_orcid=target_orcid,
+                           shared_projects=shared_projects,
+                           recent_datasets=recent_datasets,
+                           recent_samples=recent_samples,
+                           dataset_counts=dataset_counts,
+                           sample_counts=sample_counts,
+                           is_own_profile=is_own_profile)
+
+
+@app.route("/search")
+@auth.oidc_auth('orcid')
+def global_search():
+    user_session = UserSession(flask.session)
+    orcid = user_session.userinfo['sub']
+    user_projects = app.crucible_client.list_projects(orcid=orcid)
+    q = flask.request.args.get('q', '').strip()
+
+    sample_results  = []
+    dataset_results = []
+
+    def search_project(p):
+        pid = p['project_id']
+        try:
+            pc = get_project(pid, include_metadata=False)
+        except Exception:
+            return [], []
+        ql = q.lower()
+        s_hits, d_hits = [], []
+        for s in pc.get('samples', []):
+            if (ql in (s.get('sample_name') or '').lower()
+                    or ql in (s.get('sample_type') or '').lower()
+                    or ql in (s.get('description') or '').lower()):
+                s_hits.append({**s, '_pid': pid,
+                                '_url': f'/{pid}/sample-graph/{s["unique_id"]}'})
+        for d in pc.get('datasets', []):
+            if (ql in (d.get('dataset_name') or '').lower()
+                    or ql in (d.get('measurement') or '').lower()
+                    or ql in (d.get('session_name') or '').lower()):
+                d_hits.append({**d, '_pid': pid,
+                               '_url': f'/{pid}/dataset/{d["unique_id"]}'})
+        return s_hits, d_hits
+
+    if q:
+        with ThreadPoolExecutor() as ex:
+            for s_hits, d_hits in ex.map(search_project, user_projects):
+                sample_results.extend(s_hits)
+                dataset_results.extend(d_hits)
+
+    return render_template('global_search.html',
+                           q=q,
+                           sample_results=sample_results,
+                           dataset_results=dataset_results,
+                           projects_total=len(user_projects))
 
 
 @app.route("/<project_id>/")
@@ -911,7 +1059,15 @@ def instrument_detail(instrument_id):
         abort(404)
     instrument_name = instrument.get('instrument_name', '')
     custom_views = instrument_views.get_views(instrument_name, instrument_id)
-    return render_template('instrument.html', instrument=instrument, custom_views=custom_views)
+    recent_datasets = []
+    if instrument_name:
+        try:
+            recent_datasets = app.crucible_client.list_datasets(instrument_name=instrument_name, limit=None)
+            recent_datasets.sort(key=lambda d: d.get('timestamp') or '', reverse=True)
+        except Exception:
+            recent_datasets = []
+    return render_template('instrument.html', instrument=instrument, custom_views=custom_views,
+                           recent_datasets=recent_datasets)
 
 
 @app.route("/auth-test/")

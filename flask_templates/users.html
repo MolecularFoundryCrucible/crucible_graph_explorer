@@ -86,9 +86,15 @@
         {% set name     = (first ~ ' ' ~ last).strip() %}
         {% set email    = m.get('lbl_email') or m.get('email') or '' %}
         {% set initials = ((first[:1] if first else '') ~ (last[:1] if last else '')) | upper or '?' %}
+        {% if m.get('orcid') %}
+        <a class="list-row" href="/user/{{ m['orcid'] }}"
+           data-search="{{ (name ~ ' ' ~ email ~ ' ' ~ m['orcid']).lower() }}"
+           data-orcid="{{ m['orcid'] }}">
+        {% else %}
         <div class="list-row"
-             data-search="{{ (name ~ ' ' ~ email ~ ' ' ~ (m.get('orcid') or '')).lower() }}"
-             data-orcid="{{ m.get('orcid') or '' }}">
+             data-search="{{ (name ~ ' ' ~ email).lower() }}"
+             data-orcid="">
+        {% endif %}
             <div class="user-avatar" data-avatar-for="{{ name or m.get('orcid') or '?' }}">
                 {{ initials }}
             </div>
@@ -101,7 +107,7 @@
             {% if m.get('orcid') %}
             <span class="mfid small text-nowrap">{{ m['orcid'] }}</span>
             {% endif %}
-        </div>
+        {% if m.get('orcid') %}</a>{% else %}</div>{% endif %}
         {% endfor %}
     {% else %}
         <div class="px-3 py-2 text-muted small">No member information available.</div>

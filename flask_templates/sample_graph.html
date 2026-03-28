@@ -95,8 +95,8 @@
 {% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/{{pid}}/"><b>Project</b> {{pid}}</a></li>
-    <li class="breadcrumb-item active" aria-current="page"><b>Sample</b> {{s['sample_name']}}</li>
+    <li class="breadcrumb-item"><a href="/{{pid}}/">{{pid}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{s['sample_name']}}</li>
 {% endblock %}
 
 {% block sidebar %}
@@ -636,12 +636,6 @@
         adv.style.display = open ? 'none' : '';
         if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
         if (chevron) chevron.style.color = open ? '' : 'var(--bs-body-color)';
-    }
-
-    function navIfNoSelection(event, url) {
-        if (window.getSelection().toString()) return;
-        if (event.target.closest('a, button')) return;
-        window.location.href = url;
     }
 
     function toggleSection(header) {

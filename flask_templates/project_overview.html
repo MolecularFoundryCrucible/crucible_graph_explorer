@@ -91,6 +91,7 @@
     }
     .list-row:last-child { border-bottom: none; }
     .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
+    a.member-row:hover { background: var(--bs-tertiary-bg); }
 </style>
 
 {% set title = project_meta.get('title') %}
@@ -275,8 +276,10 @@
             </div>
 
             {% for u in project_users %}
-            <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom"
-                 style="{% if loop.last %}border-bottom:none;{% endif %}">
+            {% set tag = 'a' if u.orcid else 'div' %}
+            <{{ tag }} class="member-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
+                 style="{% if loop.last %}border-bottom:none;{% endif %}"
+                 {% if u.orcid %}href="/user/{{ u.orcid }}"{% endif %}>
                 <div style="width:1.85rem; height:1.85rem; min-width:1.85rem; border-radius:50%;
                             display:flex; align-items:center; justify-content:center;
                             font-size:0.65rem; font-weight:700; color:#fff; flex-shrink:0;"
@@ -293,7 +296,7 @@
                     </div>
                     {% endif %}
                 </div>
-            </div>
+            {% if u.orcid %}</a>{% else %}</div>{% endif %}
             {% endfor %}
 
             <div class="px-3 py-2 border-top" style="background:var(--bs-tertiary-bg);">

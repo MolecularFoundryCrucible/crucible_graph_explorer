@@ -12,7 +12,7 @@
 
 {% block content %}
 
-    <div class="d-flex flex-wrap align-items-center gap-2 justify-content-between mb-4">
+    <div class="d-flex flex-wrap align-items-center gap-2 justify-content-between mb-3">
         <h1 class="mb-0">Welcome to Crucible{% if user_name %}, {{ user_name }}{% endif %}</h1>
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <span class="text-muted small text-nowrap" id="projectCount"></span>
@@ -35,13 +35,19 @@
                     <button class="btn btn-outline-secondary" id="btnList"  onclick="setLayout('list')"  title="List view">&#x2630;</button>
                 </div>
             </div>
-            <a href="/users" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-people me-1"></i>Users
-            </a>
-            <a href="/instruments/" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-cpu me-1"></i>Instruments
-            </a>
         </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-4 flex-wrap justify-content-center">
+        <a href="/search" class="btn btn-outline-secondary px-4">
+            <i class="bi bi-search me-2"></i>Search
+        </a>
+        <a href="/users" class="btn btn-outline-secondary px-4">
+            <i class="bi bi-people me-2"></i>Users
+        </a>
+        <a href="/instruments/" class="btn btn-outline-secondary px-4">
+            <i class="bi bi-cpu me-2"></i>Instruments
+        </a>
     </div>
 
     <div class="d-flex align-items-center gap-3 px-3 py-1 mb-0 small fw-semibold text-uppercase border-bottom border-top bg-body-tertiary text-muted"
@@ -51,7 +57,7 @@
         <span id="lhdr-name" onclick="sortBy('name')" style="min-width:0; flex:1; cursor:pointer; user-select:none;">Name <span class="lsort-icon opacity-25">⇅</span></span>
         <span id="lhdr-org"  onclick="sortBy('org')"  style="min-width:10rem; cursor:pointer; user-select:none;">Organization <span class="lsort-icon opacity-25">⇅</span></span>
         <span id="lhdr-lead" onclick="sortBy('lead')" style="min-width:16rem; cursor:pointer; user-select:none;">Lead <span class="lsort-icon opacity-25">⇅</span></span>
-        <span style="min-width:11rem;"></span>
+        <span style="min-width:14rem;"></span>
     </div>
 
     <div id="projectList" class="mb-4"></div>
@@ -88,6 +94,7 @@
         let sortAsc         = true;
         let currentFilter   = '';
         let archivedOpen    = false;
+        let projectStats    = {};  // {project_id: {datasets: N, samples: M}} — loaded async
 
         const ARCHIVE_KEY = 'crucible-archived';
         const STAR_KEY    = 'crucible-starred';
@@ -207,6 +214,16 @@
 
         // ── card / row HTML ───────────────────────────────────────────────────
 
+        function statsHTML(pid) {
+            const s = projectStats[pid];
+            if (!s) return `<span style="font-size:0.78rem;color:var(--bs-secondary-color);opacity:0.35;">···</span>`;
+            const ds = s.datasets ?? '—', sp = s.samples ?? '—';
+            return `<span style="font-size:0.78rem;color:var(--bs-secondary-color);">`
+                 + `<i class="bi bi-database me-1" style="font-size:0.72rem;opacity:0.7;"></i>${ds}`
+                 + `<i class="bi bi-eyedropper ms-2 me-1" style="font-size:0.72rem;opacity:0.7;"></i>${sp}`
+                 + `</span>`;
+        }
+
         function cardHTML(p) {
             const starred  = getStarred().has(p.project_id);
             const color    = hashColor(p.project_id);
@@ -233,13 +250,16 @@
                     ${orgBadge}${leadBadge}
                   </div>
                 </div>
-                <div class="card-footer d-flex align-items-center justify-content-end gap-2 py-2" style="position:relative;z-index:2;">
-                  <a href="/${esc(p.project_id)}/search" class="btn btn-sm btn-outline-secondary">
-                      <i class="bi bi-search me-1"></i>Search
-                  </a>
-                  <a href="/${esc(p.project_id)}/chat" class="btn btn-sm btn-outline-primary">
-                      <i class="bi bi-chat-dots me-1"></i>Chat
-                  </a>
+                <div class="card-footer d-flex align-items-center gap-2 py-2" style="position:relative;z-index:2;">
+                  ${statsHTML(p.project_id)}
+                  <div class="ms-auto d-flex gap-2">
+                    <a href="/${esc(p.project_id)}/search" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-search me-1"></i>Search
+                    </a>
+                    <a href="/${esc(p.project_id)}/chat" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-chat-dots me-1"></i>Chat
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>`;
@@ -256,14 +276,17 @@
               <span class="flex-grow-1 text-truncate" style="min-width:0;" title="${esc(p.title)}">${esc(p.title) || DASH}</span>
               <span class="text-muted small text-truncate" style="min-width:10rem;">${esc(p.organization) || DASH}</span>
               <span class="text-muted small text-nowrap" style="min-width:16rem;">${esc(p.project_lead_email) || DASH}</span>
-              <div class="d-flex gap-2 align-items-center flex-shrink-0" style="min-width:11rem;justify-content:flex-end;position:relative;z-index:2;">
-                <a href="/${esc(p.project_id)}/search" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-search me-1"></i>Search
-                </a>
-                <a href="/${esc(p.project_id)}/chat" class="btn btn-sm btn-outline-primary">
-                    <i class="bi bi-chat-dots me-1"></i>Chat
-                </a>
-                ${archiveBtn(p.project_id)}
+              <div class="d-flex align-items-center flex-shrink-0" style="min-width:14rem;position:relative;z-index:2;">
+                ${statsHTML(p.project_id)}
+                <div class="ms-auto d-flex gap-2 align-items-center">
+                  <a href="/${esc(p.project_id)}/search" class="btn btn-sm btn-outline-secondary">
+                      <i class="bi bi-search me-1"></i>Search
+                  </a>
+                  <a href="/${esc(p.project_id)}/chat" class="btn btn-sm btn-outline-primary">
+                      <i class="bi bi-chat-dots me-1"></i>Chat
+                  </a>
+                  ${archiveBtn(p.project_id)}
+                </div>
               </div>
             </div>`;
         }
@@ -466,6 +489,17 @@
         }, { passive: true });
 
         setLayout(currentLayout);
+
+        // ── async project stats ───────────────────────────────────────────────
+        // Fetch dataset/sample counts in the background; re-render when ready.
+        (function fetchStats() {
+            const ids = PROJECTS.map(p => p.project_id).join(',');
+            if (!ids) return;
+            fetch('/api/dashboard-stats?ids=' + encodeURIComponent(ids))
+                .then(r => r.ok ? r.json() : null)
+                .then(data => { if (data) { projectStats = data; render(); } })
+                .catch(() => {});
+        })();
 
         // re-render on resize so mobile/desktop layout switch is seamless
         let resizeTimer;

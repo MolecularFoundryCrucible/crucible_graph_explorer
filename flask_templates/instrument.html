@@ -31,6 +31,31 @@
     .meta-divider-line {
         flex: 1; height: 1px; background: var(--bs-border-color);
     }
+    .res-section {
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.375rem; overflow: hidden; margin-bottom: 1rem;
+    }
+    .res-section-header {
+        display: flex; align-items: center; gap: 0.5rem;
+        padding: 0.6rem 0.75rem;
+        background: var(--bs-tertiary-bg);
+        cursor: pointer; user-select: none;
+        font-size: 0.875rem; font-weight: 600;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+    .res-section-header:hover { filter: brightness(0.97); }
+    .res-section-chevron {
+        margin-left: auto; color: var(--bs-secondary-color);
+        transition: transform 0.2s; flex-shrink: 0;
+    }
+    .list-row {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 0.15rem 0.5rem;
+        padding: 0.5rem 1rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        transition: background 0.1s; text-decoration: none; color: inherit;
+    }
+    .list-row:last-child { border-bottom: none; }
+    .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
 </style>
 
 <div style="max-width:680px; margin: 0 auto;">
@@ -98,7 +123,7 @@
     </div>
 
     <!-- ── details ──────────────────────────────────────────────────────── -->
-    <div class="rounded border p-3">
+    <div class="rounded border p-3 mb-4">
 
         <div class="meta-divider">
             <span class="meta-divider-label">Identity</span>
@@ -137,9 +162,59 @@
 
     </div>
 
+    <!-- ── recent datasets ───────────────────────────────────────────────── -->
+    {% if recent_datasets %}
+    <div class="res-section" id="section-datasets">
+        <div class="res-section-header" onclick="toggleSection(this)">
+            <i class="bi bi-database text-muted"></i>
+            <span>Recent Datasets</span>
+            <span class="badge fw-normal border text-muted ms-1"
+                  style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
+                {{ recent_datasets | length }}
+            </span>
+            <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
+        </div>
+        <div class="res-section-body">
+            {% for ds in recent_datasets[:50] %}
+            {% if ds.get('project_id') and ds.get('unique_id') %}
+            <a class="list-row" href="/{{ ds['project_id'] }}/dataset/{{ ds['unique_id'] }}">
+                <div style="flex:1; min-width:0;">
+                    <div class="fw-medium text-truncate">{{ ds.get('dataset_name') or ds['unique_id'] }}</div>
+                    {% if ds.get('measurement') or ds.get('project_id') %}
+                    <div class="small text-muted">
+                        {% if ds.get('measurement') %}<span>{{ ds['measurement'] }}</span>{% endif %}
+                        {% if ds.get('measurement') and ds.get('project_id') %}<span class="mx-1">·</span>{% endif %}
+                        {% if ds.get('project_id') %}<span class="mfid">{{ ds['project_id'] }}</span>{% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% if ds.get('timestamp') %}
+                <span class="text-muted small text-nowrap flex-shrink-0">{{ ds['timestamp'][:10] }}</span>
+                {% endif %}
+                <span class="mfid small text-nowrap flex-shrink-0">{{ ds['unique_id'] }}</span>
+            </a>
+            {% endif %}
+            {% endfor %}
+            {% if recent_datasets | length > 50 %}
+            <div class="px-3 py-2 text-muted small border-top" style="background:var(--bs-tertiary-bg);">
+                <i class="bi bi-info-circle me-1"></i>Showing 50 most recent of {{ recent_datasets | length }} total
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
 </div>
 
 <script>
+    function toggleSection(header) {
+        const body    = header.nextElementSibling;
+        const chevron = header.querySelector('.res-section-chevron');
+        const isOpen  = body.style.display !== 'none';
+        body.style.display = isOpen ? 'none' : '';
+        if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+    }
+
     (function () {
         const PALETTE = [
             '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
