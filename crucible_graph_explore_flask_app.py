@@ -149,6 +149,21 @@ def list_projects():
     user_projects = app.crucible_client.list_projects(orcid=orcid)
     info = user_session.userinfo
     user_name = info.get('given_name') or info.get('name') or orcid
+
+    # Enrich projects with lead display names (parallel lookups)
+    emails = {p['project_lead_email'] for p in user_projects if p.get('project_lead_email')}
+    def _fetch_name(email):
+        try:
+            u = app.crucible_client.users.get(email=email)
+            fn, ln = (u.get('first_name') or '').strip(), (u.get('last_name') or '').strip()
+            return email, f"{fn} {ln}".strip() or email
+        except Exception:
+            return email, email
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        name_map = dict(ex.map(_fetch_name, emails))
+    for p in user_projects:
+        p['project_lead_name'] = name_map.get(p.get('project_lead_email', ''), p.get('project_lead_email', ''))
+
     return render_template('project_list.html', projects=user_projects, user_name=user_name)
 
 
