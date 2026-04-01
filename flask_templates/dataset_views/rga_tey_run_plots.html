@@ -42,7 +42,8 @@
         return;
     }
 
-    const { time, tey, shutter_spans } = payload;
+    const { time, tey, shutter_spans, normalized_time, normalized_tey } = payload;
+    const hasNorm = Array.isArray(normalized_time) && normalized_time.length > 0;
 
     const shapes = shutter_spans.map(span => ({
         type: 'rect', xref: 'x', yref: 'paper',
@@ -53,28 +54,45 @@
         layer: 'below',
     }));
 
-    Plotly.newPlot('tey-plot', [{
-        x: time,
-        y: tey,
-        type: 'scattergl',
-        mode: 'lines',
-        name: 'TEY',
-        line: { color: '#0d6efd', width: 1.5 },
-    }], {
-        xaxis: { title: { text: 'Time (s)' }, showgrid: true },
-        yaxis: { title: { text: 'TEY (A)' }, showgrid: true, exponentformat: 'e' },
+    const shutterAnnotation = shapes.length ? [{
+        xref: 'paper', yref: 'paper',
+        x: 1, y: 1.02, xanchor: 'right', yanchor: 'bottom',
+        text: '<span style="background:rgba(255,200,0,0.3);padding:2px 6px;border-radius:3px;">■</span> Shutter open',
+        showarrow: false,
+        font: { size: 12 },
+    }] : [];
+
+    const commonLayout = {
         shapes,
         legend: { orientation: 'h', y: -0.15 },
         margin: { t: 30, r: 20, b: 60, l: 80 },
         hovermode: 'x unified',
-        annotations: shapes.length ? [{
-            xref: 'paper', yref: 'paper',
-            x: 1, y: 1.02, xanchor: 'right', yanchor: 'bottom',
-            text: '<span style="background:rgba(255,200,0,0.3);padding:2px 6px;border-radius:3px;">■</span> Shutter open',
-            showarrow: false,
-            font: { size: 12 },
-        }] : [],
-    }, { responsive: true });
+        annotations: shutterAnnotation,
+    };
+
+    if (hasNorm) {
+        Plotly.newPlot('tey-plot', [{
+            x: normalized_time, y: normalized_tey,
+            type: 'scattergl', mode: 'lines',
+            name: 'Normalized TEY',
+            line: { color: '#198754', width: 1.5 },
+        }], {
+            ...commonLayout,
+            xaxis: { title: { text: 'Time (s)' }, showgrid: true },
+            yaxis: { title: { text: 'Normalized TEY' }, showgrid: true, exponentformat: 'e' },
+        }, { responsive: true });
+    } else {
+        Plotly.newPlot('tey-plot', [{
+            x: time, y: tey,
+            type: 'scattergl', mode: 'lines',
+            name: 'TEY',
+            line: { color: '#0d6efd', width: 1.5 },
+        }], {
+            ...commonLayout,
+            xaxis: { title: { text: 'Time (s)' }, showgrid: true },
+            yaxis: { title: { text: 'TEY (A)' }, showgrid: true, exponentformat: 'e' },
+        }, { responsive: true });
+    }
 })();
 </script>
 
@@ -86,9 +104,9 @@
 
 <hr class="my-4">
 
-<h2 class="fs-5 fw-semibold mb-3">RGA Mass Spectrum</h2>
+<h2 class="fs-5 fw-semibold mb-3">RGA Mass Spectrum{% if ms_t_found %} <span class="badge bg-success fw-normal fs-6">Background subtracted</span>{% endif %}</h2>
 
-{% if rga_found %}
+{% if rga_found or ms_t_found %}
 
 <div id="rga-summed" style="width:100%; height:380px;" class="mt-4"></div>
 <div id="rga-heatmap" style="width:100%; height:520px;"></div>
@@ -109,7 +127,9 @@
         return;
     }
 
-    const { elapsed, mass_labels, z_log, mean, shutter_spans } = payload;
+    const { elapsed, mass_labels, z_log, mean, shutter_spans, corrected } = payload;
+    const pressureLabel = corrected ? 'Bkg-subtracted Pressure (Torr)' : 'Pressure (Torr)';
+    const heatmapLabel = corrected ? 'log₁₀ Bkg-sub. Pressure (Torr)' : 'log₁₀ Pressure (Torr)';
 
     const shutterShapes = shutter_spans.map(span => ({
         type: 'rect', xref: 'x', yref: 'paper',
@@ -126,7 +146,7 @@
         z: z_log,
         type: 'heatmap',
         colorscale: 'Viridis',
-        colorbar: { title: { text: 'log₁₀ Pressure (Torr)', side: 'right' }, thickness: 18 },
+        colorbar: { title: { text: heatmapLabel, side: 'right' }, thickness: 18 },
         hovertemplate: 'Time: %{x:.1f} s<br>Mass: %{y}<br>log₁₀P: %{z:.2f}<extra></extra>',
     }], {
         xaxis: { title: { text: 'Elapsed time (s)' } },
@@ -149,7 +169,7 @@
         hovertemplate: 'Mass: %{x}<br>Mean Pressure: %{y:.3e} Torr<extra></extra>',
     }], {
         xaxis: { title: { text: 'Mass (amu)' }, dtick: 25 },
-        yaxis: { title: { text: 'Mean Pressure (Torr)' }, type: 'log', exponentformat: 'e' },
+        yaxis: { title: { text: `Mean ${pressureLabel}` }, type: 'log', exponentformat: 'e' },
         margin: { t: 20, r: 20, b: 60, l: 80 },
     }, { responsive: true });
 })();
@@ -157,7 +177,7 @@
 
 {% else %}
 <div class="alert alert-warning">
-    <i class="bi bi-exclamation-triangle me-2"></i>No RGA histogram file found for this dataset.
+    <i class="bi bi-exclamation-triangle me-2"></i>No RGA or mass spec data file found for this dataset.
 </div>
 {% endif %}
 

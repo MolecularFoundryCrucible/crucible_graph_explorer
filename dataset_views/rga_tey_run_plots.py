@@ -15,12 +15,14 @@ def create_blueprint(auth, helpers):
 
     is_user_in_project = helpers['is_user_in_project']
 
-    def _get_gcs_url(ds, associated_files, download_links, name_fragment):
+    def _get_gcs_url(ds, associated_files, download_links, name_fragment, exclude_fragment=None):
         """Return the download URL for the first .txt file whose basename contains
-        name_fragment *and* that actually has a download link."""
+        name_fragment (and optionally does not contain exclude_fragment)."""
         for f in associated_files:
             basename = os.path.basename(f['filename'])
             if name_fragment in basename and basename.endswith('.txt'):
+                if exclude_fragment and exclude_fragment in basename:
+                    continue
                 url = download_links.get(f"{ds['unique_id']}/{basename}")
                 if url:
                     return url
@@ -42,8 +44,9 @@ def create_blueprint(auth, helpers):
             abort(403)
 
         ds, associated_files, download_links = _fetch_context(dsid)
-        tey_found = bool(_get_gcs_url(ds, associated_files, download_links, 'TEY'))
+        tey_found = bool(_get_gcs_url(ds, associated_files, download_links, 'TEY', exclude_fragment='TEY_normalized'))
         rga_found = bool(_get_gcs_url(ds, associated_files, download_links, 'RGA_histogram'))
+        ms_t_found = bool(_get_gcs_url(ds, associated_files, download_links, 'MS_t', exclude_fragment='MS_t_averaged'))
 
         return render_template(
             'dataset_views/rga_tey_run_plots.html',
@@ -51,6 +54,7 @@ def create_blueprint(auth, helpers):
             ds=ds,
             tey_found=tey_found,
             rga_found=rga_found,
+            ms_t_found=ms_t_found,
         )
 
     def _fetch_text(dsid, name_fragment):
@@ -133,12 +137,94 @@ def create_blueprint(auth, helpers):
             'shutter_spans': shutter_spans or [],
         }
 
+    def _parse_tey_normalized(text):
+        """Parse background-subtracted, normalized TEY file (2 columns: time, normalized_tey)."""
+        lines = text.strip().split('\n')
+        time, tey = [], []
+        for line in lines[1:]:
+            parts = line.split('\t')
+            if len(parts) < 2:
+                continue
+            time.append(float(parts[0]))
+            tey.append(float(parts[1]))
+        return {'time': time, 'tey': tey}
+
+    def _parse_ms_t(text, shutter_spans=None):
+        """Parse background-subtracted MS_t file.
+
+        Header: Time(s)  MZ1(Torr)  Std1(Torr)  MZ2(Torr)  Std2(Torr) ...
+        MZ columns are at indices 1, 3, 5, ... (Std at 2, 4, 6, ...).
+        Returns the same shape as _parse_rga output.
+        """
+        lines = text.strip().split('\n')
+        headers = lines[0].split('\t')
+        # Identify MZ column indices and extract mass numbers
+        mz_indices = []
+        mass_labels = []
+        for i, h in enumerate(headers[1:], start=1):
+            h = h.strip()
+            if h.startswith('MZ') and '(' in h:
+                try:
+                    mass = int(h[2:h.index('(')])
+                    mz_indices.append(i)
+                    mass_labels.append(mass)
+                except ValueError:
+                    pass
+
+        elapsed, rows = [], []
+        for line in lines[1:]:
+            parts = line.split('\t')
+            if len(parts) < 2:
+                continue
+            elapsed.append(float(parts[0]))
+            rows.append([float(parts[j]) if j < len(parts) else 0.0 for j in mz_indices])
+
+        raw = np.array(rows)  # (n_time, n_mass)
+        z_log = np.log10(np.maximum(raw.T, 1e-13)).tolist()  # (n_mass, n_time)
+
+        if shutter_spans:
+            open_mask = np.array([
+                any(s['x0'] <= t <= s['x1'] for s in shutter_spans)
+                for t in elapsed
+            ])
+            open_rows = raw[open_mask] if open_mask.any() else raw
+        else:
+            open_rows = raw
+        mean = np.mean(np.maximum(open_rows, 0), axis=0).tolist()
+
+        return {
+            'elapsed': elapsed,
+            'mass_labels': mass_labels,
+            'z_log': z_log,
+            'mean': mean,
+            'shutter_spans': shutter_spans or [],
+            'corrected': True,
+        }
+
     @bp.route('/<project_id>/<dsid>/tey-data')
     @auth.oidc_auth('orcid')
     def tey_data(project_id, dsid):
         if not is_user_in_project(project_id):
             abort(403)
-        return jsonify(_parse_tey(_fetch_text(dsid, 'TEY')))
+        ds, associated_files, download_links = _fetch_context(dsid)
+
+        raw_url = _get_gcs_url(ds, associated_files, download_links, 'TEY', exclude_fragment='TEY_normalized')
+        if not raw_url:
+            abort(404)
+        raw_text = requests.get(raw_url, timeout=30).text
+        result = _parse_tey(raw_text)
+
+        norm_url = _get_gcs_url(ds, associated_files, download_links, 'TEY_normalized', exclude_fragment='TEY_normalized_averaged')
+        if norm_url:
+            try:
+                norm_text = requests.get(norm_url, timeout=30).text
+                norm = _parse_tey_normalized(norm_text)
+                result['normalized_time'] = norm['time']
+                result['normalized_tey'] = norm['tey']
+            except Exception:
+                pass
+
+        return jsonify(result)
 
     @bp.route('/<project_id>/<dsid>/rga-data')
     @auth.oidc_auth('orcid')
@@ -147,13 +233,8 @@ def create_blueprint(auth, helpers):
             abort(403)
         ds, associated_files, download_links = _fetch_context(dsid)
 
-        rga_url = _get_gcs_url(ds, associated_files, download_links, 'RGA_histogram')
-        if not rga_url:
-            abort(404)
-        rga_text = requests.get(rga_url, timeout=30).text
-
         shutter_spans = None
-        tey_url = _get_gcs_url(ds, associated_files, download_links, 'TEY')
+        tey_url = _get_gcs_url(ds, associated_files, download_links, 'TEY', exclude_fragment='TEY_normalized')
         if tey_url:
             try:
                 tey_text = requests.get(tey_url, timeout=30).text
@@ -161,6 +242,18 @@ def create_blueprint(auth, helpers):
             except Exception:
                 pass
 
+        ms_t_url = _get_gcs_url(ds, associated_files, download_links, 'MS_t', exclude_fragment='MS_t_averaged')
+        if ms_t_url:
+            try:
+                ms_t_text = requests.get(ms_t_url, timeout=30).text
+                return jsonify(_parse_ms_t(ms_t_text, shutter_spans))
+            except Exception:
+                pass
+
+        rga_url = _get_gcs_url(ds, associated_files, download_links, 'RGA_histogram')
+        if not rga_url:
+            abort(404)
+        rga_text = requests.get(rga_url, timeout=30).text
         return jsonify(_parse_rga(rga_text, shutter_spans))
 
     return bp
