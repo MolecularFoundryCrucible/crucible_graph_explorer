@@ -30,8 +30,8 @@ def create_blueprint(auth, helpers):
 
         rows = []
         for s in thin_films:
-            ancestors = [pc['samples_by_id'][sid] for sid in nx.ancestors(G, s['unique_id'])]
-            descendants = [pc['samples_by_id'][sid] for sid in nx.descendants(G, s['unique_id'])]
+            ancestors = [pc['samples_by_id'][sid] for sid in nx.ancestors(G, s['unique_id']) if sid in pc['samples_by_id']]
+            descendants = [pc['samples_by_id'][sid] for sid in nx.descendants(G, s['unique_id']) if sid in pc['samples_by_id']]
 
             solid_precursors = [s for s in ancestors if s['sample_name'].startswith('SP')]
             precursor_compositions = []
@@ -39,8 +39,9 @@ def create_blueprint(auth, helpers):
                 for sp in solid_precursors:
                     for ds in sp['datasets']:
                         if ds['measurement'] == 'Solid Precursor synthesis':
-                            full_ds = pc['datasets_by_id'][ds['unique_id']]
-                            precursor_compositions.append(full_ds['scientific_metadata']['name'])
+                            full_ds = pc['datasets_by_id'].get(ds['unique_id'])
+                            if full_ds and full_ds.get('scientific_metadata'):
+                                precursor_compositions.append(full_ds['scientific_metadata'].get('name'))
             except Exception as err:
                 print(f"Failed to get solid precursor details {s['sample_name']}: {err}")
 
@@ -49,8 +50,8 @@ def create_blueprint(auth, helpers):
 
             sr = [ds for ds in s['datasets'] if ds['measurement'] == 'spin_run']
             if sr:
-                sr = pc['datasets_by_id'][sr[0]['unique_id']]
-                anneal_temp = sr['scientific_metadata']['heater_sv_temp']
+                sr = pc['datasets_by_id'].get(sr[0]['unique_id'])
+                anneal_temp = sr['scientific_metadata'].get('heater_sv_temp', '?') if sr else '?'
             else:
                 anneal_temp = '?'
 

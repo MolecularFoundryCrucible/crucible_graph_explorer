@@ -94,18 +94,23 @@ def get_project(project_id, include_metadata=False):
     _project_cache[key] = (data, time.time())
     return data
     
+def _to_nx(data):
+    """Handle both networkx >=3.0 ('edges') and <3.0 ('links') node-link format."""
+    if 'edges' in data and 'links' not in data:
+        data = {**data, 'links': data['edges']}
+    return nx.node_link_graph(data)
+
 def get_project_sample_graph(project_id):
-    node_link_data = app.crucible_client._request("GET",f"/projects/{project_id}/sample_graph")
-    G = nx.node_link_graph(node_link_data)
-    return G
+    node_link_data = app.crucible_client._request("GET", f"/project_graph/{project_id}")
+    return _to_nx(node_link_data)
 
 def get_sample_lineage_graph(sample_id):
-    node_link_data = app.crucible_client._request("GET", f"/samples/{sample_id}/sample_graph")
-    return nx.node_link_graph(node_link_data)
+    node_link_data = app.crucible_client._request("GET", f"/samples/{sample_id}/sample_graph_cte")
+    return _to_nx(node_link_data)
 
 def get_entity_graph_nx(entity_id):
-    node_link_data = app.crucible_client._request("GET", f"/entity_graph/{entity_id}")
-    return nx.node_link_graph(node_link_data)
+    node_link_data = app.crucible_client._request("GET", f"/entity_graph_cte/{entity_id}?recursive=true")
+    return _to_nx(node_link_data)
 
     
 # def clear_project_cache(project_id):
@@ -577,38 +582,49 @@ def sample_graph(project_id, sample_id):
         abort(403)
     pc = get_project(project_id)
 
-    print(f"sample_graph")
+    print(f"sample_graph: {sample_id}")
     G = get_sample_lineage_graph(sample_id)
 
-    #sample_name = pc['samples_by_id'][sample_id]['sample_name']
-    #print(sample_name)
     descendants = nx.descendants(G, sample_id)
     ancestors = nx.ancestors(G, sample_id)
 
-    # # find any samples not in cache:
-    # for sid in G.nodes:
-    #     if not ( sid in pc['samples_by_id']):
-    #         print(f"found missing sample in graph {sid}")
-    #         pc['samples_by_id'][sid] = app.crucible_client.get_sample(sid)
-
+    # Fetch any nodes that appear in the graph but are missing from the cache
+    # (soft-deleted resources are filtered from list endpoints but still appear in graph topology)
+    for node_id in G.nodes():
+        if node_id not in pc['samples_by_id']:
+            try:
+                resource = app.crucible_client._request("GET", f"/resources/{node_id}")
+                if resource and resource.get('resource_type') == 'sample':
+                    pc['samples_by_id'][node_id] = resource
+                    print(f"Fetched soft-deleted sample from graph: {node_id}")
+            except Exception as err:
+                print(f"Could not fetch missing node {node_id}: {err}")
 
     # need to translate these to names from ids
     descendants_path = {}
     for sid in descendants:
+        sample_info = pc['samples_by_id'].get(sid)
+        if not sample_info:
+            continue
         paths = list(nx.all_simple_paths(G, sample_id, sid))
-        name = pc['samples_by_id'][sid]['sample_name']
-        descendants_path[name] = [pc['samples_by_id'][x]['sample_name'] for x in paths[0]]
+        name = sample_info['sample_name']
+        descendants_path[name] = [pc['samples_by_id'].get(x, {}).get('sample_name', x) for x in paths[0]]
 
     ancestors_path = {}
     for sid in ancestors:
+        sample_info = pc['samples_by_id'].get(sid)
+        if not sample_info:
+            continue
         paths = list(nx.all_simple_paths(G, sid, sample_id))
-        name = pc['samples_by_id'][sid]['sample_name']
-        ancestors_path[name] = [pc['samples_by_id'][x]['sample_name'] for x in paths[0]]
+        name = sample_info['sample_name']
+        ancestors_path[name] = [pc['samples_by_id'].get(x, {}).get('sample_name', x) for x in paths[0]]
 
-    # time sort ancestors using the unique mfid  as a proxy for time
-    ancestors_info = sorted([pc['samples_by_id'][sample_id] for sample_id in ancestors], key=lambda x: x['unique_id'])
-    self_info = pc['samples_by_id'][sample_id]
-    descendants_info = sorted([pc['samples_by_id'][sample_id] for sample_id in descendants], key=lambda x: x['unique_id'])
+    # time sort ancestors using the unique mfid as a proxy for time
+    ancestors_info = sorted([pc['samples_by_id'][sid] for sid in ancestors if sid in pc['samples_by_id']], key=lambda x: x['unique_id'])
+    self_info = pc['samples_by_id'].get(sample_id)
+    if not self_info:
+        abort(404)
+    descendants_info = sorted([pc['samples_by_id'][sid] for sid in descendants if sid in pc['samples_by_id']], key=lambda x: x['unique_id'])
 
     # Batch-fetch thumbnails for all datasets linked to this sample
     all_datasets = self_info.get('datasets', [])
@@ -952,8 +968,8 @@ def project_graph_data(project_id):
         abort(403)
 
     pc = get_project(project_id)
-    node_link_data = app.crucible_client._request("GET", f"/projects/{project_id}/entity_graph")
-    G = nx.node_link_graph(node_link_data)
+    node_link_data = app.crucible_client._request("GET", f"/project_graph/{project_id}")
+    G = _to_nx(node_link_data)
 
     nodes = []
     edges = [{'source': src, 'target': tgt} for src, tgt in G.edges()]
