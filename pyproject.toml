@@ -30,4 +30,6 @@ dependencies = [
     "nano-crucible>=2.1.0",
     "pillow>=12.1.0",
     "fsspec>=2026.2.0",
+    "ncempy>=1.15",
+    "py4dstem>=0.14.16",
 ]
