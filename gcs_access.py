@@ -1,5 +1,5 @@
 """
-Lazy GCS file access for dataset views.
+Lazy GCS file access with local block caching for dataset views.
 
 Usage
 -----
@@ -15,22 +15,40 @@ Usage
 
 GCS path convention: gs://<BUCKET>/<dataset_id>/<basename(filename)>
 Credentials: set GOOGLE_APPLICATION_CREDENTIALS or use ADC.
+
+Caching
+-------
+Uses fsspec's blockcache layer: blocks are cached to local disk on first
+fetch and reused on subsequent reads, including across open_file() calls.
+Cache directory defaults to /tmp/gcs_cache; override with GCS_CACHE_DIR.
+Blocks expire after GCS_CACHE_EXPIRY seconds (default 604800 = 1 week).
+No size-based eviction — manage disk usage externally if needed.
 """
 
 import os
 
-import gcsfs
+import fsspec
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BUCKET = os.getenv('GCS_BUCKET', 'mf-storage-prod')
+GCS_CACHE_DIR = os.getenv('GCS_CACHE_DIR', '/tmp/gcs_cache')
+GCS_CACHE_EXPIRY = int(os.getenv('GCS_CACHE_EXPIRY', 604800))  # seconds; default 1 week
 
-_fs: gcsfs.GCSFileSystem | None = None
+_fs: fsspec.AbstractFileSystem | None = None
 
 
-def get_fs() -> gcsfs.GCSFileSystem:
-    """Return a module-level GCSFileSystem singleton (thread-safe after init)."""
+def get_fs() -> fsspec.AbstractFileSystem:
+    """Return a module-level blockcache filesystem singleton (thread-safe after init)."""
     global _fs
     if _fs is None:
-        _fs = gcsfs.GCSFileSystem()
+        _fs = fsspec.filesystem(
+            'blockcache',
+            target_protocol='gcs',
+            cache_storage=GCS_CACHE_DIR,
+            expiry_time=GCS_CACHE_EXPIRY,
+        )
     return _fs
 
 
