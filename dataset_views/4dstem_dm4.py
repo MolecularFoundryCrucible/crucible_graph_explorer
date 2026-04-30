@@ -4,7 +4,7 @@ import numpy as np
 from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request
 from werkzeug.exceptions import NotFound
 
-MEASUREMENT_TYPES = ['4D_STEM']
+MEASUREMENT_TYPES = ['4D_STEM', 'TEM NANOPROBE']
 URL_PREFIX = '/dataset-view/4dstem-dm4'
 LABEL = '4D-STEM Viewer'
 
