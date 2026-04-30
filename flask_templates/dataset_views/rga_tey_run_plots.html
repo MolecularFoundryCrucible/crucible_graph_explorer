@@ -14,6 +14,19 @@
 
 {% block content %}
 
+<script>
+function makePlotConfig(filename) {
+    return {
+        responsive: true,
+        modeBarButtonsToAdd: [{
+            name: 'Download SVG',
+            icon: Plotly.Icons.camera,
+            click: gd => Plotly.downloadImage(gd, { format: 'svg', filename }),
+        }],
+    };
+}
+</script>
+
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h1 class="fs-4 fw-semibold mb-0" style="overflow-wrap: break-word;">{{ds['dataset_name']}}</h1>
     <a href="/{{project_id}}/dataset/{{ds['unique_id']}}"
@@ -80,7 +93,7 @@
             ...commonLayout,
             xaxis: { title: { text: 'Time (s)' }, showgrid: true },
             yaxis: { title: { text: 'Normalized TEY' }, showgrid: true, exponentformat: 'e' },
-        }, { responsive: true });
+        }, makePlotConfig('tey-plot'));
     } else {
         Plotly.newPlot('tey-plot', [{
             x: time, y: tey,
@@ -91,7 +104,7 @@
             ...commonLayout,
             xaxis: { title: { text: 'Time (s)' }, showgrid: true },
             yaxis: { title: { text: 'TEY (A)' }, showgrid: true, exponentformat: 'e' },
-        }, { responsive: true });
+        }, makePlotConfig('tey-plot'));
     }
 })();
 </script>
@@ -131,14 +144,12 @@
     const pressureLabel = corrected ? 'Bkg-subtracted Pressure (Torr)' : 'Pressure (Torr)';
     const heatmapLabel = corrected ? 'log₁₀ Bkg-sub. Pressure (Torr)' : 'log₁₀ Pressure (Torr)';
 
-    const shutterShapes = shutter_spans.map(span => ({
-        type: 'rect', xref: 'x', yref: 'paper',
-        x0: span.x0, x1: span.x1,
-        y0: 0, y1: 1,
-        fillcolor: 'rgba(255, 200, 0, 0.15)',
-        line: { width: 0 },
-        layer: 'above',
-    }));
+    const shutterShapes = shutter_spans.flatMap(span => [
+        { type: 'line', xref: 'x', yref: 'paper', x0: span.x0, x1: span.x0, y0: 0, y1: 1,
+          line: { color: 'rgba(255, 200, 0, 0.9)', width: 1.5, dash: 'dot' }, layer: 'above' },
+        { type: 'line', xref: 'x', yref: 'paper', x0: span.x1, x1: span.x1, y0: 0, y1: 1,
+          line: { color: 'rgba(255, 200, 0, 0.9)', width: 1.5, dash: 'dot' }, layer: 'above' },
+    ]);
 
     Plotly.newPlot('rga-heatmap', [{
         x: elapsed,
@@ -156,10 +167,10 @@
         annotations: shutterShapes.length ? [{
             xref: 'paper', yref: 'paper',
             x: 1, y: 1.02, xanchor: 'right', yanchor: 'bottom',
-            text: '<span style="background:rgba(255,200,0,0.3);padding:2px 6px;border-radius:3px;">■</span> Shutter open',
+            text: '<span style="color:rgba(255,200,0,0.9);">┆</span> Shutter open/close',
             showarrow: false, font: { size: 12 },
         }] : [],
-    }, { responsive: true });
+    }, makePlotConfig('rga-heatmap'));
 
     Plotly.newPlot('rga-summed', [{
         x: mass_labels,
@@ -171,7 +182,7 @@
         xaxis: { title: { text: 'Mass (amu)' }, dtick: 25 },
         yaxis: { title: { text: `Mean ${pressureLabel}` }, type: 'log', exponentformat: 'e' },
         margin: { t: 20, r: 20, b: 60, l: 80 },
-    }, { responsive: true });
+    }, makePlotConfig('rga-summed'));
 })();
 </script>
 
