@@ -3,7 +3,7 @@
 {% set last      = user_info.get('last_name')  or '' %}
 {% set full_name = (first ~ ' ' ~ last).strip() %}
 {% set display   = full_name or target_orcid %}
-{% set email     = user_info.get('lbl_email') or user_info.get('email') or '' %}
+{% set email     = user_info.get('email') or '' %}
 {% set initials  = ((first[:1] if first else '') ~ (last[:1] if last else '')) | upper or '?' %}
 {% block title %}{% if is_own_profile %}My Profile{% else %}{{ display }}{% endif %}{% endblock %}
 
@@ -21,37 +21,7 @@
 
 {% block content %}
 <style>
-    .meta-row {
-        display: flex; gap: 0.75rem; align-items: baseline; padding: 0.3rem 0;
-    }
-    .meta-key {
-        font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
-        letter-spacing: 0.05em; color: var(--bs-secondary-color);
-        white-space: nowrap; min-width: 7rem; flex-shrink: 0;
-    }
-    .res-section {
-        border: 1px solid var(--bs-border-color);
-        border-radius: 0.375rem; overflow: hidden; margin-bottom: 1rem;
-    }
-    .res-section-header {
-        display: flex; align-items: center; gap: 0.5rem;
-        padding: 0.6rem 0.75rem; background: var(--bs-tertiary-bg);
-        cursor: pointer; user-select: none;
-        font-size: 0.875rem; font-weight: 600;
-        border-bottom: 1px solid var(--bs-border-color);
-    }
-    .res-section-header:hover { filter: brightness(0.97); }
-    .res-section-chevron {
-        margin-left: auto; color: var(--bs-secondary-color);
-        transition: transform 0.2s; flex-shrink: 0;
-    }
-    .list-row {
-        display: flex; align-items: center; flex-wrap: wrap; gap: 0.15rem 0.5rem;
-        padding: 0.5rem 1rem; border-bottom: 1px solid var(--bs-border-color);
-        transition: background 0.1s; text-decoration: none; color: inherit;
-    }
-    .list-row:last-child { border-bottom: none; }
-    .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
+    .res-section { max-width: none; }
     .proj-row {
         display: flex; align-items: center; gap: 0.75rem;
         padding: 0.6rem 1rem; border-bottom: 1px solid var(--bs-border-color);
@@ -237,7 +207,7 @@
 {# ════════════════════════════════════════════════════════════════════════════
    OTHER USER — compact view
    ════════════════════════════════════════════════════════════════════════════ #}
-<div style="max-width:680px; margin:0 auto;">
+<div style="max-width:720px; margin:0 auto;">
 
     <!-- header card -->
     <div class="rounded border overflow-hidden mb-4" id="userCard"
@@ -386,24 +356,6 @@
 {% endif %}
 
 <script>
-    function toggleSection(header) {
-        const body    = header.nextElementSibling;
-        const chevron = header.querySelector('.res-section-chevron');
-        const isOpen  = body.style.display !== 'none';
-        body.style.display = isOpen ? 'none' : '';
-        if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
-    }
-
-    const PALETTE = [
-        '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
-        '#b07aa1','#9c755f','#6b6ecf','#e05c5c','#3a9e7e'
-    ];
-    function hashColor(str) {
-        let h = 0;
-        for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
-        return PALETTE[Math.abs(h) % PALETTE.length];
-    }
-
     const avatarEl = document.getElementById('userAvatar');
     const cardEl   = document.getElementById('userCard');
     const color    = hashColor(avatarEl.dataset.avatarFor || '?');

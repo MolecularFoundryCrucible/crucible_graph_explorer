@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -252,6 +252,15 @@ wheels = [
 ]
 
 [[package]]
+name = "cachetools"
+version = "7.0.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/76/7b/1755ed2c6bfabd1d98b37ae73152f8dcf94aa40fee119d163c19ed484704/cachetools-7.0.6.tar.gz", hash = "sha256:e5d524d36d65703a87243a26ff08ad84f73352adbeafb1cde81e207b456aaf24", size = 37526, upload-time = "2026-04-20T19:02:23.289Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/c4/cf76242a5da1410917107ff14551764aa405a5fd10cd10cf9a5ca8fa77f4/cachetools-7.0.6-py3-none-any.whl", hash = "sha256:4e94956cfdd3086f12042cdd29318f5ced3893014f7d0d059bf3ead3f85b7f8b", size = 13976, upload-time = "2026-04-20T19:02:21.187Z" },
+]
+
+[[package]]
 name = "cerberus"
 version = "1.3.8"
 source = { registry = "https://pypi.org/simple" }
@@ -464,6 +473,15 @@ wheels = [
 ]
 
 [[package]]
+name = "configupdater"
+version = "3.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2b/f4/603bd8a65e040b23d25b5843836297b0f4e430f509d8ed2ef8f072fb4127/ConfigUpdater-3.2.tar.gz", hash = "sha256:9fdac53831c1b062929bf398b649b87ca30e7f1a735f3fbf482072804106306b", size = 140603, upload-time = "2023-11-27T17:16:45.434Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e7/f0/b59cb7613d9d0f866b6ff247c5953ad78363c27ff5d684a2a98899ab8220/ConfigUpdater-3.2-py2.py3-none-any.whl", hash = "sha256:0f65a041627d7693840b4dd743581db4c441c97195298a29d075f91b79539df2", size = 34688, upload-time = "2023-11-27T17:16:43.53Z" },
+]
+
+[[package]]
 name = "contourpy"
 version = "1.3.3"
 source = { registry = "https://pypi.org/simple" }
@@ -551,6 +569,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "cachetools" },
     { name = "flask" },
     { name = "flask-pyoidc" },
     { name = "flask-qrcode" },
@@ -582,6 +601,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.40.0" },
+    { name = "cachetools", specifier = ">=5.0.0" },
     { name = "flask", specifier = ">=3.1.2" },
     { name = "flask-pyoidc", specifier = ">=3.14.3" },
     { name = "flask-qrcode", specifier = ">=3.2.0" },
@@ -594,7 +614,7 @@ requires-dist = [
     { name = "ipython", specifier = ">=9.10.0" },
     { name = "markdown", specifier = ">=3.7" },
     { name = "matplotlib", specifier = ">=3.10.8" },
-    { name = "nano-crucible", specifier = ">=2.1.0" },
+    { name = "nano-crucible", editable = "../nano-crucible" },
     { name = "nbformat", specifier = ">=5.10.4" },
     { name = "ncempy", specifier = ">=1.15" },
     { name = "networkx", specifier = ">=3.6.1" },
@@ -2380,10 +2400,10 @@ wheels = [
 
 [[package]]
 name = "nano-crucible"
-version = "2.1.0"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "../nano-crucible" }
 dependencies = [
     { name = "argcomplete" },
+    { name = "configupdater" },
     { name = "ipywidgets" },
     { name = "mfid" },
     { name = "platformdirs" },
@@ -2391,12 +2411,36 @@ dependencies = [
     { name = "python-dateutil" },
     { name = "python-dotenv" },
     { name = "pytz" },
+    { name = "pyyaml" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/47/96/2d50d3f5ab7a042135c6a39ff35d87e08d348cd9969aefdfe411beea93d3/nano_crucible-2.1.0.tar.gz", hash = "sha256:186d791dd8ac98aec21ff20f2f329ff79b7f4ab149c6b3520868bb7abd0eab93", size = 82826, upload-time = "2026-03-28T00:13:10.962Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d2/c8/d0090378a73bb26f5083f25df8e04a5484308d681b395ea7549cf7c256b2/nano_crucible-2.1.0-py3-none-any.whl", hash = "sha256:c310434397be2508eeabe8d562102a0c92a30cfee3525a86f6230b32b5d2e391", size = 100559, upload-time = "2026-03-28T00:13:09.511Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "argcomplete", specifier = ">=2.0.0" },
+    { name = "ase", marker = "extra == 'all'", specifier = ">=3.22.0" },
+    { name = "ase", marker = "extra == 'parsers'", specifier = ">=3.22.0" },
+    { name = "black", marker = "extra == 'dev'", specifier = ">=21.0" },
+    { name = "configupdater", specifier = ">=3.0" },
+    { name = "flake8", marker = "extra == 'dev'", specifier = ">=3.8" },
+    { name = "ipywidgets" },
+    { name = "mfid", specifier = ">=1.0.0" },
+    { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.5" },
+    { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.0" },
+    { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.24" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=0.812" },
+    { name = "platformdirs", specifier = ">=2.5.0" },
+    { name = "prompt-toolkit", marker = "extra == 'all'", specifier = ">=3.0" },
+    { name = "prompt-toolkit", marker = "extra == 'shell'", specifier = ">=3.0" },
+    { name = "pydantic", specifier = ">=2.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=6.0" },
+    { name = "python-dateutil", specifier = ">=2.8.0" },
+    { name = "python-dotenv" },
+    { name = "pytz", specifier = ">=2021.1" },
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "requests", specifier = ">=2.25.0" },
 ]
+provides-extras = ["parsers", "shell", "dev", "docs", "all"]
 
 [[package]]
 name = "narwhals"

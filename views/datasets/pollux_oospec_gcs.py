@@ -77,7 +77,7 @@ def create_blueprint(auth, helpers):
     def view(project_id, dsid):
         if not is_user_in_project(project_id):
             abort(403)
-        ds = current_app.crucible_client.get_dataset(dsid)
+        ds = current_app.crucible_client.datasets.get(dsid)
         return render_template('dataset_views/pollux_oospec_gcs.html',
                                project_id=project_id, ds=ds)
 
@@ -87,7 +87,7 @@ def create_blueprint(auth, helpers):
         if not is_user_in_project(project_id):
             abort(403)
 
-        associated_files = current_app.crucible_client.get_associated_files(dsid)
+        associated_files = current_app.crucible_client.datasets.get_associated_files(dsid)
         filename = _find_h5_filename(associated_files)
         if not filename:
             return jsonify({'error': 'No .h5 file found for this dataset.'}), 404

@@ -73,7 +73,7 @@ def _put_cached_frame(dsid: str, fi: int, raw: bytes) -> None:
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def _find_h5_filename(crucible_client, dsid: str) -> str:
-    associated_files = crucible_client.get_associated_files(dsid)
+    associated_files = crucible_client.datasets.get_associated_files(dsid)
     match = next((f for f in associated_files if f['filename'].endswith('.h5')), None)
     if not match:
         abort(404)
@@ -81,7 +81,7 @@ def _find_h5_filename(crucible_client, dsid: str) -> str:
 
 
 def _get_url(crucible_client, dsid: str, filename: str) -> str:
-    download_links = crucible_client.get_dataset_download_links(dsid)
+    download_links = crucible_client.datasets.get_download_links(dsid)
     url = download_links.get(f'{dsid}/{filename}')
     if not url:
         abort(404)
@@ -169,7 +169,7 @@ def create_blueprint(auth, helpers):
     def view(project_id, dsid):
         if not is_user_in_project(project_id):
             abort(403)
-        ds    = current_app.crucible_client.get_dataset(dsid)
+        ds    = current_app.crucible_client.datasets.get(dsid)
         meta  = _ensure_meta(dsid, current_app.crucible_client)
         return render_template(
             'dataset_views/sv_ramp_gcs.html',

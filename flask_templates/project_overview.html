@@ -45,12 +45,6 @@
 
 {% block content %}
 <style>
-    .action-link {
-        display: flex; align-items: center; justify-content: center; gap: 0.4rem;
-        font-size: 0.875rem; text-decoration: none; transition: background 0.15s;
-    }
-    .action-link:hover { background: var(--bs-tertiary-bg) !important; }
-
     /* ── tab switcher ─────────────────────────────────────────────────── */
     .tab-stat {
         /* flex: 1 1 0 forces equal width regardless of content */
@@ -126,10 +120,12 @@
                         <i class="bi bi-building"></i>{{project_meta['organization']}}
                     </span>
                     {% endif %}
-                    {% if project_meta.get('project_lead_email') %}
+                    {% set _lead = project_meta.get('lead') or {} %}
+                    {% set _lead_name = abbrev_name(_lead.get('first_name') or '', _lead.get('last_name') or '') or _lead.get('email') or project_meta.get('project_lead_email') %}
+                    {% if _lead_name %}
                     <span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
                           style="background:var(--bs-tertiary-bg); font-size:0.78rem;">
-                        <i class="bi bi-person"></i>{{project_meta['project_lead_email']}}
+                        <i class="bi bi-person"></i>{{ _lead_name }}
                     </span>
                     {% endif %}
                 </div>
@@ -313,34 +309,12 @@
 
 </div>{# end flex row #}
 
-<!-- ── back-to-top button ─────────────────────────────────────────────── -->
-<button id="backToTop" title="Back to top"
-        onclick="window.scrollTo({top:0, behavior:'smooth'})"
-        style="position:fixed; bottom:1.75rem; right:1.75rem; display:none; z-index:1050;
-               width:2.5rem; height:2.5rem; border-radius:50%; border:none;
-               background:var(--bs-secondary-color); color:#fff;
-               box-shadow:0 2px 8px rgba(0,0,0,0.25); cursor:pointer;
-               align-items:center; justify-content:center; font-size:1rem;">
-    <i class="bi bi-arrow-up"></i>
-</button>
-
 <script>
     // ── raw data from server ──────────────────────────────────────────────────
     const PID       = {{ pid | tojson }};
     const SAMPLES   = {{ pc['samples'] | tojson }};
     const DATASETS  = {{ pc['datasets'] | tojson }};
     const OWNER_MAP = {{ owner_map | tojson }};  // orcid → display name
-
-    // ── color helpers ─────────────────────────────────────────────────────────
-    const PALETTE = [
-        '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
-        '#b07aa1','#9c755f','#6b6ecf','#e05c5c','#3a9e7e'
-    ];
-    function hashColor(str) {
-        let h = 0;
-        for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
-        return PALETTE[Math.abs(h) % PALETTE.length];
-    }
 
     function escHtml(s) {
         return String(s == null ? '' : s)
@@ -413,6 +387,18 @@
         return sorted;
     }
 
+    // ── search text builders ──────────────────────────────────────────────────
+    function sampleSearch(s) {
+        return [s.sample_name, s.sample_type, s.unique_id, OWNER_MAP[s.owner_orcid]]
+            .filter(Boolean).join(' ').toLowerCase();
+    }
+
+    function datasetSearch(ds) {
+        return [ds.dataset_name, ds.measurement, ds.unique_id,
+                ds.instrument_name, ds.session_name, OWNER_MAP[ds.owner_orcid]]
+            .filter(Boolean).join(' ').toLowerCase();
+    }
+
     // ── render helpers ────────────────────────────────────────────────────────
     function buildGroupEl(gid, icon, gkey, items, itemClass, countClass, rowFn, navPrefix) {
         const div = document.createElement('div');
@@ -465,7 +451,7 @@
                 'sample-item', 'sample-count',
                 s => `<a class="list-row sample-item"
                          href="/${PID}/sample-graph/${escHtml(s.unique_id)}"
-                         data-search="${escHtml((s.sample_name + ' ' + (s.sample_type || '')).toLowerCase())}">
+                         data-search="${escHtml(sampleSearch(s))}">
                          <span>${escHtml(s.sample_name || s.unique_id)}</span>
                          <span class="mfid small ms-3 text-nowrap">${escHtml(s.unique_id)}</span>
                       </a>`);
@@ -497,7 +483,7 @@
                 'dataset-item', 'dataset-count',
                 ds => `<a class="list-row dataset-item"
                           href="/${PID}/dataset/${escHtml(ds.unique_id)}"
-                          data-search="${escHtml((ds.dataset_name + ' ' + (ds.measurement || '')).toLowerCase())}">
+                          data-search="${escHtml(datasetSearch(ds))}">
                           <span class="text-truncate me-3">${escHtml(ds.dataset_name || ds.unique_id)}</span>
                           <span class="mfid small text-nowrap">${escHtml(ds.unique_id)}</span>
                        </a>`);
@@ -554,12 +540,6 @@
             bar.style.boxShadow = '0 2px 6px rgba(0,0,0,0.07)';
         }
     })();
-
-    // ── back to top ───────────────────────────────────────────────────────────
-    const backToTop = document.getElementById('backToTop');
-    window.addEventListener('scroll', () => {
-        backToTop.style.display = window.scrollY > 300 ? 'flex' : 'none';
-    }, { passive: true });
 
     // ── tab switching ─────────────────────────────────────────────────────────
     let activeTab = 'samples';

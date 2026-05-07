@@ -7,8 +7,8 @@
     <style>
         #cy {
             width: 100%;
-            height: 700px;
-            border: 1px solid #ddd;
+            min-height: 65vh;
+            border: 1px solid var(--bs-border-color);
             border-radius: 4px;
             margin-bottom: 2rem;
         }
@@ -32,11 +32,13 @@
 <h1>Project Graph – <em>{{pc['project_id']}}</em></h1>
 
 <div class="d-flex align-items-center gap-3 mb-2">
-    <button id="toggleLayoutBtn" class="btn btn-sm btn-secondary">Switch to Vertical Layout</button>
+    <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left-right me-1"></i>Switch to Vertical Layout
+    </button>
     <span class="text-muted small">
-        <span class="legend-dot" style="background:#4a7ba7;"></span>Sample
+        <span class="legend-dot" style="background:var(--cy-sample-color);"></span>Sample
         &nbsp;
-        <span class="legend-dot" style="background:#5a9e6f;"></span>Dataset
+        <span class="legend-dot" style="background:var(--cy-dataset-color);"></span>Dataset
     </span>
 </div>
 
@@ -59,7 +61,9 @@
   document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
     if (cyInstance && cyInstance.toggleLayout) {
       const newLayout = cyInstance.toggleLayout();
-      this.textContent = newLayout === 'LR' ? 'Switch to Vertical Layout' : 'Switch to Horizontal Layout';
+      this.innerHTML = newLayout === 'LR'
+        ? '<i class="bi bi-arrow-left-right me-1"></i>Switch to Vertical Layout'
+        : '<i class="bi bi-arrow-down me-1"></i>Switch to Horizontal Layout';
     }
   });
 

@@ -37,7 +37,7 @@ def register_all(app, auth, helpers):
     pkg_dir = Path(__file__).parent
     for _, name, _ in pkgutil.iter_modules([str(pkg_dir)]):
         try:
-            module = importlib.import_module(f'dataset_views.{name}')
+            module = importlib.import_module(f'views.datasets.{name}')
         except Exception as err:
             app.logger.error(f'dataset_views: failed to import {name}: {err}')
             continue

@@ -8,7 +8,6 @@
         #chat-wrapper {
             display: flex;
             flex-direction: column;
-            height: calc(100vh - 140px);
         }
         #chat-messages {
             flex: 1;
@@ -21,7 +20,7 @@
             margin-bottom: 0.75rem;
         }
         .msg-user .bubble {
-            background: #0d6efd;
+            background: var(--bs-primary);
             color: #fff;
             border-radius: 1rem 1rem 0.25rem 1rem;
             padding: 0.6rem 1rem;
@@ -35,8 +34,8 @@
             margin-bottom: 0.75rem;
         }
         .msg-assistant .bubble {
-            background: #f1f3f5;
-            color: #212529;
+            background: var(--bs-secondary-bg);
+            color: var(--bs-body-color);
             border-radius: 1rem 1rem 1rem 0.25rem;
             padding: 0.6rem 1rem;
             max-width: 85%;
@@ -46,8 +45,8 @@
         .tool-pill {
             font-size: 0.75em;
             font-family: monospace;
-            background: #e9ecef;
-            border: 1px solid #ced4da;
+            background: var(--bs-tertiary-bg);
+            border: 1px solid var(--bs-border-color);
             border-radius: 4px;
             padding: 2px 8px;
             margin-bottom: 4px;
@@ -58,8 +57,8 @@
             display: none;
             font-size: 0.72em;
             font-family: monospace;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
+            background: var(--bs-body-bg);
+            border: 1px solid var(--bs-border-color);
             border-radius: 4px;
             padding: 4px 8px;
             margin-bottom: 6px;
@@ -70,7 +69,7 @@
         }
         .tool-group { margin-bottom: 4px; }
         #chat-input-area {
-            border-top: 1px solid #dee2e6;
+            border-top: 1px solid var(--bs-border-color);
             padding-top: 0.75rem;
         }
         #chat-input {
@@ -81,7 +80,7 @@
             display: inline-block;
             width: 7px; height: 7px;
             margin: 0 1px;
-            background: #adb5bd;
+            background: var(--bs-secondary-color);
             border-radius: 50%;
             animation: bounce 1.2s infinite;
         }
@@ -332,7 +331,7 @@ function handleEvent(event) {
         img.src = event.src;
         img.alt = event.label || 'thumbnail';
         img.title = event.label || '';
-        img.style.cssText = 'max-width:220px;max-height:180px;object-fit:contain;border:1px solid #dee2e6;border-radius:4px;display:block;margin:6px 0;';
+        img.style.cssText = 'max-width:220px;max-height:180px;object-fit:contain;border:1px solid var(--bs-border-color);border-radius:4px;display:block;margin:6px 0;';
         if (event.dataset_id) {
             img.style.cursor = 'pointer';
             img.addEventListener('click', () => window.open(`/${PROJECT_ID}/dataset/${event.dataset_id}`, '_blank'));
@@ -398,5 +397,11 @@ clearBtn.addEventListener('click', function() {
     _rawText = '';
     _currentBubble = null;
 });
+
+(function fitChat() {
+    const navH = document.querySelector('nav[aria-label="breadcrumb"]')?.offsetHeight || 56;
+    document.getElementById('chat-wrapper').style.height = `calc(100vh - ${navH + 24}px)`;
+    window.addEventListener('resize', fitChat, { passive: true });
+})();
 </script>
 {% endblock %}

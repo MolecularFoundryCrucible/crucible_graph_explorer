@@ -13,7 +13,7 @@ import pandas as pd
 import yaml
 from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request, stream_with_context
 from flask_pyoidc.user_session import UserSession
-from crucible.models import BaseDataset
+from crucible.models import Dataset
 
 INSTRUMENT_TYPES = ['als-bl12012']
 URL_PREFIX = '/instrument-view/als-bl12012'
@@ -68,7 +68,7 @@ def _run_job(job_id, tmpdir, project_id, dataset_name, app):
 
             # 3. match samples
             _push(job_id, {'type': 'info', 'message': f'Matching {len(df)} samples to Crucible project…'})
-            samples = client.list_samples(project_id=project_id)
+            samples = client.samples.list(project_id=project_id)
             by_name = {s['sample_name']: s for s in samples}
             df['sample_id'] = df['sample_name'].map(lambda n: by_name.get(n, {}).get('unique_id'))
             unmatched = df[df['sample_id'].isna()]['sample_name'].tolist()
@@ -81,8 +81,8 @@ def _run_job(job_id, tmpdir, project_id, dataset_name, app):
             else:
                 client.get_or_add_instrument('ALS-BL12012', 'ALS-Building6',
                                              instrument_owner='esbarnard@lbl.gov')
-                batch_result = client.create_new_dataset_from_files(
-                    BaseDataset(
+                batch_result = client.datasets.create_from_files(
+                    Dataset(
                         unique_id=existing_id,
                         dataset_name=dataset_name,
                         instrument_name='ALS-BL12012',
@@ -120,8 +120,8 @@ def _run_job(job_id, tmpdir, project_id, dataset_name, app):
                     time.sleep(0.1)
                     sds_id = f'dry-run-{uuid.uuid4().hex[:8]}'
                 else:
-                    sds_result = client.create_new_dataset_from_files(
-                        BaseDataset(
+                    sds_result = client.datasets.create_from_files(
+                        Dataset(
                             dataset_name=f'RGATEY_{dataset_name}_{spot}_{sample_name}',
                             instrument_name='ALS-BL12012',
                             measurement='automated_RGA_TEY_run',
@@ -131,9 +131,9 @@ def _run_job(job_id, tmpdir, project_id, dataset_name, app):
                         wait_for_ingestion_response=False,
                     )
                     sds_id = sds_result['created_record']['unique_id']
-                    client.link_datasets(batch_id, sds_id)
+                    client.datasets.link_parent_child(batch_id, sds_id)
                     if sample_id:
-                        client.add_sample_to_dataset(sds_id, sample_id)
+                        client.datasets.add_sample(sds_id, sample_id)
 
                 ev = {'type': 'sample', 'spot': spot, 'sample_name': sample_name,
                       'skipped': False, 'dataset_id': sds_id}
@@ -174,7 +174,7 @@ def create_blueprint(auth, helpers):
     def upload():
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        projects = current_app.crucible_client.list_projects(orcid=orcid)
+        projects = current_app.crucible_client.projects.list(orcid=orcid)
         return render_template('instrument_views/als_bl12012_upload.html', projects=projects)
 
     @bp.route('/upload', methods=['POST'])

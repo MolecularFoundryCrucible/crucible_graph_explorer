@@ -1,12 +1,14 @@
 import os
 
-import h5py
 import numpy as np
+from cachetools import TTLCache
 from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request
 
+import gcs_access
+
 MEASUREMENT_TYPES = ['hyperspec_picam_mcl']
-URL_PREFIX = '/dataset-view/hyperspec-picam-mcl'
-LABEL = 'Hyperspectral Viewer'
+URL_PREFIX = '/dataset-view/hyperspec-picam-mcl-gcs'
+LABEL = 'Hyperspectral Viewer (GCS)'
 
 X_AXES = {
     'wls':          {'key': 'wls',         'label': 'Wavelength (nm)'},
@@ -14,47 +16,25 @@ X_AXES = {
     'raman_shifts': {'key': 'raman_shifts', 'label': 'Raman shift (cm⁻¹)'},
 }
 
-_DOWNLOAD_DIR = os.environ.get('CRUCIBLE_DOWNLOAD_DIR', 'crucible-downloads')
-
-# Open h5py.File objects keyed by dsid — avoids re-opening on every request.
-_h5_cache: dict[str, object] = {}
-
-# Full spec_map arrays (shape: Ny, Nx, Nspec) loaded into memory on first
-# spectrum request.  Pixel clicks are then pure numpy indexing — no I/O.
-_spec_map_cache: dict[str, np.ndarray] = {}
+# Open h5py.File objects keyed by dsid — keeping them open preserves gcsfs's
+# block cache between requests.  Evicted after 1 h or at 16 simultaneous files.
+_h5_cache: TTLCache = TTLCache(maxsize=16, ttl=3600)
 
 
 def _get_h5(dsid, crucible_client):
-    """Return a cached local h5py.File for dsid, downloading on first access.
-
-    download_dataset keys files as "{dsid}/{basename}", so the local path is
-    crucible-downloads/{dsid}/{basename}.  If the file is already on disk from
-    a previous request or a different worker, we open it directly without any
-    API call.
-    """
+    """Return the cached h5py.File for dsid, opening it on first access."""
     if dsid not in _h5_cache:
-        dsid_dir = os.path.join(_DOWNLOAD_DIR, dsid)
-        # Fast path: file already on disk (e.g. downloaded by another worker)
-        if os.path.isdir(dsid_dir):
-    
-            existing = [f for f in os.listdir(dsid_dir) if f.endswith('.h5')]
-            if existing:
-                _h5_cache[dsid] = h5py.File(os.path.join(dsid_dir, existing[0]), 'r')
-                return _h5_cache[dsid]
-        # Slow path: fetch filename from API and download
-        associated_files = crucible_client.get_associated_files(dsid)
+        associated_files = crucible_client.datasets.get_associated_files(dsid)
         h5_file = next((f for f in associated_files if f['filename'].endswith('.h5')), None)
         if not h5_file:
             abort(404)
         filename = os.path.basename(h5_file['filename'])
-        crucible_client.download_dataset(dsid, file_name=f'{dsid}/{filename}',
-                                         output_dir=_DOWNLOAD_DIR)
-        _h5_cache[dsid] = h5py.File(os.path.join(dsid_dir, filename), 'r')
+        _h5_cache[dsid] = gcs_access.open_h5(dsid, filename)  # intentionally kept open
     return _h5_cache[dsid]
 
 
 def create_blueprint(auth, helpers):
-    bp = Blueprint('dview_hyperspec_picam_mcl', __name__)
+    bp = Blueprint('dview_hyperspec_picam_mcl_gcs', __name__)
     is_user_in_project = helpers['is_user_in_project']
 
     @bp.route('/<project_id>/<dsid>')
@@ -62,14 +42,14 @@ def create_blueprint(auth, helpers):
     def view(project_id, dsid):
         if not is_user_in_project(project_id):
             abort(403)
-        ds = current_app.crucible_client.get_dataset(dsid)
+        ds = current_app.crucible_client.datasets.get(dsid)
         h5 = _get_h5(dsid, current_app.crucible_client)
         meas = h5['measurement/hyperspec_picam_mcl']
         h_array = meas['h_array'][:].tolist()
         v_array = meas['v_array'][:].tolist()
         axes = [k for k in X_AXES if k in meas]
         return render_template(
-            'dataset_views/hyperspec_picam_mcl.html',
+            'dataset_views/hyperspec_picam_mcl_gcs.html',
             project_id=project_id,
             ds=ds,
             h_array=h_array,
@@ -84,9 +64,9 @@ def create_blueprint(auth, helpers):
         """Return summed-intensity spatial map, optionally over a spectral sub-range.
 
         Query params:
-            x_axis   - one of wls / wave_numbers / raman_shifts  (default: wls)
-            spec_min - lower bound in x_axis units (optional)
-            spec_max - upper bound in x_axis units (optional)
+            x_axis   – one of wls / wave_numbers / raman_shifts  (default: wls)
+            spec_min – lower bound in x_axis units (optional)
+            spec_max – upper bound in x_axis units (optional)
         """
         if not is_user_in_project(project_id):
             abort(403)
@@ -134,10 +114,8 @@ def create_blueprint(auth, helpers):
         if xi is None or yi is None:
             abort(400)
 
-        if dsid not in _spec_map_cache:
-            h5 = _get_h5(dsid, current_app.crucible_client)
-            _spec_map_cache[dsid] = h5['measurement/hyperspec_picam_mcl/spec_map'][0].astype(np.float32)
-        arr = _spec_map_cache[dsid][yi, xi, :]
-        return Response(arr.tobytes(), mimetype='application/octet-stream')
+        h5  = _get_h5(dsid, current_app.crucible_client)
+        arr = h5['measurement/hyperspec_picam_mcl/spec_map'][0, yi, xi, :]
+        return Response(arr.astype(np.float32).tobytes(), mimetype='application/octet-stream')
 
     return bp

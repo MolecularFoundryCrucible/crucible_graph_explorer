@@ -33,7 +33,7 @@ def register_all(app, auth, helpers):
     """Auto-discover and register every project view blueprint."""
     pkg_dir = Path(__file__).parent
     for _, name, _ in pkgutil.iter_modules([str(pkg_dir)]):
-        module = importlib.import_module(f'project_views.{name}')
+        module = importlib.import_module(f'views.projects.{name}')
         if hasattr(module, 'create_blueprint') and hasattr(module, 'PROJECT_ID'):
             bp = module.create_blueprint(auth, helpers)
             prefix = f'/{module.PROJECT_ID}/view'

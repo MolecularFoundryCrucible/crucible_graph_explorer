@@ -19,10 +19,10 @@ def create_blueprint(auth, helpers):
         if not is_user_in_project(project_id):
             abort(403)
 
-        ds = current_app.crucible_client.get_dataset(dsid)
-        associated_files = current_app.crucible_client.get_associated_files(dsid)
+        ds = current_app.crucible_client.datasets.get(dsid)
+        associated_files = current_app.crucible_client.datasets.get_associated_files(dsid)
         try:
-            download_links = current_app.crucible_client.get_dataset_download_links(dsid)
+            download_links = current_app.crucible_client.datasets.get_download_links(dsid)
         except Exception:
             download_links = {}
 

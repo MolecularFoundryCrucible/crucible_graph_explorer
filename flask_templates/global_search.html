@@ -14,7 +14,6 @@
     }
     .list-row:last-child { border-bottom: none; }
     .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
-    mark { background: #fff3cd; border-radius: 2px; padding: 0 2px; }
 </style>
 {% endblock %}
 
@@ -66,6 +65,8 @@
                 <div class="fw-medium text-truncate">{{ s.get('sample_name') | e }}</div>
                 <div class="small text-muted d-flex gap-2 flex-wrap mt-1">
                     {% if s.get('sample_type') %}<span>{{ s['sample_type'] | e }}</span>{% endif %}
+                    <span class="mfid">{{ s['unique_id'] }}</span>
+                    <span class="opacity-50">in</span>
                     <span class="mfid">{{ s['_pid'] }}</span>
                 </div>
             </a>
@@ -88,6 +89,9 @@
                 <div class="fw-medium text-truncate">{{ d.get('dataset_name') | e }}</div>
                 <div class="small text-muted d-flex gap-2 flex-wrap mt-1">
                     {% if d.get('measurement') %}<span>{{ d['measurement'] | e }}</span>{% endif %}
+                    {% if d.get('instrument_name') %}<span>{{ d['instrument_name'] | e }}</span>{% endif %}
+                    <span class="mfid">{{ d['unique_id'] }}</span>
+                    <span class="opacity-50">in</span>
                     <span class="mfid">{{ d['_pid'] }}</span>
                 </div>
             </a>

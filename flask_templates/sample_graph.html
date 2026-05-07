@@ -1,6 +1,8 @@
 {% set s = self_info %}
 {% set pid = pc['project_id'] %}
 
+{% from 'macros.html' import mrow, mrow_link, section_metadata, deletion_banner %}
+
 {% extends "base.html" %}
 {% block title %}{{s['sample_name']}}{% endblock %}
 
@@ -8,72 +10,11 @@
 {{ super() }}
 {{ vite_tags() }}
 <style>
-    /* ── shared resource-page section pattern ─────────────────────────── */
-    .res-section {
-        border: 1px solid var(--bs-border-color);
-        border-radius: 0.375rem;
-        overflow: hidden;
-        margin-bottom: 1rem;
-        max-width: 860px;
-    }
-    .res-section-header {
-        display: flex; align-items: center; gap: 0.5rem;
-        padding: 0.6rem 0.75rem;
-        background: var(--bs-tertiary-bg);
-        cursor: pointer; user-select: none;
-        font-size: 0.875rem; font-weight: 600;
-        border-bottom: 1px solid var(--bs-border-color);
-    }
-    .res-section-header:hover { filter: brightness(0.97); }
-    .res-section-chevron {
-        margin-left: auto; color: var(--bs-secondary-color);
-        transition: transform 0.2s; flex-shrink: 0;
-    }
-
-    /* ── list rows (selectable, clickable) ─────────────────────────────── */
-    .list-row {
-        display: flex; align-items: center; flex-wrap: wrap; gap: 0.15rem 0.5rem;
-        padding: 0.5rem 1rem; cursor: pointer;
-        border-bottom: 1px solid var(--bs-border-color); transition: background 0.1s;
-        text-decoration: none; color: inherit;
-    }
-    .list-row:last-child { border-bottom: none; }
-    .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
-
-    /* ── metadata rows ──────────────────────────────────────────────────── */
-    .meta-row {
-        display: flex; gap: 0.75rem; padding: 0.28rem 0;
-        font-size: 0.875rem; align-items: baseline;
-    }
-    .meta-key {
-        min-width: 8rem; flex-shrink: 0;
-        font-size: 0.7rem; font-weight: 600;
-        text-transform: uppercase; letter-spacing: 0.05em;
-        color: var(--bs-secondary-color); padding-top: 0.15rem;
-    }
-    .meta-divider {
-        display: flex; align-items: center; gap: 0.6rem;
-        margin: 0.9rem 0 0.4rem;
-    }
-    .meta-divider-label {
-        font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 0.07em; color: var(--bs-secondary-color); white-space: nowrap;
-    }
-    .meta-divider-line { flex: 1; height: 1px; background: var(--bs-border-color); }
-
-    /* ── action footer links ────────────────────────────────────────────── */
-    .action-link {
-        display: flex; align-items: center; justify-content: center; gap: 0.4rem;
-        font-size: 0.875rem; text-decoration: none; transition: background 0.15s;
-    }
-    .action-link:hover { background: var(--bs-tertiary-bg) !important; }
-
     /* ── graph containers ───────────────────────────────────────────────── */
     #cy {
         width: 100%; height: 40vh; min-height: 280px;
         border-top: 1px solid var(--bs-border-color);
     }
-    /* fullscreen: stretch graph to fill the viewport */
     #section-graph:fullscreen {
         background: var(--bs-body-bg);
         display: flex !important;
@@ -81,15 +22,10 @@
         height: 100vh;
     }
     #section-graph:fullscreen .res-section-body {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
+        flex: 1; display: flex; flex-direction: column; overflow: hidden;
     }
     #section-graph:fullscreen #cy {
-        flex: 1;
-        height: unset !important;
-        min-height: unset !important;
+        flex: 1; height: unset !important; min-height: unset !important;
     }
 </style>
 {% endblock %}
@@ -217,6 +153,8 @@
     </div>
 </div>
 
+{{ deletion_banner(s) }}
+
 <!-- ── compact sticky header (shown when main card scrolls out) ──────────── -->
 <div id="compactHeader" style="position:sticky; top:3.5rem; z-index:500; display:none;
      margin-bottom:0.5rem; margin-left:-0.25rem; margin-right:-0.25rem;">
@@ -282,20 +220,9 @@
     </div>
     <div class="res-section-body">
         <div class="px-3 pt-2 pb-3">
-            {%- macro mrow(label, value) -%}
-            <div class="meta-row">
-                <span class="meta-key">{{ label }}</span>
-                <span class="text-break">
-                    {%- if value is none or value == '' -%}<span class="text-muted">—</span>
-                    {%- elif value is sequence and value is not string -%}{{ value | join(', ') }}
-                    {%- else -%}{{ value }}{%- endif -%}
-                </span>
-            </div>
-            {%- endmacro -%}
-
             {# ── Basic view ── #}
             {{ mrow("Type",        s.get('sample_type')) }}
-            {{ mrow("Project",     s.get('project_id')) }}
+            {{ mrow_link("Project", s.get('project_id'), '/' + (s.get('project_id') or '') + '/') }}
             {{ mrow("Timestamp",   s.get('timestamp')) }}
             {{ mrow("Description", s.get('description')) }}
 
@@ -316,11 +243,12 @@
                     <span class="meta-divider-label">Ownership</span>
                     <div class="meta-divider-line"></div>
                 </div>
-                {{ mrow("Owner ORCID", s.get('owner_orcid')) }}
-                {{ mrow("Owner ID",    s.get('owner_user_id')) }}
+                {%- set pub = s.get('public') -%}
+                {{ mrow("Visibility",  "Public" if pub == true else ("Private" if pub == false else None)) }}
+                {{ mrow_link("Owner ORCID", s.get('owner_orcid'), 'https://orcid.org/' + (s.get('owner_orcid') or ''), external=true) }}
 
                 <div class="meta-divider">
-                    <span class="meta-divider-label">Timing</span>
+                    <span class="meta-divider-label">Dates</span>
                     <div class="meta-divider-line"></div>
                 </div>
                 {{ mrow("Created",  s.get('creation_time')) }}
@@ -430,23 +358,32 @@
         <i class="bi bi-chevron-right res-section-chevron"></i>
     </div>
     <div class="res-section-body" style="display:none;">
-        {% for anc in ancestors_info %}
-        {% set aname = anc['sample_name'] %}
+        {%- macro anc_row(anc) -%}
+        {%- set aname = anc['sample_name'] -%}
         <a class="list-row" href="/{{pid}}/sample-graph/{{anc['unique_id']}}">
             <div style="flex:1; min-width:8rem;">
                 <div class="fw-medium">{{aname}}</div>
                 <div class="small text-muted text-truncate">
-                    <i class="bi bi-signpost me-1"></i>{{" ← ".join(ancestors_path[aname])}}
+                    <i class="bi bi-signpost me-1"></i>{{" ← ".join(ancestors_path.get(aname, [aname]))}}
                 </div>
             </div>
             <span class="mfid small ms-auto">{{anc['unique_id']}}</span>
         </a>
-        {% endfor %}
+        {%- endmacro -%}
+        {% for anc in direct_ancestors %}{{ anc_row(anc) }}{% endfor %}
+        {% if indirect_ancestors %}
+        <div class="px-3 py-1 small fw-semibold text-muted"
+             style="background:var(--bs-tertiary-bg); border-top:1px solid var(--bs-border-color); border-bottom:1px solid var(--bs-border-color);">
+            <i class="bi bi-arrow-up text-muted me-1" style="font-size:0.7rem;"></i>Further ancestors
+        </div>
+        {% for anc in indirect_ancestors %}{{ anc_row(anc) }}{% endfor %}
+        {% endif %}
     </div>
 </div>
 {% endif %}
 
 <!-- ── descendants ──────────────────────────────────────────────────────── -->
+{% if descendants_info %}
 <div class="res-section" id="section-descendants">
     <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-arrow-down-short text-muted"></i>
@@ -457,37 +394,32 @@
         <i class="bi bi-chevron-right res-section-chevron"></i>
     </div>
     <div class="res-section-body" style="display:none;">
-        {% if not descendants_info %}
-        <div class="text-center text-muted py-4">
-            <i class="bi bi-diagram-3 fs-3 d-block mb-2 opacity-50"></i>
-            No descendants
-        </div>
-        {% endif %}
-        {% for desc in descendants_info %}
-        {% set dname = desc['sample_name'] %}
+        {%- macro desc_row(desc) -%}
+        {%- set dname = desc['sample_name'] -%}
         <a class="list-row" href="/{{pid}}/sample-graph/{{desc['unique_id']}}">
             <div style="flex:1; min-width:8rem;">
                 <div class="fw-medium">{{dname}}</div>
                 <div class="small text-muted text-truncate">
-                    <i class="bi bi-signpost me-1"></i>{{" → ".join(descendants_path[dname])}}
+                    <i class="bi bi-signpost me-1"></i>{{" → ".join(descendants_path.get(dname, [dname]))}}
                 </div>
             </div>
             <span class="mfid small ms-auto">{{desc['unique_id']}}</span>
         </a>
-        {% endfor %}
+        {%- endmacro -%}
+        {% for desc in direct_descendants %}{{ desc_row(desc) }}{% endfor %}
+        {% if indirect_descendants %}
+        <div class="px-3 py-1 small fw-semibold text-muted"
+             style="background:var(--bs-tertiary-bg); border-top:1px solid var(--bs-border-color); border-bottom:1px solid var(--bs-border-color);">
+            <i class="bi bi-arrow-down text-muted me-1" style="font-size:0.7rem;"></i>Further descendants
+        </div>
+        {% for desc in indirect_descendants %}{{ desc_row(desc) }}{% endfor %}
+        {% endif %}
     </div>
 </div>
+{% endif %}
 
-<!-- ── back-to-top ────────────────────────────────────────────────────────── -->
-<button id="backToTop" title="Back to top"
-        onclick="window.scrollTo({top:0, behavior:'smooth'})"
-        style="position:fixed; bottom:1.75rem; right:1.75rem; display:none; z-index:1050;
-               width:2.5rem; height:2.5rem; border-radius:50%; border:none;
-               background:var(--bs-secondary-color); color:#fff;
-               box-shadow:0 2px 8px rgba(0,0,0,0.25); cursor:pointer;
-               align-items:center; justify-content:center; font-size:1rem;">
-    <i class="bi bi-arrow-up"></i>
-</button>
+<!-- ── scientific metadata — collapsed by default ───────────────────────── -->
+{{ section_metadata(s.get('scientific_metadata')) }}
 
 <script type="module">
   let cyInstance   = null;
@@ -629,66 +561,6 @@
 </script>
 
 <script>
-    function toggleDetailsAdv() {
-        const adv     = document.getElementById('details-advanced');
-        const chevron = document.getElementById('details-adv-chevron');
-        const open    = adv.style.display !== 'none';
-        adv.style.display = open ? 'none' : '';
-        if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
-        if (chevron) chevron.style.color = open ? '' : 'var(--bs-body-color)';
-    }
-
-    function toggleSection(header) {
-        const body = header.nextElementSibling;
-        const chevron = header.querySelector('.res-section-chevron');
-        const isOpen = body.style.display !== 'none';
-        body.style.display = isOpen ? 'none' : '';
-        if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
-    }
-
-    function setAllSections(expand) {
-        document.querySelectorAll('.res-section').forEach(section => {
-            const body    = section.querySelector('.res-section-body');
-            const chevron = section.querySelector('.res-section-chevron');
-            if (!body) return;
-            const isOpen = body.style.display !== 'none';
-            if (expand && !isOpen) {
-                // Graph section needs lazy-load logic on first open
-                if (section.id === 'section-graph' && window.toggleGraphSection) {
-                    window.toggleGraphSection(section.querySelector('.res-section-header'));
-                } else {
-                    body.style.display = '';
-                    if (chevron) chevron.style.transform = 'rotate(90deg)';
-                }
-            } else if (!expand && isOpen) {
-                body.style.display = 'none';
-                if (chevron) chevron.style.transform = '';
-            }
-        });
-    }
-
-    const PALETTE = [
-        '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
-        '#b07aa1','#9c755f','#6b6ecf','#e05c5c','#3a9e7e'
-    ];
-    function hashColor(str) {
-        let h = 0;
-        for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
-        return PALETTE[Math.abs(h) % PALETTE.length];
-    }
-    function makeInitials(str) {
-        return str.replace(/[_\-]/g, ' ').split(' ')
-            .filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
-    }
-    function makeAvatar(el, str, size='2.5rem', fontSize='0.85rem') {
-        const color = hashColor(str);
-        el.style.cssText = `width:${size};height:${size};min-width:${size};border-radius:50%;`
-            + `background:${color};color:#fff;display:flex;align-items:center;`
-            + `justify-content:center;font-size:${fontSize};font-weight:700;letter-spacing:0.05em;`;
-        el.textContent = makeInitials(str);
-        return color;
-    }
-
     const projAv = document.getElementById('projectAvatar');
     if (projAv) makeAvatar(projAv, {{ pid | tojson }}, '1.5rem', '0.6rem');
 
@@ -721,10 +593,6 @@
         ).observe(mainCard);
     }
 
-    const backToTop = document.getElementById('backToTop');
-    window.addEventListener('scroll', () => {
-        backToTop.style.display = window.scrollY > 300 ? 'flex' : 'none';
-    }, { passive: true });
 </script>
 
 {% endblock %}

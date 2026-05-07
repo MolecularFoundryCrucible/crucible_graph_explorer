@@ -78,18 +78,6 @@
         <div id="archivedList" style="display:none;" class="mb-4"></div>
     </div>
 
-    <!-- back-to-top button -->
-    <button id="backToTop" title="Back to top"
-            onclick="window.scrollTo({top:0, behavior:'smooth'})"
-            style="position:fixed; bottom:1.75rem; right:1.75rem; display:none; z-index:1050;
-                   width:2.5rem; height:2.5rem; border-radius:50%; border:none;
-                   background:var(--bs-secondary-color); color:#fff;
-                   box-shadow:0 2px 8px rgba(0,0,0,0.25); cursor:pointer;
-                   align-items:center; justify-content:center; font-size:1rem;
-                   transition: opacity 0.2s;">
-        <i class="bi bi-arrow-up"></i>
-    </button>
-
     <script>
         const PROJECTS = {{ projects | tojson }};
         let currentLayout   = localStorage.getItem('crucible-layout')  || 'list';
@@ -102,29 +90,11 @@
         const ARCHIVE_KEY = 'crucible-archived';
         const STAR_KEY    = 'crucible-starred';
         const DASH        = '<em class="text-muted">—</em>';
-        const PALETTE     = [
-            '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
-            '#b07aa1','#9c755f','#6b6ecf','#e05c5c','#3a9e7e'
-        ];
 
         // ── helpers ───────────────────────────────────────────────────────────
 
-        function navIfNoSelection(event, url) {
-            if (event.button === 1) { window.open(url, '_blank'); return; }
-            if (event.button !== 0) return;
-            if (window.getSelection().toString()) return;
-            if (event.target.closest('a, button')) return;
-            window.location.href = url;
-        }
-
         function esc(s) {
             return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        }
-
-        function hashColor(str) {
-            let h = 0;
-            for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
-            return PALETTE[Math.abs(h) % PALETTE.length];
         }
 
         function avatarHTML(id) {
@@ -517,13 +487,6 @@
                 hdr.style.zIndex = '10';
             }
         })();
-
-        // ── back-to-top ───────────────────────────────────────────────────────
-
-        const backToTop = document.getElementById('backToTop');
-        window.addEventListener('scroll', () => {
-            backToTop.style.display = window.scrollY > 300 ? 'flex' : 'none';
-        }, { passive: true });
 
         setLayout(currentLayout);
 

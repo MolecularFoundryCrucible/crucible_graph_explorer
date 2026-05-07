@@ -15,7 +15,11 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <style type="text/css">
-        .mfid { color: #80858a; font-family: monospace; white-space: nowrap; }
+        :root {
+            --cy-sample-color: #4a7ba7;
+            --cy-dataset-color: #5a9e6f;
+        }
+        .mfid { color: var(--bs-secondary-color); font-family: monospace; white-space: nowrap; }
         .mfid-copy-btn {
             opacity: 0.35; transition: opacity 0.15s;
             color: var(--bs-secondary-color); font-size: 0.85em;
@@ -45,6 +49,110 @@
 
         /* ── list-row active press feedback ────────────────────────────── */
         .list-row:active { background: var(--bs-secondary-bg) !important; }
+
+        /* ── resource-page section pattern ─────────────────────────────── */
+        .res-section {
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.375rem; overflow: hidden;
+            margin-bottom: 1rem; max-width: 860px;
+        }
+        .res-section-header {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.6rem 0.75rem; background: var(--bs-tertiary-bg);
+            cursor: pointer; user-select: none;
+            font-size: 0.875rem; font-weight: 600;
+            border-bottom: 1px solid var(--bs-border-color);
+        }
+        .res-section-header:hover { filter: brightness(0.97); }
+        .res-section-chevron {
+            margin-left: auto; color: var(--bs-secondary-color);
+            transition: transform 0.2s; flex-shrink: 0;
+        }
+
+        /* ── list rows ──────────────────────────────────────────────────── */
+        .list-row {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 0.15rem 0.5rem;
+            padding: 0.5rem 1rem; cursor: pointer;
+            border-bottom: 1px solid var(--bs-border-color); transition: background 0.1s;
+            text-decoration: none; color: inherit;
+        }
+        .list-row:last-child { border-bottom: none; }
+        .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
+
+        /* ── action footer links ────────────────────────────────────────── */
+        .action-link {
+            display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+            font-size: 0.875rem; text-decoration: none; transition: background 0.15s;
+        }
+        .action-link:hover { background: var(--bs-tertiary-bg) !important; }
+
+        /* ── metadata rows ──────────────────────────────────────────────── */
+        .meta-row {
+            display: flex; gap: 0.75rem; padding: 0.28rem 0;
+            font-size: 0.875rem; align-items: baseline;
+        }
+        .meta-key {
+            min-width: 8rem; flex-shrink: 0;
+            font-size: 0.7rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            color: var(--bs-secondary-color); padding-top: 0.15rem;
+        }
+        .meta-divider { display: flex; align-items: center; gap: 0.6rem; margin: 0.9rem 0 0.4rem; }
+        .meta-divider-label {
+            font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.07em; color: var(--bs-secondary-color); white-space: nowrap;
+        }
+        .meta-divider-line { flex: 1; height: 1px; background: var(--bs-border-color); }
+
+        /* ── back-to-top button ─────────────────────────────────────────── */
+        #backToTop {
+            position: fixed; bottom: 1.75rem; right: 1.75rem;
+            display: none; z-index: 1050;
+            width: 2.5rem; height: 2.5rem; border-radius: 50%; border: none;
+            background: var(--bs-secondary-color); color: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25); cursor: pointer;
+            align-items: center; justify-content: center; font-size: 1rem;
+        }
+
+        /* ── metadata tree ──────────────────────────────────────────────── */
+        .metadata-tree { font-family: monospace; font-size: 0.9rem; }
+        .tree-node { margin: 1px 0; }
+        .tree-summary {
+            cursor: pointer; padding: 2px 4px; border-radius: 3px;
+            list-style: none; user-select: none;
+        }
+        .tree-summary::-webkit-details-marker { display: none; }
+        .tree-summary::before {
+            content: '▶'; display: inline-block; width: 1em;
+            font-size: 0.75em; transition: transform 0.15s; color: var(--bs-secondary-color);
+        }
+        details[open] > .tree-summary::before { transform: rotate(90deg); }
+        .tree-summary:hover { background-color: var(--bs-tertiary-bg); }
+        .tree-children { padding-left: 1.5em; border-left: 1px solid var(--bs-border-color); margin-left: 0.5em; }
+        .tree-leaf { padding: 2px 4px; margin: 1px 0; }
+        .tree-leaf:hover { background-color: var(--bs-tertiary-bg); border-radius: 3px; }
+
+        /* ── markdown content ───────────────────────────────────────────── */
+        mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-text-emphasis); border-radius: 2px; padding: 0 2px; font-weight: bold; }
+        .markdown-content { line-height: 1.6; }
+        .markdown-content h1, .markdown-content h2, .markdown-content h3,
+        .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+            margin-top: 24px; margin-bottom: 16px; font-weight: 600;
+        }
+        .markdown-content h1 { font-size: 2em; border-bottom: 1px solid var(--bs-border-color); padding-bottom: 0.3em; }
+        .markdown-content h2 { font-size: 1.5em; border-bottom: 1px solid var(--bs-border-color); padding-bottom: 0.3em; }
+        .markdown-content h3 { font-size: 1.25em; }
+        .markdown-content p { margin-bottom: 16px; }
+        .markdown-content ul, .markdown-content ol { margin-bottom: 16px; padding-left: 2em; }
+        .markdown-content li { margin-bottom: 4px; }
+        .markdown-content code { background-color: rgba(175,184,193,0.2); padding: 0.2em 0.4em; border-radius: 6px; font-size: 85%; }
+        .markdown-content pre { background-color: var(--bs-tertiary-bg); border-radius: 6px; padding: 16px; overflow: auto; margin-bottom: 16px; }
+        .markdown-content pre code { background-color: transparent; padding: 0; }
+        .markdown-content blockquote { border-left: 4px solid var(--bs-border-color); padding-left: 16px; margin-left: 0; color: var(--bs-secondary-color); }
+        .markdown-content table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+        .markdown-content table th, .markdown-content table td { border: 1px solid var(--bs-border-color); padding: 6px 13px; }
+        .markdown-content table th { background-color: var(--bs-tertiary-bg); font-weight: 600; }
+        .markdown-content img { max-width: 100%; height: auto; }
     </style>
 
     <title>{% block title %}{% endblock %} - Crucible</title>
@@ -84,6 +192,79 @@
 
     {% endblock %}
 
+    <script>
+    // ── color palette & avatar utilities ─────────────────────────────────
+    const PALETTE = [
+        '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
+        '#b07aa1','#9c755f','#6b6ecf','#e05c5c','#3a9e7e'
+    ];
+    function hashColor(str) {
+        let h = 0;
+        for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+        return PALETTE[Math.abs(h) % PALETTE.length];
+    }
+    function makeInitials(str) {
+        return str.replace(/[_\-]/g, ' ').split(' ')
+            .filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+    }
+    function makeAvatar(el, str, size='2.5rem', fontSize='0.85rem') {
+        const color = hashColor(str);
+        el.style.cssText = `width:${size};height:${size};min-width:${size};border-radius:50%;`
+            + `background:${color};color:#fff;display:flex;align-items:center;`
+            + `justify-content:center;font-size:${fontSize};font-weight:700;letter-spacing:0.05em;`;
+        el.textContent = makeInitials(str);
+        return color;
+    }
+
+    // ── section toggle ────────────────────────────────────────────────────
+    function toggleSection(header) {
+        const body = header.nextElementSibling;
+        const chevron = header.querySelector('.res-section-chevron');
+        const isOpen = body.style.display !== 'none';
+        body.style.display = isOpen ? 'none' : '';
+        if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+    }
+    function setAllSections(expand) {
+        document.querySelectorAll('.res-section').forEach(section => {
+            const body    = section.querySelector('.res-section-body');
+            const chevron = section.querySelector('.res-section-chevron');
+            if (!body) return;
+            const isOpen = body.style.display !== 'none';
+            if (expand && !isOpen) {
+                if (section.id === 'section-graph' && window.toggleGraphSection) {
+                    window.toggleGraphSection(section.querySelector('.res-section-header'));
+                } else {
+                    body.style.display = '';
+                    if (chevron) chevron.style.transform = 'rotate(90deg)';
+                }
+            } else if (!expand && isOpen) {
+                body.style.display = 'none';
+                if (chevron) chevron.style.transform = '';
+            }
+        });
+    }
+
+    // ── details advanced toggle (resource detail pages) ───────────────────
+    function toggleDetailsAdv() {
+        const adv     = document.getElementById('details-advanced');
+        const chevron = document.getElementById('details-adv-chevron');
+        if (!adv) return;
+        const open = adv.style.display !== 'none';
+        adv.style.display = open ? 'none' : '';
+        if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+        if (chevron) chevron.style.color     = open ? '' : 'var(--bs-body-color)';
+    }
+
+    // ── text-selectable navigation ────────────────────────────────────────
+    function navIfNoSelection(event, url) {
+        if (event.button === 1) { window.open(url, '_blank'); return; }
+        if (event.button !== 0) return;
+        if (window.getSelection().toString()) return;
+        if (event.target.closest('a, button')) return;
+        window.location.href = url;
+    }
+
+    </script>
 
     <div class="container-fluid mt-3 px-4" id="content">
       <div class="row">
@@ -100,6 +281,10 @@
     <div id="footer">
         {% block footer %}
         {% endblock %}
+        <button id="backToTop" title="Back to top"
+                onclick="window.scrollTo({top:0, behavior:'smooth'})">
+            <i class="bi bi-arrow-up"></i>
+        </button>
     </div>
 
     <script>
@@ -139,6 +324,13 @@
             });
             el.appendChild(btn);
         });
+
+        const btt = document.getElementById('backToTop');
+        if (btt) {
+            window.addEventListener('scroll', () => {
+                btt.style.display = window.scrollY > 300 ? 'flex' : 'none';
+            }, { passive: true });
+        }
     });
     </script>
 </body>

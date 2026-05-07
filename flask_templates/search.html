@@ -12,7 +12,6 @@
         }
         .list-row:last-child { border-bottom: none; }
         .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
-        mark { background: #fff3cd; border-radius: 2px; padding: 0 2px; }
         .result-meta { font-size: 0.8em; color: var(--bs-secondary-color); }
         #results-summary { font-size: 0.85em; color: var(--bs-secondary-color); min-height: 1.4em; }
     </style>
@@ -81,6 +80,7 @@ function renderSample(s, q) {
 
 function renderDataset(d, q) {
     const ql = q.toLowerCase();
+    const meta = [d.measurement, d.instrument, d.session].filter(Boolean);
     let metaHtml = '';
     if (d.metadata_str) {
         const hits = d.metadata_str.split('\n')
@@ -98,8 +98,8 @@ function renderDataset(d, q) {
     return `<a href="${d.url}" class="list-row">
         <div class="fw-medium">${highlight(d.name, q)}</div>
         <div class="result-meta">
-            ${d.measurement ? highlight(d.measurement, q) + ' &nbsp;·&nbsp; ' : ''}
-            <span class="mfid">${d.id}</span>
+            ${meta.map(v => highlight(v, q)).join(' &nbsp;·&nbsp; ')}
+            ${meta.length ? ' &nbsp;·&nbsp; ' : ''}<span class="mfid">${d.id}</span>
         </div>
         ${metaHtml}
     </a>`;
@@ -120,8 +120,8 @@ function search(q) {
     }
 
     const ql = q.toLowerCase();
-    const matchedSamples  = SAMPLES.filter(s  => matches(s,  ['name','description','type','id'], ql));
-    const matchedDatasets = DATASETS.filter(d => matches(d, ['name','measurement','id','metadata_str'], ql));
+    const matchedSamples  = SAMPLES.filter(s  => matches(s,  ['name','description','type','id','owner'], ql));
+    const matchedDatasets = DATASETS.filter(d => matches(d, ['name','measurement','instrument','session','id','owner','metadata_str'], ql));
 
     sampleEl.innerHTML  = matchedSamples.length
         ? `<div class="border rounded overflow-hidden">${matchedSamples.map(s => renderSample(s, q)).join('')}</div>`

@@ -38,7 +38,7 @@ def register_all(app, auth, helpers):
     pkg_dir = Path(__file__).parent
     for _, name, _ in pkgutil.iter_modules([str(pkg_dir)]):
         try:
-            module = importlib.import_module(f'instrument_views.{name}')
+            module = importlib.import_module(f'views.instruments.{name}')
         except Exception as err:
             app.logger.error(f'instrument_views: failed to import {name}: {err}')
             continue
@@ -67,10 +67,5 @@ def register_all(app, auth, helpers):
 
 def get_views(instrument_name: str, instrument_id: str) -> list:
     """Return all custom view dicts for an instrument, each with 'url' and 'label'."""
-    print("inst get_views", _registry.get(instrument_name, []))
-    # return [
-    #     {'url': f"{entry['url_prefix']}/", 'label': entry['label']}
-    #     for entry in _registry.get(instrument_name, [])
-    # ]
-    return _registry.get(instrument_name,[])
+    return _registry.get(instrument_name, [])
 

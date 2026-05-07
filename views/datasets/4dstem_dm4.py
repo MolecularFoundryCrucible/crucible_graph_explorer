@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+from cachetools import TTLCache
 from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request
 from werkzeug.exceptions import NotFound
 
@@ -10,8 +11,9 @@ LABEL = '4D-STEM Viewer'
 
 _DOWNLOAD_DIR = os.environ.get('CRUCIBLE_DOWNLOAD_DIR', 'crucible-downloads')
 
-# Persistent cache: dsid -> dict with 'f' (fileDM), 'mm' (memmap), 'vbf', shape info
-_dm4_cache: dict[str, dict] = {}
+# dsid → dict with 'f' (fileDM), 'mm' (memmap), 'vbf', shape info
+# Evicted after 1 h or when more than 16 datasets are held simultaneously.
+_dm4_cache: TTLCache = TTLCache(maxsize=16, ttl=3600)
 
 
 def _get_dm4(dsid, crucible_client):
@@ -34,7 +36,7 @@ def _get_dm4(dsid, crucible_client):
             return _open_dm4(dsid, local_path)
 
     # Slow path: ask API for filename then download
-    associated_files = crucible_client.get_associated_files(dsid)
+    associated_files = crucible_client.datasets.get_associated_files(dsid)
     dm4_file = next(
         (f for f in associated_files if f['filename'].lower().endswith('.dm4')), None
     )
@@ -102,7 +104,7 @@ def create_blueprint(auth, helpers):
     def view(project_id, dsid):
         if not is_user_in_project(project_id):
             abort(403)
-        ds = current_app.crucible_client.get_dataset(dsid)
+        ds = current_app.crucible_client.datasets.get(dsid)
         try:
             entry = _get_dm4(dsid, current_app.crucible_client)
         except NotFound:

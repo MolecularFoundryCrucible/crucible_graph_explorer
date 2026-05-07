@@ -1,0 +1,141 @@
+{# Shared Jinja2 macros for resource detail pages (dataset.html, sample_graph.html). #}
+
+{# ── mrow: one metadata label/value row ─────────────────────────────────────── #}
+{%- macro mrow(label, value) -%}
+<div class="meta-row">
+    <span class="meta-key">{{ label }}</span>
+    <span class="text-break">
+        {%- if value is none or value == '' -%}<span class="text-muted">—</span>
+        {%- elif value is sequence and value is not string -%}{{ value | join(', ') }}
+        {%- else -%}{{ value }}{%- endif -%}
+    </span>
+</div>
+{%- endmacro -%}
+
+{# ── mrow_link: meta row with a clickable value ──────────────────────────────── #}
+{%- macro mrow_link(label, text, href, external=false) -%}
+<div class="meta-row">
+    <span class="meta-key">{{ label }}</span>
+    {%- if text and href -%}
+    <a href="{{ href }}" class="text-decoration-none"
+       {%- if external %} target="_blank" rel="noopener"{% endif %}>{{ text }}</a>
+    {%- elif text -%}
+    <span class="text-break">{{ text }}</span>
+    {%- else -%}
+    <span class="text-muted">—</span>
+    {%- endif -%}
+</div>
+{%- endmacro -%}
+
+{# ── deletion_banner: orange/red alert when a deletion request exists ─────────── #}
+{%- macro deletion_banner(resource) -%}
+{%- set dr = resource.get('deletion_request') -%}
+{%- if dr and dr.get('status') in ('pending', 'approved') -%}
+<div class="d-flex align-items-center gap-2 rounded border px-3 py-2 mb-3 small"
+     style="max-width:860px;
+     {%- if dr['status'] == 'approved' -%}
+       background:var(--bs-danger-bg-subtle); border-color:var(--bs-danger-border-subtle) !important; color:var(--bs-danger-text-emphasis);
+     {%- else -%}
+       background:var(--bs-warning-bg-subtle); border-color:var(--bs-warning-border-subtle) !important; color:var(--bs-warning-text-emphasis);
+     {%- endif -%}">
+    <i class="bi {%- if dr['status'] == 'approved' %} bi-trash3{% else %} bi-exclamation-triangle{% endif %} flex-shrink-0"></i>
+    <div>
+        <strong>Deletion {{ dr['status'] | capitalize }}</strong>
+        {%- if dr.get('reason') %} — {{ dr['reason'] }}{%- endif %}
+    </div>
+</div>
+{%- endif -%}
+{%- endmacro -%}
+
+{# ── render_dict_recursive: recursive metadata tree ────────────────────────── #}
+{% macro render_dict_recursive(d) %}
+<div class="metadata-tree">
+{% for key, value in d.items() %}
+    {% if value is mapping %}
+    <details class="tree-node" open>
+        <summary class="tree-summary"><b>{{ key }}</b></summary>
+        <div class="tree-children">{{ render_dict_recursive(value) }}</div>
+    </details>
+    {% else %}
+    <div class="tree-leaf"><b>{{ key }}</b>: {{ value if value is not none else "N/A" }}</div>
+    {% endif %}
+{% endfor %}
+</div>
+{% endmacro %}
+
+{# ── section_metadata: scientific metadata section + tree-search JS ─────────── #}
+{% macro section_metadata(metadata) %}
+<div class="res-section" id="section-metadata">
+    <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-braces text-muted"></i>
+        <span>Scientific Metadata</span>
+        <i class="bi bi-chevron-right res-section-chevron"></i>
+    </div>
+    <div class="res-section-body" style="display:none;">
+        <div class="p-3">
+            <input id="tree_search" type="text" class="form-control form-control-sm mb-2"
+                   placeholder="Search metadata…">
+            <div id="metadata-tree-root">
+                {% if metadata %}
+                    {{ render_dict_recursive(metadata) }}
+                {% else %}
+                <p class="text-muted small mb-0">No scientific metadata recorded.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    function highlightTextNodes(el, query) {
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        const textNodes = [];
+        let node;
+        while (node = walker.nextNode()) textNodes.push(node);
+        textNodes.forEach(textNode => {
+            const lower = textNode.textContent.toLowerCase();
+            const idx   = lower.indexOf(query);
+            if (idx === -1) return;
+            const frag   = document.createDocumentFragment();
+            const before = textNode.textContent.slice(0, idx);
+            const match  = textNode.textContent.slice(idx, idx + query.length);
+            const after  = textNode.textContent.slice(idx + query.length);
+            if (before) frag.appendChild(document.createTextNode(before));
+            const mark = document.createElement('mark');
+            mark.textContent = match;
+            frag.appendChild(mark);
+            if (after) frag.appendChild(document.createTextNode(after));
+            textNode.parentNode.replaceChild(frag, textNode);
+        });
+    }
+
+    const searchInput = document.getElementById('tree_search');
+    if (!searchInput) return;
+    searchInput.addEventListener('input', function () {
+        const metaSection = document.getElementById('section-metadata');
+        const metaBody    = metaSection && metaSection.querySelector('.res-section-body');
+        const metaChevron = metaSection && metaSection.querySelector('.res-section-chevron');
+        if (this.value && metaBody && metaBody.style.display === 'none') {
+            metaBody.style.display = '';
+            if (metaChevron) metaChevron.style.transform = 'rotate(90deg)';
+        }
+        const query = this.value.trim().toLowerCase();
+        const root  = document.getElementById('metadata-tree-root');
+        if (!root) return;
+        root.querySelectorAll('.tree-leaf, .tree-summary').forEach(el => {
+            if (el.dataset.originalHtml !== undefined)
+                el.innerHTML = el.dataset.originalHtml;
+        });
+        root.querySelectorAll('details').forEach(d => { d.open = true; });
+        if (!query) return;
+        root.querySelectorAll('.tree-leaf, .tree-summary').forEach(el => {
+            if (el.dataset.originalHtml === undefined)
+                el.dataset.originalHtml = el.innerHTML;
+            if (el.textContent.toLowerCase().includes(query))
+                highlightTextNodes(el, query);
+        });
+    });
+}());
+</script>
+{% endmacro %}

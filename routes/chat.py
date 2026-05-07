@@ -166,9 +166,9 @@ when answering questions. Always cite the IDs of the samples or datasets you ref
 def execute_chat_tool(name, inputs, crucible_client, pc, get_entity_graph_nx):
     try:
         if name == 'get_sample':
-            result = crucible_client.get_sample(inputs['sample_id'])
+            result = crucible_client.samples.get(inputs['sample_id'])
         elif name == 'get_dataset':
-            result = crucible_client.get_dataset(inputs['dataset_id'], include_metadata=True)
+            result = crucible_client.datasets.get(inputs['dataset_id'], include_metadata=True)
         elif name == 'search_samples':
             q = inputs['query'].lower()
             result = [
@@ -184,7 +184,7 @@ def execute_chat_tool(name, inputs, crucible_client, pc, get_entity_graph_nx):
                 if q in d['dataset_name'].lower() or q in d.get('measurement', '').lower()
             ]
         elif name == 'list_samples_for_dataset':
-            result = crucible_client.list_samples(dataset_id=inputs['dataset_id'])
+            result = crucible_client.samples.list(dataset_id=inputs['dataset_id'])
         elif name == 'get_entity_graph':
             entity_type = inputs['entity_type']
             entity_id   = inputs['entity_id']
@@ -307,7 +307,7 @@ def create_blueprint(auth, helpers):
                                 if block.name == 'get_thumbnail':
                                     dsid = block.input['dataset_id']
                                     try:
-                                        thumbs = current_app.crucible_client.get_thumbnails(dsid)
+                                        thumbs = current_app.crucible_client.datasets.get_thumbnails(dsid)
                                         if thumbs:
                                             src = f"data:image/png;base64,{thumbs[0]['thumbnail_b64str']}"
                                             label = pc['datasets_by_id'].get(dsid, {}).get('dataset_name', dsid[:13])
