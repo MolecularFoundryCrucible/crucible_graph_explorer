@@ -2,8 +2,9 @@ import logging
 import os
 
 import flask
+import requests
 from dotenv import load_dotenv
-from flask import Flask, jsonify, redirect
+from flask import Flask, jsonify, redirect, render_template
 from flask_pyoidc import OIDCAuthentication
 from flask_pyoidc.provider_configuration import ClientMetadata, ProviderConfiguration
 from flask_pyoidc.user_session import UserSession
@@ -75,6 +76,36 @@ def error(error=None, error_description=None):
         return redirect('/')
     app.logger.error("OIDC error: %s — %s", error, error_description)
     return redirect('/')
+
+
+# ── Error handlers ────────────────────────────────────────────────────────────
+logger = logging.getLogger(__name__)
+
+_HTTP_MESSAGES = {
+    403: "You don't have permission to access this resource.",
+    404: "The resource you're looking for doesn't exist or has been removed.",
+    500: "An unexpected error occurred. Please try again later.",
+}
+
+@app.errorhandler(requests.exceptions.HTTPError)
+def handle_api_http_error(e):
+    code = e.response.status_code if e.response is not None else 500
+    logger.warning("API HTTPError %s: %s", code, e)
+    message = _HTTP_MESSAGES.get(code, str(e))
+    return render_template('error.html', code=code, message=message), code
+
+@app.errorhandler(403)
+def handle_403(e):
+    return render_template('error.html', code=403, message=_HTTP_MESSAGES[403]), 403
+
+@app.errorhandler(404)
+def handle_404(e):
+    return render_template('error.html', code=404, message=_HTTP_MESSAGES[404]), 404
+
+@app.errorhandler(500)
+def handle_500(e):
+    logger.exception("Unhandled server error")
+    return render_template('error.html', code=500, message=_HTTP_MESSAGES[500]), 500
 
 
 # ── Plugin helpers passed to blueprints and view packages ─────────────────────
