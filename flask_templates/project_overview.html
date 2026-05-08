@@ -811,8 +811,7 @@
             let visible = 0;
             group.querySelectorAll('.sample-item').forEach(item => {
                 const matchesText = !q || item.dataset.search.includes(q);
-                const matchesMine = !showMineOnly || !CURRENT_USER_ORCID
-                    || (item.dataset.ownerOrcid === CURRENT_USER_ORCID);
+                const matchesMine = !showMineOnly || (CURRENT_USER_ORCID && item.dataset.ownerOrcid === CURRENT_USER_ORCID);
                 const match = matchesText && matchesMine;
                 item.classList.toggle('d-none', !match);
                 if (match) visible++;
@@ -836,8 +835,7 @@
             let visible = 0;
             group.querySelectorAll('.dataset-item').forEach(item => {
                 const matchesText = !q || item.dataset.search.includes(q);
-                const matchesMine = !showMineOnly || !CURRENT_USER_ORCID
-                    || (item.dataset.ownerOrcid === CURRENT_USER_ORCID);
+                const matchesMine = !showMineOnly || (CURRENT_USER_ORCID && item.dataset.ownerOrcid === CURRENT_USER_ORCID);
                 const match = matchesText && matchesMine;
                 item.classList.toggle('d-none', !match);
                 if (match) visible++;
