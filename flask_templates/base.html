@@ -23,7 +23,35 @@
             --cg-link-hover:  #031e2d;
             --cy-sample-color:  #4a7ba7;
             --cy-dataset-color: #5a9e6f;
+
+            /* ── override Bootstrap primary to use brand teal ─────────── */
+            --bs-primary:          #3a7a87;
+            --bs-primary-rgb:      58, 122, 135;
+            --bs-link-color:       #3a7a87;
+            --bs-link-color-rgb:   58, 122, 135;
+            --bs-link-hover-color: #031e2d;
         }
+        [data-bs-theme="dark"] {
+            --bs-link-color:       #a8c4cd;
+            --bs-link-color-rgb:   168, 196, 205;
+            --bs-link-hover-color: #fff;
+        }
+
+        /* ── brand-tinted primary button ─────────────────────────────── */
+        .btn-primary {
+            --bs-btn-color:              #fff;
+            --bs-btn-bg:                 #3a7a87;
+            --bs-btn-border-color:       #3a7a87;
+            --bs-btn-hover-color:        #fff;
+            --bs-btn-hover-bg:           #2e6370;
+            --bs-btn-hover-border-color: #2e6370;
+            --bs-btn-active-bg:          #07304a;
+            --bs-btn-active-border-color:#07304a;
+            --bs-btn-disabled-bg:        #3a7a87;
+            --bs-btn-disabled-border-color: #3a7a87;
+            --bs-btn-focus-shadow-rgb:   58, 122, 135;
+        }
+        /* text-primary resolves through --bs-primary-rgb automatically */
 
         /* ── base typography ────────────────────────────────────────────── */
         body { font-family: 'IBM Plex Sans', sans-serif; }
