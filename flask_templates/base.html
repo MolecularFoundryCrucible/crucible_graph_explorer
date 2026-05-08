@@ -6,20 +6,31 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-    <link
-      rel="stylesheet"
-        href="https://cdn.rawgit.com/afeld/bootstrap-toc/v1.0.1/dist/bootstrap-toc.min.css"
-    />
-
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <style type="text/css">
+        /* ── brand tokens ───────────────────────────────────────────────── */
         :root {
-            --cy-sample-color: #4a7ba7;
+            --cg-accent:      #a8c4cd;
+            --cg-accent-mid:  #6fa4b0;
+            --cg-navy:        #031e2d;
+            --cg-navy-soft:   #07304a;
+            --cg-link:        #3a7a87;
+            --cg-link-hover:  #031e2d;
+            --cy-sample-color:  #4a7ba7;
             --cy-dataset-color: #5a9e6f;
         }
-        .mfid { color: var(--bs-secondary-color); font-family: monospace; white-space: nowrap; }
+
+        /* ── base typography ────────────────────────────────────────────── */
+        body { font-family: 'IBM Plex Sans', sans-serif; }
+        .mfid, .metadata-tree, code, pre, kbd, samp {
+            font-family: 'IBM Plex Mono', monospace;
+        }
+        .mfid { color: var(--bs-secondary-color); white-space: nowrap; font-size: 0.85em; }
         .mfid-copy-btn {
             opacity: 0.35; transition: opacity 0.15s;
             color: var(--bs-secondary-color); font-size: 0.85em;
@@ -28,26 +39,95 @@
         }
         .mfid-copy-btn:hover { opacity: 1; color: var(--bs-body-color); }
 
-        /* ── nav icon buttons (profile, dark mode) ─────────────────────── */
+        /* ── links ──────────────────────────────────────────────────────── */
+        a { color: var(--cg-link); }
+        a:hover { color: var(--cg-link-hover); }
+
+        /* ── recent-projects dropdown ───────────────────────────────────── */
+        .cg-recent-dropdown {
+            position: absolute; top: calc(100% + 2px); left: 0;
+            min-width: 240px; max-width: 320px;
+            background: var(--cg-navy-soft); border: 1px solid rgba(168,196,205,0.2);
+            border-radius: 0.4rem; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+            z-index: 2000; display: none; overflow: hidden;
+        }
+        .cg-recent-dropdown.open { display: block; }
+        .cg-recent-item {
+            display: block; padding: 0.45rem 0.85rem;
+            color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.82rem;
+            border-bottom: 1px solid rgba(168,196,205,0.1);
+            transition: background 0.1s, color 0.1s;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .cg-recent-item:last-child { border-bottom: none; }
+        .cg-recent-item:hover { background: rgba(168,196,205,0.12); color: #fff; }
+        .cg-recent-label {
+            display: block; padding: 0.35rem 0.85rem;
+            font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.07em; color: rgba(168,196,205,0.45);
+            border-bottom: 1px solid rgba(168,196,205,0.1);
+        }
+
+        /* ── navbar ─────────────────────────────────────────────────────── */
+        .cg-navbar {
+            background: var(--cg-navy);
+            border-bottom: 1px solid rgba(168,196,205,0.15);
+            box-shadow: 0 1px 8px rgba(3,30,45,0.35);
+            z-index: 1030;
+        }
+        .cg-navbar-inner {
+            height: 3rem;
+        }
+        .cg-wordmark {
+            display: inline-flex; align-items: center; gap: 0.45rem;
+            text-decoration: none; flex-shrink: 0;
+            font-family: 'IBM Plex Mono', monospace;
+            font-weight: 500; font-size: 1rem;
+            color: var(--cg-accent);
+            transition: color 0.15s;
+        }
+        .cg-wordmark:hover { color: #fff; }
+        .cg-wordmark-icon { font-size: 1.1rem; }
+
+        .cg-nav-sep {
+            width: 1px; height: 1.2rem; background: rgba(168,196,205,0.25);
+            margin: 0 0.75rem; flex-shrink: 0;
+        }
+        .cg-breadcrumb {
+            font-size: 0.8rem; overflow: hidden;
+        }
+        .cg-breadcrumb .breadcrumb-item a {
+            color: rgba(168,196,205,0.75); text-decoration: none;
+            transition: color 0.15s;
+        }
+        .cg-breadcrumb .breadcrumb-item a:hover { color: #fff; }
+        .cg-breadcrumb .breadcrumb-item.active { color: rgba(255,255,255,0.85); }
+        .cg-breadcrumb .breadcrumb-item + .breadcrumb-item::before {
+            color: rgba(168,196,205,0.4);
+        }
+
+        /* ── nav icon buttons ───────────────────────────────────────────── */
         .nav-icon {
             display: inline-flex; align-items: center; justify-content: center;
             width: 2rem; height: 2rem; border-radius: 0.4rem;
             border: none; background: transparent;
-            color: var(--bs-secondary-color);
+            color: rgba(168,196,205,0.7);
             font-size: 1.05rem; text-decoration: none;
             transition: background 0.15s, color 0.15s, transform 0.1s;
             cursor: pointer; flex-shrink: 0;
         }
-        .nav-icon:hover  { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+        .nav-icon:hover  { background: rgba(168,196,205,0.12); color: #fff; }
         .nav-icon:active { transform: scale(0.88); }
 
-        /* ── breadcrumb home link ───────────────────────────────────────── */
-        .breadcrumb-item a { transition: color 0.15s; }
+        /* ── focus rings use accent color ───────────────────────────────── */
+        :focus-visible { outline-color: var(--cg-accent); }
+        .btn:focus-visible, .form-control:focus {
+            border-color: var(--cg-accent-mid);
+            box-shadow: 0 0 0 0.2rem rgba(168,196,205,0.25);
+        }
 
-        /* ── subtle active feedback on all buttons ──────────────────────── */
+        /* ── subtle active feedback ─────────────────────────────────────── */
         .btn:active:not(:disabled) { transform: scale(0.97); }
-
-        /* ── list-row active press feedback ────────────────────────────── */
         .list-row:active { background: var(--bs-secondary-bg) !important; }
 
         /* ── resource-page section pattern ─────────────────────────────── */
@@ -62,8 +142,14 @@
             cursor: pointer; user-select: none;
             font-size: 0.875rem; font-weight: 600;
             border-bottom: 1px solid var(--bs-border-color);
+            box-shadow: inset 0 0 0 0 var(--cg-accent-mid);
+            transition: background 0.15s, box-shadow 0.2s;
         }
-        .res-section-header:hover { filter: brightness(0.97); }
+        .res-section-header:hover {
+            background: color-mix(in srgb, var(--cg-accent) 8%, var(--bs-tertiary-bg));
+        }
+        .res-section-header[data-open="true"] { box-shadow: inset 3px 0 0 var(--cg-accent-mid); }
+        .res-section-header i:first-child { color: var(--cg-accent-mid); }
         .res-section-chevron {
             margin-left: auto; color: var(--bs-secondary-color);
             transition: transform 0.2s; flex-shrink: 0;
@@ -73,11 +159,13 @@
         .list-row {
             display: flex; align-items: center; flex-wrap: wrap; gap: 0.15rem 0.5rem;
             padding: 0.5rem 1rem; cursor: pointer;
-            border-bottom: 1px solid var(--bs-border-color); transition: background 0.1s;
+            border-bottom: 1px solid var(--bs-border-color);
+            box-shadow: inset 3px 0 0 transparent;
+            transition: background 0.1s, box-shadow 0.15s;
             text-decoration: none; color: inherit;
         }
         .list-row:last-child { border-bottom: none; }
-        .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
+        .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; box-shadow: inset 3px 0 0 var(--cg-accent); }
 
         /* ── action footer links ────────────────────────────────────────── */
         .action-link {
@@ -95,8 +183,9 @@
             min-width: 8rem; flex-shrink: 0;
             font-size: 0.7rem; font-weight: 600;
             text-transform: uppercase; letter-spacing: 0.05em;
-            color: var(--bs-secondary-color); padding-top: 0.15rem;
+            color: var(--cg-accent-mid); padding-top: 0.15rem;
         }
+        [data-bs-theme="dark"] .meta-key { color: var(--cg-accent); }
         .meta-divider { display: flex; align-items: center; gap: 0.6rem; margin: 0.9rem 0 0.4rem; }
         .meta-divider-label {
             font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
@@ -107,15 +196,19 @@
         /* ── back-to-top button ─────────────────────────────────────────── */
         #backToTop {
             position: fixed; bottom: 1.75rem; right: 1.75rem;
-            display: none; z-index: 1050;
+            display: flex; z-index: 1050;
             width: 2.5rem; height: 2.5rem; border-radius: 50%; border: none;
-            background: var(--bs-secondary-color); color: #fff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.25); cursor: pointer;
+            background: var(--cg-navy); color: var(--cg-accent);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer;
             align-items: center; justify-content: center; font-size: 1rem;
+            opacity: 0; pointer-events: none;
+            transition: background 0.15s, opacity 0.22s ease;
         }
+        #backToTop:hover { background: var(--cg-navy-soft); }
+        #backToTop.btt-visible { opacity: 1; pointer-events: auto; }
 
         /* ── metadata tree ──────────────────────────────────────────────── */
-        .metadata-tree { font-family: monospace; font-size: 0.9rem; }
+        .metadata-tree { font-size: 0.9rem; }
         .tree-node { margin: 1px 0; }
         .tree-summary {
             cursor: pointer; padding: 2px 4px; border-radius: 3px;
@@ -124,7 +217,7 @@
         .tree-summary::-webkit-details-marker { display: none; }
         .tree-summary::before {
             content: '▶'; display: inline-block; width: 1em;
-            font-size: 0.75em; transition: transform 0.15s; color: var(--bs-secondary-color);
+            font-size: 0.75em; transition: transform 0.15s; color: var(--cg-accent-mid);
         }
         details[open] > .tree-summary::before { transform: rotate(90deg); }
         .tree-summary:hover { background-color: var(--bs-tertiary-bg); }
@@ -148,48 +241,97 @@
         .markdown-content code { background-color: rgba(175,184,193,0.2); padding: 0.2em 0.4em; border-radius: 6px; font-size: 85%; }
         .markdown-content pre { background-color: var(--bs-tertiary-bg); border-radius: 6px; padding: 16px; overflow: auto; margin-bottom: 16px; }
         .markdown-content pre code { background-color: transparent; padding: 0; }
-        .markdown-content blockquote { border-left: 4px solid var(--bs-border-color); padding-left: 16px; margin-left: 0; color: var(--bs-secondary-color); }
+        .markdown-content blockquote { border-left: 4px solid var(--cg-accent); padding-left: 16px; margin-left: 0; color: var(--bs-secondary-color); }
         .markdown-content table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
         .markdown-content table th, .markdown-content table td { border: 1px solid var(--bs-border-color); padding: 6px 13px; }
         .markdown-content table th { background-color: var(--bs-tertiary-bg); font-weight: 600; }
         .markdown-content img { max-width: 100%; height: auto; }
+
+        /* ── toast notifications ───────────────────────────────────────── */
+        #cg-toast-container {
+            position: fixed; bottom: 4.5rem; right: 1.75rem;
+            z-index: 2000; display: flex; flex-direction: column-reverse; gap: 0.5rem;
+            pointer-events: none;
+        }
+        .cg-toast {
+            display: flex; align-items: center; gap: 0.6rem;
+            padding: 0.5rem 0.85rem;
+            background: var(--cg-navy); color: rgba(255,255,255,0.92);
+            border: 1px solid rgba(168,196,205,0.2);
+            border-radius: 0.4rem; font-size: 0.82rem;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+            pointer-events: auto;
+            animation: toastIn 0.2s cubic-bezier(0.34,1.56,0.64,1) both;
+        }
+        .cg-toast.toast-out { animation: toastOut 0.18s ease forwards; }
+        .cg-toast i { color: var(--cg-accent); }
+        @keyframes toastIn  { from { opacity:0; transform:translateY(8px) scale(0.95); } }
+        @keyframes toastOut { to   { opacity:0; transform:translateY(4px) scale(0.97); } }
+        @media (prefers-reduced-motion: reduce) {
+            .cg-toast, .cg-toast.toast-out { animation: none; }
+        }
+
+        /* ── page entrance ──────────────────────────────────────────────── */
+        @keyframes cgFadeUp {
+            from { opacity: 0; transform: translateY(7px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        #content { animation: cgFadeUp 0.2s cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+        /* ── logo spring hover ──────────────────────────────────────────── */
+        .cg-wordmark-icon {
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .cg-wordmark:hover .cg-wordmark-icon { transform: rotate(-18deg) scale(1.15); }
     </style>
 
     <title>{% block title %}{% endblock %} - Crucible</title>
     {% endblock %}
 </head>
-<body data-bs-spy="scroll" data-bs-target="#toc">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.1/jquery.min.js"></script>
+<body>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-    <script src="https://cdn.rawgit.com/afeld/bootstrap-toc/v1.0.1/dist/bootstrap-toc.min.js"></script>
-    <script>
-        Toc.init({
-            $nav: $("#toc"), 
-            $scope: $("h1, h2, h3, h4, h5, h6")
-        })
-    </script>
 
     {% block nav %}
-    <nav aria-label="breadcrumb" class="sticky-top">
-    <div class="d-flex align-items-center bg-body-tertiary border rounded-3 px-1">
-        <ol class="breadcrumb breadcrumb-chevron p-3 mb-0 flex-grow-1">
-            <li class="breadcrumb-item"><a href="/"><b>Crucible</b></a></li>
-            {% block breadcrumb %}
-            {% endblock %}
-        </ol>
-        <div class="d-flex align-items-center gap-1 ms-auto me-1">
-            {% if current_user_orcid %}
-            <a href="/user/{{ current_user_orcid }}" class="nav-icon" title="My Profile">
-                <i class="bi bi-person-circle"></i>
-            </a>
-            {% endif %}
-            <button id="darkModeToggle" class="nav-icon" title="Toggle dark mode">
-                <i class="bi bi-moon"></i>
-            </button>
+    <nav class="cg-navbar sticky-top" aria-label="breadcrumb">
+        <div class="cg-navbar-inner d-flex align-items-center px-3 px-md-4">
+            <div style="position:relative;">
+                <a href="/" class="cg-wordmark" title="All projects">
+                    <i class="bi bi-diagram-3-fill cg-wordmark-icon"></i>
+                    <span>Crucible</span>
+                </a>
+                <button id="recentProjectsBtn" class="nav-icon ms-1" title="Recent projects"
+                        style="font-size:0.75rem; width:1.4rem; height:1.4rem;"
+                        onclick="toggleRecentProjects(event)">
+                    <i class="bi bi-chevron-down"></i>
+                </button>
+                <div id="recentProjectsDropdown" class="cg-recent-dropdown">
+                    <span class="cg-recent-label">Recent projects</span>
+                </div>
+            </div>
+            <div class="cg-nav-sep"></div>
+            <ol class="breadcrumb cg-breadcrumb mb-0 flex-grow-1 flex-nowrap overflow-hidden">
+                {% block breadcrumb %}
+                {% endblock %}
+            </ol>
+            <div class="d-flex align-items-center gap-1 ms-2">
+                <button class="nav-icon d-none d-sm-flex" title="Quick search (Ctrl+K)"
+                        onclick="cgPaletteOpen()" style="gap:0.3rem; width:auto; padding:0 0.5rem; font-size:0.75rem;">
+                    <i class="bi bi-search" style="font-size:0.9rem;"></i>
+                    <kbd style="font-size:0.62rem; color:rgba(168,196,205,0.5);
+                                border:1px solid rgba(168,196,205,0.2); border-radius:3px;
+                                padding:1px 4px; font-family:'IBM Plex Mono',monospace;">⌘K</kbd>
+                </button>
+                {% if current_user_orcid %}
+                <a href="/user/{{ current_user_orcid }}" class="nav-icon" title="My Profile">
+                    <i class="bi bi-person-circle"></i>
+                </a>
+                {% endif %}
+                <button id="darkModeToggle" class="nav-icon" title="Toggle dark mode">
+                    <i class="bi bi-moon"></i>
+                </button>
+            </div>
         </div>
-    </div>
     </nav>
-
     {% endblock %}
 
     <script>
@@ -216,30 +358,53 @@
         return color;
     }
 
-    // ── section toggle ────────────────────────────────────────────────────
+    // ── section toggle (animated) ─────────────────────────────────────────
+    function _initSectionBody(body, header) {
+        if (body.dataset.cgInit) return;
+        body.dataset.cgInit = '1';
+        body.style.overflow   = 'hidden';
+        body.style.transition = 'max-height 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease';
+        const hidden = body.style.display === 'none';
+        body.style.display = '';
+        if (hidden) {
+            body.style.maxHeight = '0px';
+            body.style.opacity   = '0';
+            if (header) header.dataset.open = 'false';
+        } else {
+            if (header) header.dataset.open = 'true';
+        }
+    }
     function toggleSection(header) {
-        const body = header.nextElementSibling;
+        const body    = header.nextElementSibling;
         const chevron = header.querySelector('.res-section-chevron');
-        const isOpen = body.style.display !== 'none';
-        body.style.display = isOpen ? 'none' : '';
+        _initSectionBody(body, header);
+        const isOpen = header.dataset.open !== 'false';
+        if (isOpen) {
+            body.style.maxHeight = body.scrollHeight + 'px';
+            requestAnimationFrame(() => { body.style.maxHeight = '0px'; body.style.opacity = '0'; });
+            header.dataset.open = 'false';
+        } else {
+            body.style.maxHeight = '0px'; body.style.opacity = '0';
+            requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; body.style.opacity = '1'; });
+            body.addEventListener('transitionend', function h() {
+                if (header.dataset.open !== 'false') body.style.maxHeight = 'none';
+                body.removeEventListener('transitionend', h);
+            });
+            header.dataset.open = 'true';
+        }
         if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
     }
     function setAllSections(expand) {
         document.querySelectorAll('.res-section').forEach(section => {
-            const body    = section.querySelector('.res-section-body');
-            const chevron = section.querySelector('.res-section-chevron');
-            if (!body) return;
-            const isOpen = body.style.display !== 'none';
-            if (expand && !isOpen) {
-                if (section.id === 'section-graph' && window.toggleGraphSection) {
-                    window.toggleGraphSection(section.querySelector('.res-section-header'));
-                } else {
-                    body.style.display = '';
-                    if (chevron) chevron.style.transform = 'rotate(90deg)';
-                }
-            } else if (!expand && isOpen) {
-                body.style.display = 'none';
-                if (chevron) chevron.style.transform = '';
+            const header = section.querySelector('.res-section-header');
+            if (!header) return;
+            _initSectionBody(header.nextElementSibling, header);
+            const isOpen = header.dataset.open !== 'false';
+            if (expand === isOpen) return;
+            if (section.id === 'section-graph' && window.toggleGraphSection && !isOpen) {
+                window.toggleGraphSection(header);
+            } else {
+                toggleSection(header);
             }
         });
     }
@@ -255,6 +420,20 @@
         if (chevron) chevron.style.color     = open ? '' : 'var(--bs-body-color)';
     }
 
+    // ── toast notifications ───────────────────────────────────────────────
+    function cgToast(message, icon='bi-check-circle', duration=2200) {
+        const container = document.getElementById('cg-toast-container');
+        if (!container) return;
+        const el = document.createElement('div');
+        el.className = 'cg-toast';
+        el.innerHTML = `<i class="bi ${icon}"></i><span>${message}</span>`;
+        container.appendChild(el);
+        setTimeout(() => {
+            el.classList.add('toast-out');
+            setTimeout(() => el.remove(), 200);  // matches toastOut duration
+        }, duration);
+    }
+
     // ── text-selectable navigation ────────────────────────────────────────
     function navIfNoSelection(event, url) {
         if (event.button === 1) { window.open(url, '_blank'); return; }
@@ -268,14 +447,8 @@
 
     <div class="container-fluid mt-3 px-4" id="content">
       <div class="row">
-        <!-- sidebar, which will move to the top on a small screen -->
-        {% block sidebar %}
-        <div class="col-sm-3">
-            <nav id="toc" data-toggle="toc" class="sticky-top" style="top: 5em;"></nav>
-        </div>
-        {% endblock %}
-        <!-- main content area -->
-        <div class="{% block main_col_class %}col-sm-9{% endblock %} pe-4">  {% block content %}{% endblock %}</div>
+        {% block sidebar %}{% endblock %}
+        <div class="{% block main_col_class %}col-12{% endblock %} pe-4">{% block content %}{% endblock %}</div>
       </div>
     </div>
     <div id="footer">
@@ -286,23 +459,347 @@
             <i class="bi bi-arrow-up"></i>
         </button>
     </div>
+    <div id="cg-toast-container" aria-live="polite" aria-atomic="false"></div>
+
+    <!-- ── command palette ──────────────────────────────────────────────── -->
+    <div id="cgPaletteBackdrop" style="display:none; position:fixed; inset:0; z-index:3000;
+         background:rgba(3,30,45,0.55); backdrop-filter:blur(2px);" onclick="cgPaletteClose()"></div>
+    <div id="cgPalette" style="display:none; position:fixed; top:12vh; left:50%; z-index:3001;
+         transform:translateX(-50%); width:min(640px,94vw); border-radius:0.6rem; overflow:hidden;
+         box-shadow:0 20px 60px rgba(0,0,0,0.45); border:1px solid rgba(168,196,205,0.2);">
+        <div style="background:var(--cg-navy); padding:0.75rem 1rem; display:flex; align-items:center; gap:0.6rem; border-bottom:1px solid rgba(168,196,205,0.15);">
+            <i class="bi bi-search" style="color:var(--cg-accent); font-size:1rem; flex-shrink:0;"></i>
+            <input id="cgPaletteInput" type="text" placeholder="Jump to project, sample, or dataset…"
+                   autocomplete="off" spellcheck="false"
+                   style="flex:1; background:transparent; border:none; outline:none;
+                          color:#fff; font-size:0.95rem; font-family:'IBM Plex Sans',sans-serif;"
+                   oninput="cgPaletteSearch(this.value)">
+            <kbd style="font-size:0.7rem; color:rgba(168,196,205,0.5); border:1px solid rgba(168,196,205,0.2);
+                        border-radius:3px; padding:1px 5px; font-family:'IBM Plex Mono',monospace;">Esc</kbd>
+        </div>
+        <div id="cgPaletteResults" style="background:var(--bs-body-bg); max-height:60vh; overflow-y:auto;"></div>
+        <div style="background:var(--bs-tertiary-bg); padding:0.3rem 1rem; display:flex; gap:1.5rem; border-top:1px solid var(--bs-border-color);">
+            <span style="font-size:0.7rem; color:var(--bs-secondary-color);">
+                <kbd style="font-size:0.65rem;">↑↓</kbd> navigate &nbsp;
+                <kbd style="font-size:0.65rem;">↵</kbd> open &nbsp;
+                <kbd style="font-size:0.65rem;">Esc</kbd> close
+            </span>
+        </div>
+    </div>
 
     <script>
     // ── dark mode ────────────────────────────────────────────────────────
-    function applyTheme(theme) {
+    function applyTheme(theme, animate) {
         document.documentElement.setAttribute('data-bs-theme', theme);
         localStorage.setItem('theme', theme);
         const btn = document.getElementById('darkModeToggle');
-        if (btn) btn.innerHTML = theme === 'dark'
-            ? '<i class="bi bi-sun"></i>'
-            : '<i class="bi bi-moon"></i>';
+        if (!btn) return;
+        if (animate) {
+            const old = btn.querySelector('i');
+            if (old) { old.style.cssText = 'transition:opacity .12s,transform .15s;opacity:0;transform:scale(0.5) rotate(30deg);'; }
+            setTimeout(() => {
+                btn.innerHTML = theme === 'dark' ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon"></i>';
+                const ni = btn.querySelector('i');
+                if (ni) { ni.style.cssText = 'opacity:0;transform:scale(0.5) rotate(-30deg);transition:opacity .18s,transform .2s;'; }
+                requestAnimationFrame(() => { if (ni) { ni.style.opacity='1'; ni.style.transform=''; } });
+            }, 120);
+        } else {
+            btn.innerHTML = theme === 'dark' ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon"></i>';
+        }
     }
     document.addEventListener('DOMContentLoaded', () => {
-        applyTheme(localStorage.getItem('theme') || 'light');
+        applyTheme(localStorage.getItem('theme') || 'light', false);
         document.getElementById('darkModeToggle').addEventListener('click', () => {
-            applyTheme(document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark');
+            applyTheme(document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark', true);
         });
     });
+    </script>
+
+    <script>
+    // ── command palette ──────────────────────────────────────────────────
+    (function () {
+        const RECENT_RESOURCES_KEY = 'cg_recent_resources';
+        const MAX_RECENT_RES = 12;
+
+        function getRecentResources() {
+            try { return JSON.parse(localStorage.getItem(RECENT_RESOURCES_KEY) || '[]'); } catch { return []; }
+        }
+        window.cgTrackResource = function(type, id, name, projectId) {
+            let list = getRecentResources().filter(r => r.id !== id);
+            list.unshift({ type, id, name, projectId });
+            if (list.length > MAX_RECENT_RES) list = list.slice(0, MAX_RECENT_RES);
+            try { localStorage.setItem(RECENT_RESOURCES_KEY, JSON.stringify(list)); } catch {}
+        };
+
+        // Detect current page resource and track it
+        (function trackCurrentPage() {
+            // Sample page: URL is /<pid>/sample-graph/<id>
+            const sm = location.pathname.match(/^\/([^/]+)\/sample-graph\/([^/]+)/);
+            if (sm) {
+                const h1 = document.querySelector('h1, .fs-4.fw-semibold');
+                cgTrackResource('sample', sm[2], h1?.textContent?.trim() || sm[2], sm[1]);
+                return;
+            }
+            // Dataset page: URL is /<pid>/dataset/<id>
+            const dm = location.pathname.match(/^\/([^/]+)\/dataset\/([^/]+)/);
+            if (dm) {
+                const h1 = document.querySelector('h1, .fs-4.fw-semibold');
+                cgTrackResource('dataset', dm[2], h1?.textContent?.trim() || dm[2], dm[1]);
+            }
+        })();
+
+        let _paletteOpen = false;
+        let _paletteIdx  = -1;
+        let _paletteItems = [];
+        let _searchTimer = null;
+
+        // Detect current project from breadcrumb
+        function _currentProject() {
+            const crumb = document.querySelector('.cg-breadcrumb .breadcrumb-item a[href]');
+            if (!crumb) return null;
+            const m = crumb.getAttribute('href').match(/^\/([^/]+)\/?$/);
+            return m ? m[1] : null;
+        }
+
+        function cgPaletteOpen() {
+            if (_paletteOpen) return;
+            _paletteOpen = true;
+            document.getElementById('cgPaletteBackdrop').style.display = '';
+            const palette = document.getElementById('cgPalette');
+            palette.style.display = '';
+            palette.style.animation = 'cgPaletteIn 0.18s cubic-bezier(0.34,1.56,0.64,1) both';
+            const inp = document.getElementById('cgPaletteInput');
+            inp.value = '';
+            setTimeout(() => inp.focus(), 30);
+            _renderRecentResources();
+        }
+        window.cgPaletteClose = function() {
+            if (!_paletteOpen) return;
+            _paletteOpen = false;
+            document.getElementById('cgPaletteBackdrop').style.display = 'none';
+            document.getElementById('cgPalette').style.display = 'none';
+            _paletteIdx = -1; _paletteItems = [];
+        };
+
+        function _icon(type) {
+            if (type === 'sample')  return 'bi-eyedropper';
+            if (type === 'dataset') return 'bi-database';
+            if (type === 'project') return 'bi-folder2';
+            return 'bi-dot';
+        }
+        function _url(r) {
+            if (r.type === 'project') return '/' + r.id + '/';
+            if (r.type === 'sample')  return '/' + r.projectId + '/sample-graph/' + r.id;
+            if (r.type === 'dataset') return '/' + r.projectId + '/dataset/' + r.id;
+            return '#';
+        }
+        function _label(type) {
+            return type === 'sample' ? 'Sample' : type === 'dataset' ? 'Dataset' : 'Project';
+        }
+
+        function _buildResultsHtml(groups, searchQ) {
+            _paletteItems = [];
+            let html = '';
+            for (const g of groups) {
+                if (!g.items.length) continue;
+                html += `<div style="padding:0.3rem 1rem 0.1rem; font-size:0.65rem; font-weight:700;
+                                     text-transform:uppercase; letter-spacing:0.07em;
+                                     color:var(--bs-secondary-color);">${g.heading}</div>`;
+                for (const item of g.items) {
+                    const url = item.url || _url(item);
+                    const idx = _paletteItems.length;
+                    _paletteItems.push(url);
+                    html += `<a href="${url}" class="cgpr-item d-flex align-items-center gap-3 px-4 py-2"
+                               data-idx="${idx}" style="text-decoration:none; color:var(--bs-body-color);
+                               border-bottom:1px solid var(--bs-border-color); transition:background 0.08s;"
+                               onmouseenter="cgPaletteHover(${idx})"
+                               onclick="cgPaletteClose()">
+                        <i class="bi ${_icon(item.type)}" style="color:var(--cg-accent-mid); flex-shrink:0;"></i>
+                        <div style="min-width:0; flex:1;">
+                            <div class="text-truncate" style="font-size:0.875rem;">${escHtmlP(item.name || item.id)}</div>
+                            ${item.projectId ? `<div class="text-truncate" style="font-size:0.72rem; color:var(--bs-secondary-color);">${escHtmlP(item.projectId)}</div>` : ''}
+                        </div>
+                        <span style="font-size:0.7rem; color:var(--bs-secondary-color); flex-shrink:0;">${_label(item.type)}</span>
+                    </a>`;
+                }
+            }
+            // "Search all" footer link when a query is present
+            if (searchQ) {
+                const pid = _currentProject();
+                const searchUrl = pid
+                    ? `/${pid}/search?q=${encodeURIComponent(searchQ)}`
+                    : `/search?q=${encodeURIComponent(searchQ)}`;
+                const idx = _paletteItems.length;
+                _paletteItems.push(searchUrl);
+                html += `<a href="${searchUrl}" class="cgpr-item d-flex align-items-center gap-3 px-4 py-2"
+                           data-idx="${idx}" style="text-decoration:none; color:var(--cg-link);
+                           border-top:1px solid var(--bs-border-color); font-size:0.82rem;"
+                           onmouseenter="cgPaletteHover(${idx})"
+                           onclick="cgPaletteClose()">
+                    <i class="bi bi-search" style="flex-shrink:0;"></i>
+                    Search all for <em style="margin-left:0.3em;">${escHtmlP(searchQ)}</em>
+                </a>`;
+            }
+            if (!_paletteItems.length && !searchQ) {
+                html = '<div class="text-center text-muted py-4" style="font-size:0.875rem;">No recent resources yet</div>';
+            }
+            document.getElementById('cgPaletteResults').innerHTML = html;
+            _paletteIdx = -1;
+        }
+
+        function escHtmlP(s) {
+            return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function _renderRecentResources() {
+            const recents = getRecentResources();
+            const groups = [{ heading: 'Recently visited', items: recents }];
+            _buildResultsHtml(groups);
+        }
+
+        window.cgPaletteSearch = function(q) {
+            clearTimeout(_searchTimer);
+            if (!q.trim()) { _renderRecentResources(); return; }
+            _searchTimer = setTimeout(() => _doSearch(q.trim()), 200);
+        };
+
+        function _doSearch(q) {
+            const pid = _currentProject();
+            const ql  = q.toLowerCase();
+
+            // Filter recent resources client-side first for instant feel
+            const recentMatches = getRecentResources()
+                .filter(r => (r.name||'').toLowerCase().includes(ql) || (r.id||'').toLowerCase().includes(ql))
+                .slice(0, 4);
+
+            const groups = [];
+            if (recentMatches.length) groups.push({ heading: 'Recent matches', items: recentMatches });
+
+            if (!pid) {
+                // No project context — show recent matches + global search link
+                _buildResultsHtml(groups, q);
+                return;
+            }
+
+            // Fetch from current project
+            Promise.all([
+                fetch(`/${pid}/api/samples?q=${encodeURIComponent(q)}`)
+                    .then(r => r.ok ? r.json() : [])
+                    .then(items => items.map(s => ({ type:'sample', id:s.id, name:s.name, projectId:pid })))
+                    .catch(() => []),
+                fetch(`/${pid}/api/datasets?q=${encodeURIComponent(q)}`)
+                    .then(r => r.ok ? r.json() : [])
+                    .then(items => items.map(d => ({ type:'dataset', id:d.id, name:d.name, projectId:pid })))
+                    .catch(() => []),
+            ]).then(([samples, datasets]) => {
+                if (samples.length) groups.push({ heading: 'Samples in this project', items: samples.slice(0,6) });
+                if (datasets.length) groups.push({ heading: 'Datasets in this project', items: datasets.slice(0,6) });
+                _buildResultsHtml(groups, q);
+            });
+        }
+
+        window.cgPaletteHover = function(idx) {
+            document.querySelectorAll('.cgpr-item').forEach((el, i) => {
+                el.style.background = i === idx ? 'var(--bs-tertiary-bg)' : '';
+            });
+            _paletteIdx = idx;
+        };
+
+        // Keyboard nav within palette
+        document.getElementById('cgPaletteInput').addEventListener('keydown', e => {
+            if (e.key === 'Escape') { cgPaletteClose(); return; }
+            const items = document.querySelectorAll('.cgpr-item');
+            if (!items.length) return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                _paletteIdx = (_paletteIdx + 1) % items.length;
+                items.forEach((el, i) => { el.style.background = i === _paletteIdx ? 'var(--bs-tertiary-bg)' : ''; });
+                items[_paletteIdx].scrollIntoView({ block:'nearest' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                _paletteIdx = (_paletteIdx - 1 + items.length) % items.length;
+                items.forEach((el, i) => { el.style.background = i === _paletteIdx ? 'var(--bs-tertiary-bg)' : ''; });
+                items[_paletteIdx].scrollIntoView({ block:'nearest' });
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (_paletteIdx >= 0 && items[_paletteIdx]) {
+                    items[_paletteIdx].click();
+                }
+            }
+        });
+
+        // Global Ctrl+K / Cmd+K trigger
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                _paletteOpen ? cgPaletteClose() : cgPaletteOpen();
+            }
+        });
+
+        // Add palette open animation keyframe dynamically
+        const style = document.createElement('style');
+        style.textContent = '@keyframes cgPaletteIn { from { opacity:0; transform:translateX(-50%) translateY(-12px) scale(0.97); } to { opacity:1; transform:translateX(-50%) translateY(0) scale(1); } }';
+        document.head.appendChild(style);
+    })();
+    </script>
+
+    <script>
+    // ── recent projects switcher ─────────────────────────────────────────
+    (function () {
+        const RECENT_KEY = 'cg_recent_projects';
+        const MAX_RECENT = 8;
+
+        function getRecent() {
+            try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; }
+        }
+        function saveRecent(list) {
+            try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch {}
+        }
+
+        // Detect current project from first breadcrumb link (href="/<pid>/")
+        const firstCrumb = document.querySelector('.cg-breadcrumb .breadcrumb-item a[href]');
+        if (firstCrumb) {
+            const m = firstCrumb.getAttribute('href').match(/^\/([^/]+)\/?$/);
+            if (m) {
+                const pid = m[1];
+                const label = firstCrumb.textContent.trim();
+                let recents = getRecent().filter(r => r.pid !== pid);
+                recents.unshift({ pid, label });
+                if (recents.length > MAX_RECENT) recents = recents.slice(0, MAX_RECENT);
+                saveRecent(recents);
+            }
+        }
+
+        window.toggleRecentProjects = function(e) {
+            e.stopPropagation();
+            const dropdown = document.getElementById('recentProjectsDropdown');
+            if (!dropdown) return;
+            const recents = getRecent();
+            // Rebuild items
+            const existing = dropdown.querySelectorAll('.cg-recent-item');
+            existing.forEach(el => el.remove());
+            if (recents.length === 0) {
+                const empty = document.createElement('span');
+                empty.className = 'cg-recent-label';
+                empty.textContent = 'No recent projects yet';
+                dropdown.appendChild(empty);
+            } else {
+                recents.forEach(r => {
+                    const a = document.createElement('a');
+                    a.className = 'cg-recent-item';
+                    a.href = '/' + r.pid + '/';
+                    a.textContent = r.pid;
+                    dropdown.appendChild(a);
+                });
+            }
+            dropdown.classList.toggle('open');
+        };
+
+        document.addEventListener('click', () => {
+            const d = document.getElementById('recentProjectsDropdown');
+            if (d) d.classList.remove('open');
+        });
+    })();
     </script>
 
     <script>
@@ -320,6 +817,7 @@
                 navigator.clipboard.writeText(text).then(() => {
                     btn.innerHTML = '<i class="bi bi-clipboard-check" style="color:var(--bs-success);"></i>';
                     setTimeout(() => { btn.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1500);
+                    cgToast('Copied to clipboard', 'bi-clipboard-check');
                 });
             });
             el.appendChild(btn);
@@ -328,9 +826,14 @@
         const btt = document.getElementById('backToTop');
         if (btt) {
             window.addEventListener('scroll', () => {
-                btt.style.display = window.scrollY > 300 ? 'flex' : 'none';
+                btt.classList.toggle('btt-visible', window.scrollY > 300);
             }, { passive: true });
         }
+
+        // ── initialize animated section bodies ────────────────────────────
+        document.querySelectorAll('.res-section-body').forEach(body => {
+            _initSectionBody(body, body.previousElementSibling);
+        });
     });
     </script>
 </body>

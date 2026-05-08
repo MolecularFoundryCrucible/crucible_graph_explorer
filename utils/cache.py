@@ -1,3 +1,4 @@
+import threading
 import time
 import flask
 from flask import current_app
@@ -5,7 +6,7 @@ from flask_pyoidc.user_session import UserSession
 
 _project_cache: dict = {}   # {(project_id, include_metadata): (data, timestamp)}
 _project_membership_cache: dict = {}  # {orcid: (frozenset[project_id], timestamp)}
-_PROJECT_CACHE_TTL = 300  # seconds
+_PROJECT_CACHE_TTL = 1200  # seconds (20 min)
 
 
 def get_project(project_id: str, include_metadata: bool = False, client=None) -> dict:
@@ -22,6 +23,32 @@ def get_project(project_id: str, include_metadata: bool = False, client=None) ->
     )
     _project_cache[key] = (data, time.time())
     return data
+
+
+def warm_project_caches(project_ids: list, client) -> None:
+    """Pre-warm project caches in background daemon threads (non-blocking)."""
+    now = time.time()
+    stale = [
+        pid for pid in project_ids
+        if not _project_cache.get((pid, False))
+        or now - _project_cache[(pid, False)][1] > _PROJECT_CACHE_TTL * 0.8
+    ]
+    if not stale:
+        return
+
+    def _run():
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _warm(pid):
+            try:
+                get_project(pid, client=client)
+            except Exception:
+                pass
+
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            list(ex.map(_warm, stale))
+
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def clear_project_cache(project_id: str) -> None:

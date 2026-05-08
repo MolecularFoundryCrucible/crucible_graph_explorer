@@ -99,15 +99,39 @@
 {% endblock %}
 
 {% block content %}
+{%- set about_parts = about.split(':', 1) if about else [] -%}
+{%- set about_type = about_parts[0] if about_parts|length == 2 else None -%}
+{%- set about_id   = about_parts[1] if about_parts|length == 2 else None -%}
 <div id="chat-wrapper">
     <div class="d-flex align-items-center justify-content-between mb-2">
-        <h1 class="mb-0">Chat <em>{{pc['project_id']}}</em></h1>
+        <h1 class="fs-5 fw-semibold mb-0">
+            <i class="bi bi-chat-dots me-1 text-muted"></i>Chat
+            <a href="/{{pc['project_id']}}/" class="mfid text-decoration-none ms-1"
+               style="font-size:0.85em;">{{pc['project_id']}}</a>
+        </h1>
         <div class="d-flex align-items-center gap-2">
-            <span id="spend-badge" class="badge text-bg-secondary font-monospace fw-normal"
-                  style="display:none;" title="API token spend"></span>
+            <span id="spend-badge" class="badge text-bg-secondary fw-normal"
+                  style="display:none; font-family:'IBM Plex Mono',monospace;" title="API token spend"></span>
             <button class="btn btn-sm btn-outline-secondary" id="clear-btn">Clear</button>
         </div>
     </div>
+
+    {% if about_id %}
+    <div class="d-flex align-items-center gap-2 rounded border px-3 py-2 mb-3 small"
+         style="background:color-mix(in srgb, var(--cg-accent) 8%, var(--bs-body-bg));
+                border-color:var(--cg-accent) !important; max-width:860px;">
+        <i class="bi bi-{% if about_type == 'sample' %}eyedropper{% else %}database{% endif %} flex-shrink-0"
+           style="color:var(--cg-accent-mid);"></i>
+        <div style="min-width:0;">
+            Asking about
+            <strong>{{ about_type }}</strong>
+            <a href="/{{pc['project_id']}}/{% if about_type == 'sample' %}sample-graph{% else %}dataset{% endif %}/{{about_id}}"
+               class="mfid text-decoration-none ms-1">{{about_id}}</a>
+        </div>
+        <button type="button" class="btn-close btn-close-sm ms-auto flex-shrink-0"
+                style="font-size:0.6rem;" onclick="clearAbout()" title="Dismiss"></button>
+    </div>
+    {% endif %}
 
     <div id="chat-messages"></div>
 
@@ -124,6 +148,16 @@
 const PROJECT_ID = {{ pc['project_id'] | tojson }};
 const API_URL = `/${PROJECT_ID}/api/chat`;
 const STORAGE_KEY = `chat_history_${PROJECT_ID}_{{ orcid | tojson }}`;
+const ABOUT_TYPE = {{ (about_type or '') | tojson }};
+const ABOUT_ID   = {{ (about_id or '')   | tojson }};
+
+function clearAbout() {
+    const banner = document.querySelector('.about-banner');
+    if (banner) banner.remove();
+    const url = new URL(window.location);
+    url.searchParams.delete('about');
+    window.history.replaceState({}, '', url);
+}
 
 async function fetchSpend() {
     try {
@@ -175,6 +209,13 @@ try {
     if (saved) history = JSON.parse(saved);
 } catch {}
 renderHistory();
+
+// Pre-populate input when navigating from a resource page (only if no history yet)
+if (ABOUT_TYPE && ABOUT_ID && history.length === 0) {
+    inputEl.value = `Tell me about this ${ABOUT_TYPE}: ${ABOUT_ID}`;
+    inputEl.focus();
+    inputEl.setSelectionRange(0, 0);
+}
 
 function escHtml(s) {
     return String(s)

@@ -28,11 +28,12 @@
 {% endblock %}
 
 {% block content %}
+{% set _node_estimate = pc['samples'] | length + pc['datasets'] | length %}
 
 <h1>Project Graph – <em>{{pc['project_id']}}</em></h1>
 
 <div class="d-flex align-items-center gap-3 mb-2">
-    <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary">
+    <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary" disabled>
         <i class="bi bi-arrow-left-right me-1"></i>Switch to Vertical Layout
     </button>
     <span class="text-muted small">
@@ -42,21 +43,63 @@
     </span>
 </div>
 
-<div id="cy" data-project-id="{{pc['project_id']}}"></div>
+{% if _node_estimate > 200 %}
+<div id="graphWarning" class="alert alert-warning d-flex align-items-start gap-3 mb-3">
+    <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+    <div>
+        <strong>Large project graph:</strong>
+        This project has approximately <strong>{{_node_estimate}}</strong> samples and datasets.
+        Rendering the full graph may be slow or unresponsive. For a focused view, use the
+        <strong>entity graph</strong> from an individual sample or dataset page.
+        <div class="d-flex gap-2 mt-2">
+            <button id="confirmGraph" class="btn btn-sm btn-warning">
+                <i class="bi bi-diagram-3 me-1"></i>Render anyway
+            </button>
+            <a href="/{{pc['project_id']}}/" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to project
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div id="cy" data-project-id="{{pc['project_id']}}"
+     {% if _node_estimate > 200 %}style="display:none;"{% endif %}></div>
 
 <script type="module">
   let cyInstance = null;
 
-  async function initGraph() {
+  async function loadAndRender() {
+    const cy = document.getElementById('cy');
+    cy.style.display = '';
+
     const response = await fetch('/{{pc["project_id"]}}/api/project-graph-data');
     const graphData = await response.json();
 
-    if (window.initEntityGraph) {
-      cyInstance = window.initEntityGraph('cy', graphData);
-    } else {
-      setTimeout(initGraph, 100);
+    document.getElementById('toggleLayoutBtn').disabled = false;
+
+    function render() {
+      if (window.initEntityGraph) {
+        cyInstance = window.initEntityGraph('cy', graphData);
+      } else {
+        setTimeout(render, 100);
+      }
     }
+    render();
   }
+
+  {% if _node_estimate > 200 %}
+  document.getElementById('confirmGraph').addEventListener('click', function() {
+    document.getElementById('graphWarning').style.display = 'none';
+    loadAndRender();
+  });
+  {% else %}
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadAndRender);
+  } else {
+    loadAndRender();
+  }
+  {% endif %}
 
   document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
     if (cyInstance && cyInstance.toggleLayout) {
@@ -66,12 +109,6 @@
         : '<i class="bi bi-arrow-down me-1"></i>Switch to Horizontal Layout';
     }
   });
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initGraph);
-  } else {
-    initGraph();
-  }
 </script>
 
 {% endblock %}

@@ -260,7 +260,8 @@ def create_blueprint(auth, helpers):
             abort(403)
         pc = get_project(project_id)
         orcid = UserSession(session).userinfo.get('sub', 'unknown')
-        return render_template('chat.html', pc=pc, orcid=orcid)
+        about = request.args.get('about')  # e.g. "sample:uuid" or "dataset:uuid"
+        return render_template('chat.html', pc=pc, orcid=orcid, about=about)
 
     @bp.route('/<project_id>/api/chat', methods=['POST'])
     @auth.oidc_auth('orcid')

@@ -8,11 +8,34 @@ from flask_pyoidc.user_session import UserSession
 
 from utils.cache import (
     _project_cache, _PROJECT_CACHE_TTL,
-    get_project, is_user_in_project,
+    get_project, is_user_in_project, warm_project_caches,
 )
 from utils.helpers import abbrev_name
 
 logger = logging.getLogger(__name__)
+
+
+def _slim_sample(s):
+    return {
+        'unique_id':   s['unique_id'],
+        'sample_name': s.get('sample_name') or '',
+        'sample_type': s.get('sample_type') or '',
+        'owner_orcid': s.get('owner_orcid') or '',
+        'timestamp':   s.get('timestamp') or '',
+    }
+
+
+def _slim_dataset(ds):
+    return {
+        'unique_id':       ds['unique_id'],
+        'dataset_name':    ds.get('dataset_name') or '',
+        'measurement':     ds.get('measurement') or '',
+        'instrument_name': ds.get('instrument_name') or '',
+        'session_name':    ds.get('session_name') or '',
+        'data_format':     ds.get('data_format') or '',
+        'owner_orcid':     ds.get('owner_orcid') or '',
+        'timestamp':       ds.get('timestamp') or '',
+    }
 
 
 def create_blueprint(auth):
@@ -35,6 +58,8 @@ def create_blueprint(auth):
             email = lead.get('email') or p.get('project_lead_email') or ''
             p['project_lead_email'] = email
             p['project_lead_name']  = abbrev_name(first, last) or email
+
+        warm_project_caches([p['project_id'] for p in user_projects], client)
 
         return render_template('project_list.html', projects=user_projects, user_name=user_name)
 
@@ -76,24 +101,6 @@ def create_blueprint(auth):
         if project_meta is None:
             abort(403)
 
-        pc = get_project(project_id)
-
-        samples_by_type: dict = {}
-        for s in pc['samples']:
-            samples_by_type.setdefault(s.get('sample_type'), []).append(s)
-        samples_by_type = {
-            k: sorted(v, key=lambda x: x.get('sample_name') or '')
-            for k, v in sorted(samples_by_type.items(), key=lambda item: item[0] or '')
-        }
-
-        datasets_by_type: dict = {}
-        for ds in pc['datasets']:
-            datasets_by_type.setdefault(ds.get('measurement'), []).append(ds)
-        datasets_by_type = {
-            k: sorted(v, key=lambda x: x['dataset_name'] or '')
-            for k, v in sorted(datasets_by_type.items(), key=lambda item: item[0] or '')
-        }
-
         owner_map: dict = {}
         project_users: list = []
         try:
@@ -116,15 +123,27 @@ def create_blueprint(auth):
         except Exception:
             pass
 
-        return render_template('project_overview.html', pc=pc,
+        # Samples and datasets are loaded asynchronously by the page JS
+        # via /api/overview-data — no get_project() call here.
+        return render_template('project_overview.html',
+                               pc={'project_id': project_id},
                                project_meta=project_meta,
-                               sample_info=sorted(pc['samples_by_name'].values(),
-                                                  key=lambda x: x['sample_name']),
-                               samples_by_type=samples_by_type,
-                               datasets_by_type=datasets_by_type,
                                owner_map=owner_map,
                                project_users=project_users,
                                custom_views=project_views.get_views(project_id))
+
+    @bp.route("/<project_id>/api/overview-data")
+    @auth.oidc_auth('orcid')
+    def project_api_overview_data(project_id):
+        """Return slim samples + datasets JSON for async project overview loading."""
+        if not is_user_in_project(project_id):
+            abort(403)
+        client = flask.current_app.crucible_client
+        pc = get_project(project_id, client=client)
+        return jsonify({
+            'samples':  [_slim_sample(s)   for s in pc['samples']],
+            'datasets': [_slim_dataset(ds) for ds in pc['datasets']],
+        })
 
     @bp.route("/<project_id>/api/sample-types")
     @auth.oidc_auth('orcid')

@@ -22,7 +22,7 @@
         <div class="mb-3">
             <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
                  id="sampleNavLabel"
-                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bs-primary);">
+                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--cg-link);">
                 <i class="bi bi-eyedropper"></i> Samples
             </div>
             <ul class="nav flex-column" id="sampleNav"></ul>
@@ -52,11 +52,11 @@
         cursor: pointer; transition: background 0.15s;
         border-bottom: 4px solid transparent;
     }
-    .tab-stat.active   { background: var(--bs-body-bg) !important; border-bottom-color: var(--bs-primary); }
+    .tab-stat.active   { background: var(--bs-body-bg) !important; border-bottom-color: var(--cg-link); }
     .tab-stat.inactive { background: var(--bs-tertiary-bg) !important; }
     .tab-stat.inactive .tab-inner { opacity: 0.5; transition: opacity 0.15s; }
     .tab-stat.inactive:hover .tab-inner { opacity: 0.8; }
-    .tab-stat.active .tab-icon   { color: var(--bs-primary) !important; }
+    .tab-stat.active .tab-icon   { color: var(--cg-link) !important; }
     .tab-stat.inactive .tab-icon { color: var(--bs-secondary-color); }
 
     /* ── type group headers ───────────────────────────────────────────── */
@@ -80,12 +80,54 @@
     .list-row {
         display: flex; align-items: center; justify-content: space-between;
         padding: 0.5rem 1rem; cursor: pointer;
-        border-bottom: 1px solid var(--bs-border-color); transition: background 0.1s;
+        border-bottom: 1px solid var(--bs-border-color);
+        box-shadow: inset 3px 0 0 transparent;
+        transition: background 0.1s, box-shadow 0.15s;
         text-decoration: none; color: inherit;
     }
     .list-row:last-child { border-bottom: none; }
-    .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
+    .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; box-shadow: inset 3px 0 0 var(--cg-accent); }
+    .list-row.kb-focused { background: var(--bs-tertiary-bg) !important; box-shadow: inset 3px 0 0 var(--cg-accent) !important; outline: none; }
     a.member-row:hover { background: var(--bs-tertiary-bg); }
+
+    /* ── skeleton loading ─────────────────────────────────────────────── */
+    .skel-line {
+        border-radius: 3px;
+        background: linear-gradient(90deg,
+            var(--bs-border-color) 25%,
+            var(--bs-secondary-bg) 50%,
+            var(--bs-border-color) 75%);
+        background-size: 200% 100%;
+        animation: skelShimmer 1.5s ease-in-out infinite;
+    }
+    @keyframes skelShimmer {
+        0%   { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    .skel-group { margin-bottom: 0.75rem; }
+    .skel-header {
+        padding: 0.6rem 0.75rem; display: flex; align-items: center; gap: 0.75rem;
+        background: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color); border-left-width: 4px;
+        border-radius: 0.375rem 0.375rem 0 0;
+    }
+    .skel-body {
+        border: 1px solid var(--bs-border-color); border-top: none;
+        border-radius: 0 0 0.375rem 0.375rem; overflow: hidden;
+    }
+    .skel-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.5rem 1rem;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+    .skel-row:last-child { border-bottom: none; }
+
+    /* ── count-up animation ───────────────────────────────────────────── */
+    @keyframes subtitleIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    .subtitle-loaded { animation: subtitleIn 0.25s ease both; }
 </style>
 
 {% set title = project_meta.get('title') %}
@@ -142,6 +184,9 @@
             <a href="/{{pid}}/search" class="action-link flex-fill py-2 border-end text-secondary">
                 <i class="bi bi-search"></i> Search
             </a>
+            <a href="/{{pid}}/project-graph" class="action-link flex-fill py-2 border-end text-secondary">
+                <i class="bi bi-diagram-3"></i> Graph
+            </a>
             <a href="/{{pid}}/chat" class="action-link flex-fill py-2 text-primary">
                 <i class="bi bi-chat-dots"></i> Chat
             </a>
@@ -169,7 +214,7 @@
                     <span class="fw-semibold fs-5">Samples</span>
                 </div>
                 <div class="small text-muted text-truncate" id="tabSamplesSubtitle">
-                    {{pc['samples'] | length}} samples
+                    Loading…
                 </div>
             </div>
         </div>
@@ -182,7 +227,7 @@
                     <span class="fw-semibold fs-5">Datasets</span>
                 </div>
                 <div class="small text-muted text-truncate" id="tabDatasetsSubtitle">
-                    {{pc['datasets'] | length}} datasets
+                    Loading…
                 </div>
             </div>
         </div>
@@ -192,7 +237,8 @@
 
             <!-- group-by row -->
             <div class="d-flex align-items-center gap-2">
-                <span class="text-muted text-nowrap" style="font-size:0.7rem; letter-spacing:0.03em;">Group by</span>
+                <i class="bi bi-collection text-muted" style="font-size:0.8rem;" title="Group by"></i>
+                <span class="text-muted text-nowrap d-none d-lg-inline" style="font-size:0.7rem; letter-spacing:0.03em;">Group by</span>
                 <select class="form-select form-select-sm" id="sampleGroupBySelect"
                         style="font-size:0.8rem; width:auto;"
                         onclick="event.stopPropagation()" onchange="onSettingChange()">
@@ -239,17 +285,62 @@
             No samples match your filter.
         </div>
 
-        <div id="samples-groups"></div>
+        <div id="samples-groups">
+            <div id="samplesSpinner">
+                {% for w in [('9rem','55%','18%'), ('12rem','45%','20%'), ('7rem','60%','15%')] %}
+                <div class="skel-group">
+                    <div class="skel-header" style="border-left-color: var(--bs-border-color);">
+                        <div class="skel-line" style="width:0.8rem;height:0.8rem;border-radius:2px;flex-shrink:0;"></div>
+                        <div class="skel-line" style="height:0.8rem;width:{{w[0]}};"></div>
+                        <div class="skel-line ms-auto" style="height:0.7rem;width:2rem;border-radius:10px;"></div>
+                    </div>
+                    <div class="skel-body">
+                        {% for rw in [w[1], w[2], '50%', w[1]] %}
+                        <div class="skel-row">
+                            <div class="skel-line" style="height:0.75rem;width:{{rw}};"></div>
+                            <div class="skel-line" style="height:0.7rem;width:9rem;opacity:0.5;"></div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 
     <!-- ── datasets section ───────────────────────────────────────────── -->
     <div id="datasets-section" style="display:none;">
+        <div class="d-flex justify-content-end mb-2">
+            <a href="/instruments/" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-upload me-1"></i>Upload via Instruments
+            </a>
+        </div>
         <div id="noDatasets" style="display:none;" class="text-center text-muted py-5">
             <i class="bi bi-search fs-2 d-block mb-2 opacity-50"></i>
             No datasets match your filter.
         </div>
 
-        <div id="datasets-groups"></div>
+        <div id="datasets-groups">
+            <div id="datasetsSpinner">
+                {% for w in [('11rem','60%','22%'), ('8rem','50%','25%'), ('13rem','40%','18%')] %}
+                <div class="skel-group">
+                    <div class="skel-header" style="border-left-color: var(--bs-border-color);">
+                        <div class="skel-line" style="width:0.8rem;height:0.8rem;border-radius:2px;flex-shrink:0;"></div>
+                        <div class="skel-line" style="height:0.8rem;width:{{w[0]}};"></div>
+                        <div class="skel-line ms-auto" style="height:0.7rem;width:2rem;border-radius:10px;"></div>
+                    </div>
+                    <div class="skel-body">
+                        {% for rw in [w[1], w[2], '55%', w[1], w[2]] %}
+                        <div class="skel-row">
+                            <div class="skel-line" style="height:0.75rem;width:{{rw}};"></div>
+                            <div class="skel-line" style="height:0.7rem;width:9rem;opacity:0.5;"></div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 
 </div>{# end main content #}
@@ -312,8 +403,8 @@
 <script>
     // ── raw data from server ──────────────────────────────────────────────────
     const PID       = {{ pid | tojson }};
-    const SAMPLES   = {{ pc['samples'] | tojson }};
-    const DATASETS  = {{ pc['datasets'] | tojson }};
+    let   SAMPLES   = [];
+    let   DATASETS  = [];
     const OWNER_MAP = {{ owner_map | tojson }};  // orcid → display name
 
     function escHtml(s) {
@@ -461,8 +552,11 @@
 
         const ng   = Object.keys(grouped).length;
         const noun = GROUP_NOUN[field] || 'group';
-        document.getElementById('tabSamplesSubtitle').textContent =
-            `${SAMPLES.length} · ${ng} ${noun}${ng === 1 ? '' : 's'}`;
+        const el   = document.getElementById('tabSamplesSubtitle');
+        el.textContent = `${SAMPLES.length} · ${ng} ${noun}${ng === 1 ? '' : 's'}`;
+        el.classList.remove('subtitle-loaded');
+        void el.offsetWidth;
+        el.classList.add('subtitle-loaded');
 
         applyFilter();
     }
@@ -493,8 +587,11 @@
 
         const ng   = Object.keys(grouped).length;
         const noun = GROUP_NOUN[field] || 'group';
-        document.getElementById('tabDatasetsSubtitle').textContent =
-            `${DATASETS.length} · ${ng} ${noun}${ng === 1 ? '' : 's'}`;
+        const el   = document.getElementById('tabDatasetsSubtitle');
+        el.textContent = `${DATASETS.length} · ${ng} ${noun}${ng === 1 ? '' : 's'}`;
+        el.classList.remove('subtitle-loaded');
+        void el.offsetWidth;
+        el.classList.add('subtitle-loaded');
 
         applyFilter();
     }
@@ -561,30 +658,55 @@
         const sLbl = document.getElementById('sampleNavLabel');
         const dLbl = document.getElementById('datasetNavLabel');
         if (tab === 'samples') {
-            sLbl.style.color = 'var(--bs-primary)'; sLbl.style.opacity = '1';
+            sLbl.style.color = 'var(--cg-link)'; sLbl.style.opacity = '1';
             dLbl.style.color = 'var(--bs-secondary-color)'; dLbl.style.opacity = '0.6';
         } else {
-            dLbl.style.color = 'var(--bs-primary)'; dLbl.style.opacity = '1';
+            dLbl.style.color = 'var(--cg-link)'; dLbl.style.opacity = '1';
             sLbl.style.color = 'var(--bs-secondary-color)'; sLbl.style.opacity = '0.6';
         }
     }
 
-    // ── group collapse / expand ───────────────────────────────────────────────
+    // ── group collapse / expand (animated) ───────────────────────────────────
+    function _initCollapseBody(body) {
+        if (body.dataset.cgInit) return;
+        body.dataset.cgInit = '1';
+        body.style.overflow   = 'hidden';
+        body.style.transition = 'max-height 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.18s ease';
+        body.style.display    = '';
+        body.style.maxHeight  = '0px';
+        body.style.opacity    = '0';
+    }
+
     function toggleGroup(header) {
         const body    = header.nextElementSibling;
         const chevron = header.querySelector('.group-chevron');
-        const collapsed = body.style.display === 'none';
-        body.style.display = collapsed ? '' : 'none';
-        if (chevron) chevron.style.transform = collapsed ? 'rotate(90deg)' : '';
+        _initCollapseBody(body);
+        const isOpen = body.dataset.cgOpen === 'true';
+        if (isOpen) {
+            body.style.maxHeight = body.scrollHeight + 'px';
+            requestAnimationFrame(() => { body.style.maxHeight = '0px'; body.style.opacity = '0'; });
+            body.dataset.cgOpen = 'false';
+        } else {
+            body.style.maxHeight = '0px'; body.style.opacity = '0';
+            requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; body.style.opacity = '1'; });
+            body.addEventListener('transitionend', function h() {
+                if (body.dataset.cgOpen !== 'false') body.style.maxHeight = 'none';
+                body.removeEventListener('transitionend', h);
+            });
+            body.dataset.cgOpen = 'true';
+        }
+        if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
     }
 
     function setAllGroups(expand) {
         const selector = activeTab === 'samples' ? '.sample-group' : '.dataset-group';
         document.querySelectorAll(selector).forEach(group => {
-            const body    = group.querySelector('.collapse-body');
-            const chevron = group.querySelector('.group-chevron');
-            if (body)    body.style.display    = expand ? '' : 'none';
-            if (chevron) chevron.style.transform = expand ? 'rotate(90deg)' : '';
+            const body   = group.querySelector('.collapse-body');
+            const header = group.querySelector('.group-header');
+            if (!body || !header) return;
+            _initCollapseBody(body);
+            const isOpen = body.dataset.cgOpen === 'true';
+            if (expand !== isOpen) toggleGroup(header);
         });
     }
 
@@ -674,20 +796,125 @@
 </script>
 
 <script>
-    // ── init: load saved settings and render groups ───────────────────────────
+    // ── URL state helpers ─────────────────────────────────────────────────────
+    function _readHash() {
+        const p = new URLSearchParams(location.hash.slice(1));
+        return { tab: p.get('tab') || 'samples', q: p.get('q') || '' };
+    }
+    function _writeHash(tab, q) {
+        const p = new URLSearchParams();
+        if (tab && tab !== 'samples') p.set('tab', tab);
+        if (q) p.set('q', q);
+        const h = p.toString();
+        history.replaceState(null, '', h ? '#' + h : location.pathname + location.search);
+    }
+
+    // ── keyboard navigation ───────────────────────────────────────────────────
+    let _kbIdx = -1;
+    let _kbRows = [];
+
+    function _kbRefresh() {
+        const sel = activeTab === 'samples' ? '#samples-section' : '#datasets-section';
+        _kbRows = Array.from(document.querySelectorAll(sel + ' .list-row:not(.d-none)'));
+    }
+    function _kbFocus(idx) {
+        _kbRows.forEach((r, i) => r.classList.toggle('kb-focused', i === idx));
+        _kbIdx = idx;
+        if (_kbRows[idx]) _kbRows[idx].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+    function _kbClear() { _kbRows.forEach(r => r.classList.remove('kb-focused')); _kbIdx = -1; }
+
+    document.addEventListener('keydown', e => {
+        const inInput = e.target.matches('input, textarea, select');
+        if (inInput) {
+            if (e.key === 'Escape') {
+                const fi = document.getElementById('filterInput');
+                fi.value = ''; applyFilter(); fi.blur(); _kbClear();
+            }
+            return;
+        }
+        switch (e.key) {
+            case '/':
+                e.preventDefault();
+                document.getElementById('filterInput').focus();
+                break;
+            case 'j': case 'ArrowDown':
+                e.preventDefault();
+                _kbRefresh();
+                _kbFocus(Math.min(_kbIdx + 1, _kbRows.length - 1));
+                break;
+            case 'k': case 'ArrowUp':
+                e.preventDefault();
+                _kbRefresh();
+                _kbFocus(Math.max(_kbIdx - 1, 0));
+                break;
+            case 'Enter':
+                if (_kbRows[_kbIdx]) window.location.href = _kbRows[_kbIdx].href;
+                break;
+            case 'Escape':
+                const fi = document.getElementById('filterInput');
+                fi.value = ''; applyFilter(); _kbClear();
+                break;
+        }
+    });
+
+    // Reset kb state when filter changes or tab switches
+    const _origApplyFilter = applyFilter;
+    applyFilter = function() { _kbClear(); _kbRows = []; _origApplyFilter(); };
+
+    const _origSwitchTab = switchTab;
+    switchTab = function(tab) { _kbClear(); _kbRows = []; _origSwitchTab(tab); _writeHash(tab, document.getElementById('filterInput').value); };
+
+    // ── init ──────────────────────────────────────────────────────────────────
     (function () {
         const sgb = localStorage.getItem('pref_sample_groupby')  || 'sample_type';
         const dgb = localStorage.getItem('pref_dataset_groupby') || 'measurement';
 
-        // reflect saved prefs in settings panel dropdowns
         const sgbEl = document.getElementById('sampleGroupBySelect');
         if (sgbEl) sgbEl.value = sgb;
-
         const dgbEl = document.getElementById('datasetGroupBySelect');
         if (dgbEl) dgbEl.value = dgb;
 
-        renderSampleGroups(sgb);
-        renderDatasetGroups(dgb);
+        // Restore URL state
+        const hs = _readHash();
+        if (hs.tab !== 'samples') _origSwitchTab(hs.tab);
+        if (hs.q) {
+            const fi = document.getElementById('filterInput');
+            if (fi) fi.value = hs.q;
+        }
+
+        // Sync filter input to URL on every keystroke
+        const fi = document.getElementById('filterInput');
+        if (fi) {
+            fi.addEventListener('input', () => {
+                _writeHash(activeTab, fi.value);
+                _kbClear(); _kbRows = [];
+            });
+        }
+
+        const errHtml = '<div class="text-center text-muted py-5">' +
+            '<i class="bi bi-exclamation-circle fs-2 d-block mb-2 text-danger opacity-75"></i>' +
+            '<div class="small">Failed to load. ' +
+            '<a href="" onclick="location.reload();return false;">Retry</a></div></div>';
+
+        fetch(`/${PID}/api/overview-data`)
+            .then(r => r.ok ? r.json() : Promise.reject(r.status))
+            .then(data => {
+                SAMPLES  = data.samples;
+                DATASETS = data.datasets;
+                document.getElementById('samplesSpinner')?.remove();
+                document.getElementById('datasetsSpinner')?.remove();
+                renderSampleGroups(sgb);
+                renderDatasetGroups(dgb);
+                // Apply URL filter after render
+                if (hs.q) applyFilter();
+            })
+            .catch(() => {
+                ['samplesSpinner', 'datasetsSpinner'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.outerHTML = errHtml;
+                });
+            });
     })();
 </script>
 

@@ -9,13 +9,22 @@ def generate_project_cache(project_id, crucible_client, include_metadata=True, s
     Returns a dict with keys: project_id, samples, datasets,
     samples_by_id, samples_by_name, datasets_by_id.
     """
+    from concurrent.futures import ThreadPoolExecutor
+
     logger.debug("Fetching project cache: project_id=%s include_metadata=%s", project_id, include_metadata)
     pc = dict(project_id=project_id)
 
-    pc['samples'] = crucible_client.samples.list(project_id=project_id, limit=None, include_links=True)
-    pc['datasets'] = crucible_client.datasets.list(
-        project_id=project_id, limit=None, include_metadata=include_metadata
-    )
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        samples_f  = ex.submit(
+            crucible_client.samples.list,
+            project_id=project_id, limit=None, include_links=True,
+        )
+        datasets_f = ex.submit(
+            crucible_client.datasets.list,
+            project_id=project_id, limit=None, include_metadata=include_metadata,
+        )
+    pc['samples']  = samples_f.result()
+    pc['datasets'] = datasets_f.result()
 
     # Normalize 'datasets' on each sample: with include_links=True the API puts associated
     # datasets into 'links' (as LinkedResource objects); 'datasets' compat field is null.

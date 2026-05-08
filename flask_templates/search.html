@@ -135,8 +135,21 @@ function search(q) {
     summary.textContent    = `${matchedSamples.length + matchedDatasets.length} results for "${q}"`;
 }
 
-document.getElementById('search-input').addEventListener('input', function() {
-    search(this.value.trim());
+const searchInput = document.getElementById('search-input');
+
+// Restore query from URL on load
+(function() {
+    const q = new URLSearchParams(window.location.search).get('q') || '';
+    if (q) { searchInput.value = q; search(q); }
+})();
+
+searchInput.addEventListener('input', function() {
+    const q = this.value.trim();
+    const url = new URL(window.location);
+    if (q) url.searchParams.set('q', q);
+    else url.searchParams.delete('q');
+    window.history.replaceState({}, '', url);
+    search(q);
 });
 </script>
 

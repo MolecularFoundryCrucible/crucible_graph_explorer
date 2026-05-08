@@ -52,7 +52,7 @@
             </div>
 
             <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
-                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bs-primary);">
+                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--cg-link);">
                 <i class="bi bi-eyedropper"></i> This sample
             </div>
             <div class="px-1 mb-2 small fw-semibold text-body text-break">{{s['sample_name']}}</div>
@@ -132,12 +132,22 @@
             </div>
             {% endif %}
         </div>
-        <img src="{{ qrcode(s['unique_id'], box_size=4, border=4) }}"
-             class="d-none d-md-block" style="flex-shrink:0; border-radius:4px;">
+        <div class="flex-shrink-0">
+            <img id="sampleQr" src="{{ qrcode(s['unique_id'], box_size=4, border=4) }}"
+                 class="d-none d-md-block" style="border-radius:4px; cursor:pointer;"
+                 title="Click to toggle QR code" onclick="this.classList.toggle('d-none')">
+            <button class="btn btn-sm btn-outline-secondary d-md-none" style="font-size:0.75rem;"
+                    onclick="document.getElementById('sampleQr').classList.toggle('d-none'); this.classList.toggle('d-none');">
+                <i class="bi bi-qr-code me-1"></i>QR
+            </button>
+        </div>
     </div>
     <div class="d-flex border-top">
         <a href="/{{pid}}/search" class="action-link flex-fill py-2 border-end text-secondary">
             <i class="bi bi-search"></i> Search
+        </a>
+        <a href="/{{pid}}/entity-graph/sample/{{s['unique_id']}}" class="action-link flex-fill py-2 border-end text-secondary">
+            <i class="bi bi-diagram-3"></i> Graph
         </a>
         <a href="/{{pid}}/samples/{{s['unique_id']}}/upload-photo"
            class="action-link flex-fill py-2 border-end text-secondary">
@@ -147,7 +157,7 @@
            class="action-link flex-fill py-2 border-end text-secondary">
             <i class="bi bi-pencil"></i> Edit
         </a>
-        <a href="/{{pid}}/chat" class="action-link flex-fill py-2 text-primary">
+        <a href="/{{pid}}/chat?about=sample:{{s['unique_id']}}" class="action-link flex-fill py-2 text-primary">
             <i class="bi bi-chat-dots"></i> Chat
         </a>
     </div>
@@ -223,7 +233,7 @@
             {# ── Basic view ── #}
             {{ mrow("Type",        s.get('sample_type')) }}
             {{ mrow_link("Project", s.get('project_id'), '/' + (s.get('project_id') or '') + '/') }}
-            {{ mrow("Timestamp",   s.get('timestamp')) }}
+            {{ mrow("Timestamp",   s.get('timestamp') | humanize_date) }}
             {{ mrow("Description", s.get('description')) }}
 
             {# ── Advanced toggle button ── #}
@@ -251,8 +261,8 @@
                     <span class="meta-divider-label">Dates</span>
                     <div class="meta-divider-line"></div>
                 </div>
-                {{ mrow("Created",  s.get('creation_time')) }}
-                {{ mrow("Modified", s.get('modification_time')) }}
+                {{ mrow("Created",  s.get('creation_time') | humanize_date) }}
+                {{ mrow("Modified", s.get('modification_time') | humanize_date) }}
             </div>
         </div>
     </div>
@@ -339,6 +349,10 @@
         {% for ds in s['datasets'] %}
         <a class="list-row" href="/{{pid}}/dataset/{{ds['unique_id']}}">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{ds['dataset_name']}}</span>
+            {% if ds.get('measurement') %}
+            <span class="badge fw-normal border text-body-secondary flex-shrink-0 me-2"
+                  style="background:var(--bs-tertiary-bg); font-size:0.7rem;">{{ds['measurement']}}</span>
+            {% endif %}
             <span class="mfid small ms-auto">{{ds['unique_id']}}</span>
         </a>
         {% endfor %}

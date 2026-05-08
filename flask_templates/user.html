@@ -125,7 +125,7 @@
     <div class="res-section">
         <div class="res-section-header" onclick="toggleSection(this)">
             <i class="bi bi-database text-muted"></i>
-            <span>Recent Datasets</span>
+            <span>Recent Datasets <span class="text-muted fw-normal" style="font-size:0.75em;">(by creation date)</span></span>
             <span class="badge fw-normal border text-muted ms-1"
                   style="background:var(--bs-body-bg); font-size:0.75rem;">
                 {{ recent_datasets | length }}
@@ -145,7 +145,7 @@
                     </div>
                 </div>
                 {% if ds.get('timestamp') %}
-                <span class="text-muted small text-nowrap flex-shrink-0">{{ ds['timestamp'][:10] }}</span>
+                <span class="text-muted small text-nowrap flex-shrink-0">{{ ds['timestamp'] | humanize_date }}</span>
                 {% endif %}
                 <span class="mfid small text-nowrap flex-shrink-0">{{ ds['unique_id'] }}</span>
             </a>
@@ -165,7 +165,7 @@
     <div class="res-section">
         <div class="res-section-header" onclick="toggleSection(this)">
             <i class="bi bi-eyedropper text-muted"></i>
-            <span>Recent Samples</span>
+            <span>Recent Samples <span class="text-muted fw-normal" style="font-size:0.75em;">(by creation date)</span></span>
             <span class="badge fw-normal border text-muted ms-1"
                   style="background:var(--bs-body-bg); font-size:0.75rem;">
                 {{ recent_samples | length }}
@@ -186,7 +186,7 @@
                     </div>
                 </div>
                 {% if s.get('timestamp') %}
-                <span class="text-muted small text-nowrap flex-shrink-0">{{ s['timestamp'][:10] }}</span>
+                <span class="text-muted small text-nowrap flex-shrink-0">{{ s['timestamp'] | humanize_date }}</span>
                 {% endif %}
                 <span class="mfid small text-nowrap flex-shrink-0">{{ s['unique_id'] }}</span>
             </a>
@@ -273,7 +273,7 @@
     <div class="res-section">
         <div class="res-section-header" onclick="toggleSection(this)">
             <i class="bi bi-database text-muted"></i>
-            <span>Recent Datasets</span>
+            <span>Recent Datasets <span class="text-muted fw-normal" style="font-size:0.75em;">(by creation date)</span></span>
             <span class="badge fw-normal border text-muted ms-1"
                   style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
                 {{ recent_datasets | length }}
@@ -292,7 +292,7 @@
                     </div>
                 </div>
                 {% if ds.get('timestamp') %}
-                <span class="text-muted small text-nowrap flex-shrink-0">{{ ds['timestamp'][:10] }}</span>
+                <span class="text-muted small text-nowrap flex-shrink-0">{{ ds['timestamp'] | humanize_date }}</span>
                 {% endif %}
                 <span class="mfid small text-nowrap flex-shrink-0">{{ ds['unique_id'] }}</span>
             </a>
@@ -312,7 +312,7 @@
     <div class="res-section">
         <div class="res-section-header" onclick="toggleSection(this)">
             <i class="bi bi-eyedropper text-muted"></i>
-            <span>Recent Samples</span>
+            <span>Recent Samples <span class="text-muted fw-normal" style="font-size:0.75em;">(by creation date)</span></span>
             <span class="badge fw-normal border text-muted ms-1"
                   style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
                 {{ recent_samples | length }}
@@ -333,7 +333,7 @@
                     </div>
                 </div>
                 {% if s.get('timestamp') %}
-                <span class="text-muted small text-nowrap flex-shrink-0">{{ s['timestamp'][:10] }}</span>
+                <span class="text-muted small text-nowrap flex-shrink-0">{{ s['timestamp'] | humanize_date }}</span>
                 {% endif %}
                 <span class="mfid small text-nowrap flex-shrink-0">{{ s['unique_id'] }}</span>
             </a>
