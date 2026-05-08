@@ -480,17 +480,19 @@
             document.body.style.overflow = '';
         };
         window.cgLbNav = function(dir) {
+            if (!_lbItems.length) return;
             _lbIdx = (_lbIdx + dir + _lbItems.length) % _lbItems.length;
             _lbRender();
         };
         window.cgLbOpenSection = function(imgEl) {
-            const body = imgEl.closest('.res-section-body') || document.body;
+            const body = imgEl.closest('.res-section-body') || imgEl.closest('.card-body') || imgEl.parentElement || document.body;
             const all  = Array.from(body.querySelectorAll('[data-lb-src]'));
             const items = all.map(img => ({ src: img.dataset.lbSrc, label: img.dataset.lbLabel || '' }));
             const idx  = all.indexOf(imgEl);
             cgLbOpen(items, Math.max(idx, 0));
         };
         function _lbRender() {
+            if (!_lbItems.length) return;
             document.getElementById('cgLbImg').src       = _lbItems[_lbIdx].src;
             document.getElementById('cgLbLabel').textContent   = _lbItems[_lbIdx].label || '';
             document.getElementById('cgLbCounter').textContent =
