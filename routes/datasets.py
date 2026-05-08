@@ -94,7 +94,8 @@ def create_blueprint(auth):
                                prev_sibling=prev_sibling,
                                next_sibling=next_sibling,
                                sibling_index=ds_sibling_idx + 1,
-                               sibling_count=len(ds_siblings))
+                               sibling_count=len(ds_siblings),
+                               siblings=ds_siblings)
 
     @bp.route("/<project_id>/dataset/<dsid>/mdnote-edit", methods=['GET', 'POST'])
     @auth.oidc_auth('orcid')

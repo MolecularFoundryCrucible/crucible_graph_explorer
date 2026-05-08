@@ -272,6 +272,7 @@ def create_blueprint(auth):
                                next_sibling=next_sibling,
                                sibling_index=sibling_idx + 1,
                                sibling_count=len(siblings),
+                               siblings=siblings,
                                img_datasets=img_datasets,
                                img_thumbnails=img_thumbnails)
 
