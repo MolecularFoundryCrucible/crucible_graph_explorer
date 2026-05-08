@@ -8,6 +8,47 @@
 {{ vite_tags() }}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
 <style>
+    /* ── collapsible sidebar ────────────────────────────────────────────────── */
+    .cg-sidebar {
+        width: 160px; flex-shrink: 0; position: relative;
+        transition: width 0.25s cubic-bezier(0.4,0,0.2,1);
+        border-right: 1px solid var(--bs-border-color);
+        margin-right: 0.75rem;
+    }
+    .cg-sidebar.collapsed { width: 40px; }
+    .cg-sidebar-toggle {
+        position: absolute; right: -10px; top: 5.5rem; z-index: 200;
+        width: 20px; height: 20px; border-radius: 50%;
+        border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
+        color: var(--bs-secondary-color); cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.65rem; box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        transition: background 0.15s;
+    }
+    .cg-sidebar-toggle:hover { background: var(--bs-tertiary-bg); }
+    .cg-sidebar-toggle i { transition: transform 0.25s; }
+    .cg-sidebar.collapsed .cg-sidebar-toggle i { transform: rotate(180deg); }
+    .cg-sidebar-content {
+        position: sticky; top: 5em; max-height: calc(100vh - 5.5em);
+        overflow-y: auto; padding: 0.5rem 0; display: flex; flex-direction: column;
+        overflow: hidden;
+    }
+    .cg-sidebar.collapsed .cg-sidebar-content { visibility: hidden; }
+    .cg-sidebar-icon-rail {
+        position: sticky; top: 5em;
+        display: none; flex-direction: column; align-items: center;
+        gap: 0.5rem; padding-top: 0.5rem;
+    }
+    .cg-sidebar.collapsed .cg-sidebar-icon-rail { display: flex; }
+    .cg-rail-btn {
+        width: 28px; height: 28px; border-radius: 0.25rem;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--bs-secondary-color); font-size: 0.9rem;
+        text-decoration: none; border: none; background: none;
+        transition: background 0.12s; cursor: pointer; padding: 0;
+    }
+    .cg-rail-btn:hover { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+
     /* ── graph containers ───────────────────────────────────────────────── */
     #cy {
         width: 100%; height: 40vh; min-height: 280px;
@@ -112,84 +153,77 @@
 {% endblock %}
 
 {% block sidebar %}
-<div class="col-md-2 pe-0 d-none d-md-block">
-    <div class="sticky-top pt-1" style="top: 5em; display:flex; flex-direction:column; max-height: calc(100vh - 5.5em);">
+<div id="resourceSidebar" class="cg-sidebar d-none d-md-block">
+  <button class="cg-sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+    <i class="bi bi-chevron-left" id="sidebarToggleIcon"></i>
+  </button>
 
-        <!-- Fixed top: project + this dataset identity -->
-        <div class="flex-shrink-0">
-            <div class="mb-3">
-                <div class="d-flex align-items-center gap-2 mb-1 px-1">
-                    <div id="projectAvatar" style="flex-shrink:0;"></div>
-                    <span class="fw-semibold small text-body text-truncate">{{project_id}}</span>
-                </div>
-                <a href="/{{project_id}}/" class="nav-link py-1 px-1 text-muted small">
-                    <i class="bi bi-arrow-left me-1"></i>Back to project
-                </a>
-            </div>
-
-            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
-                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--cg-link);">
-                <i class="bi bi-database"></i> This dataset
-            </div>
-            <div class="px-1 mb-2 small fw-semibold text-body text-break">{{ds['dataset_name']}}</div>
-            <hr class="my-2">
-        </div>
-
-        <!-- Scrollable bottom: related items -->
-        <div style="overflow-y: auto; flex:1; min-height:0;">
-            {% if samples %}
-            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
-                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
-                <i class="bi bi-eyedropper"></i> Samples ({{samples|length}})
-            </div>
-            <ul class="nav flex-column mb-3">
-                {% for sample in samples %}
-                <li class="nav-item">
-                    <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
-                       href="/{{project_id}}/sample-graph/{{sample['unique_id']}}">
-                        {{sample['sample_name']}}
-                    </a>
-                </li>
-                {% endfor %}
-            </ul>
-            {% endif %}
-
-            {% if parent_datasets %}
-            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
-                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
-                <i class="bi bi-arrow-up-short"></i> Parents ({{parent_datasets|length}})
-            </div>
-            <ul class="nav flex-column mb-3">
-                {% for pd in parent_datasets %}
-                <li class="nav-item">
-                    <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
-                       href="/{{project_id}}/dataset/{{pd['unique_id']}}">{{pd['dataset_name']}}</a>
-                </li>
-                {% endfor %}
-            </ul>
-            {% endif %}
-
-            {% if child_datasets %}
-            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1 text-muted"
-                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase;">
-                <i class="bi bi-arrow-down-short"></i> Children ({{child_datasets|length}})
-            </div>
-            <ul class="nav flex-column mb-3">
-                {% for cd in child_datasets %}
-                <li class="nav-item">
-                    <a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
-                       href="/{{project_id}}/dataset/{{cd['unique_id']}}">{{cd['dataset_name']}}</a>
-                </li>
-                {% endfor %}
-            </ul>
-            {% endif %}
-        </div>
-
+  <div class="cg-sidebar-content" id="sidebarContent">
+    <div class="mb-2 px-2">
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <div id="projectAvatar" style="flex-shrink:0;"></div>
+        <span class="fw-semibold small text-body text-truncate">{{project_id}}</span>
+      </div>
+      <a href="javascript:void(0)" onclick="goBackToProject()" class="nav-link py-1 px-1 text-muted small">
+        <i class="bi bi-arrow-left me-1"></i>Back to project
+      </a>
     </div>
+    <hr class="my-1 mx-2">
+    <div class="px-2 mb-1" style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--cg-link);">
+      <i class="bi bi-database me-1"></i>This dataset
+    </div>
+    <div class="px-2 mb-2 small fw-semibold text-body" style="font-size:0.8rem; word-break:break-word;">{{ds['dataset_name']}}</div>
+    <hr class="my-1 mx-2">
+
+    {% if samples %}
+    <div class="px-2 mb-1" style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--bs-secondary-color);">
+      <i class="bi bi-eyedropper me-1"></i>Samples ({{samples|length}})
+    </div>
+    <ul class="nav flex-column mb-2" style="overflow-y:auto; max-height:30vh;">
+      {% for sample in samples %}
+      <li class="nav-item">
+        <a class="nav-link py-1 px-2 text-body" style="font-size:0.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" href="/{{project_id}}/sample-graph/{{sample['unique_id']}}">{{sample['sample_name']}}</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if parent_datasets %}
+    <div class="px-2 mb-1" style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--bs-secondary-color);">
+      <i class="bi bi-arrow-up-short me-1"></i>Parent datasets ({{parent_datasets|length}})
+    </div>
+    <ul class="nav flex-column mb-2">
+      {% for pd in parent_datasets %}
+      <li class="nav-item">
+        <a class="nav-link py-1 px-2 text-body" style="font-size:0.8rem;" href="/{{project_id}}/dataset/{{pd['unique_id']}}">{{pd['dataset_name']}}</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if child_datasets %}
+    <div class="px-2 mb-1" style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--bs-secondary-color);">
+      <i class="bi bi-arrow-down-short me-1"></i>Child datasets ({{child_datasets|length}})
+    </div>
+    <ul class="nav flex-column mb-2">
+      {% for cd in child_datasets %}
+      <li class="nav-item">
+        <a class="nav-link py-1 px-2 text-body" style="font-size:0.8rem;" href="/{{project_id}}/dataset/{{cd['unique_id']}}">{{cd['dataset_name']}}</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+
+  <!-- Icon rail shown when collapsed -->
+  <div class="cg-sidebar-icon-rail" id="sidebarIconRail">
+    <div id="projectAvatarRail" style="width:24px;height:24px;border-radius:50%;"></div>
+    <button class="cg-rail-btn" onclick="goBackToProject()" title="Back to project"><i class="bi bi-house"></i></button>
+  </div>
 </div>
 {% endblock %}
 
-{% block main_col_class %}col-12 col-md-10{% endblock %}
+{% block main_col_class %}col-12 col-md{% endblock %}
 
 {% block content %}
 
@@ -632,6 +666,31 @@
 </script>
 
 <script>
+    const _SIDEBAR_KEY = 'cg_sidebar_collapsed';
+    const _PID = {{ project_id | tojson }};
+
+    function goBackToProject() {
+        const stored = sessionStorage.getItem('cg_overview_state_' + _PID);
+        window.location.href = '/' + _PID + '/' + (stored || '');
+    }
+
+    function toggleSidebar() {
+        const sb = document.getElementById('resourceSidebar');
+        const collapsed = sb.classList.toggle('collapsed');
+        localStorage.setItem(_SIDEBAR_KEY, collapsed ? '1' : '');
+    }
+
+    // Restore collapse state and render avatars
+    (function() {
+        if (localStorage.getItem(_SIDEBAR_KEY)) {
+            const sb = document.getElementById('resourceSidebar');
+            if (sb) sb.classList.add('collapsed');
+        }
+        // Render small project avatar in icon rail
+        const railAv = document.getElementById('projectAvatarRail');
+        if (railAv) makeAvatar(railAv, _PID, '24px', '0.65rem');
+    })();
+
     const projAv = document.getElementById('projectAvatar');
     if (projAv) makeAvatar(projAv, {{ project_id | tojson }}, '1.5rem', '0.6rem');
 
