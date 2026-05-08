@@ -408,12 +408,18 @@
         <div style="padding:0.75rem; display:flex; flex-wrap:wrap; gap:0.75rem;">
         {% for ds in img_datasets %}
         {% set dsid = ds['unique_id'] %}
-        <a href="/{{pid}}/dataset/{{dsid}}" class="text-decoration-none" title="{{ds['dataset_name']}}">
+        <div style="text-align:center;">
             <img src="{{img_thumbnails[dsid]}}"
+                 data-lb-src="{{img_thumbnails[dsid]}}"
+                 data-lb-label="{{ds['dataset_name']}}"
+                 onclick="cgLbOpenSection(this)"
                  alt="{{ds['dataset_name']}}"
-                 style="width:120px;height:120px;object-fit:cover;border-radius:0.375rem;border:1px solid var(--bs-border-color);">
-            <div class="small text-muted text-center mt-1" style="width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ds['dataset_name']}}</div>
-        </a>
+                 style="width:120px;height:120px;object-fit:cover;border-radius:0.375rem;border:1px solid var(--bs-border-color);cursor:pointer;transition:opacity 0.12s;"
+                 onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+            <a href="/{{pid}}/dataset/{{dsid}}" class="text-decoration-none" title="{{ds['dataset_name']}}">
+                <div class="small text-muted text-center mt-1" style="width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ds['dataset_name']}}</div>
+            </a>
+        </div>
         {% endfor %}
         </div>
     </div>

@@ -438,9 +438,13 @@
                 <div class="card h-100">
                     <div class="card-header small fw-semibold">{{thumb['thumbnail_name']}}</div>
                     <img class="card-img-bottom"
+                         data-lb-src="data:image/png;base64, {{thumb['thumbnail_b64str']}}"
+                         data-lb-label="{{thumb['thumbnail_name']}}"
+                         onclick="cgLbOpenSection(this)"
                          src="data:image/png;base64, {{thumb['thumbnail_b64str']}}"
                          alt="{{thumb['thumbnail_name']}}"
-                         style="object-fit:contain; max-height:280px;">
+                         style="object-fit:contain; max-height:280px; cursor:pointer; transition:opacity 0.12s;"
+                         onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
                 </div>
             </div>
             {% endfor %}

@@ -462,6 +462,48 @@
         }, duration);
     }
 
+    // ── thumbnail lightbox ─────────────────────────────────────────────────
+    (function() {
+        let _lbItems = [];
+        let _lbIdx   = 0;
+        const _lb    = document.getElementById('cgLightbox');
+
+        window.cgLbOpen = function(items, startIdx) {
+            _lbItems = items;
+            _lbIdx   = startIdx || 0;
+            _lbRender();
+            _lb.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        };
+        window.cgLbClose = function() {
+            _lb.style.display = 'none';
+            document.body.style.overflow = '';
+        };
+        window.cgLbNav = function(dir) {
+            _lbIdx = (_lbIdx + dir + _lbItems.length) % _lbItems.length;
+            _lbRender();
+        };
+        window.cgLbOpenSection = function(imgEl) {
+            const body = imgEl.closest('.res-section-body') || document.body;
+            const all  = Array.from(body.querySelectorAll('[data-lb-src]'));
+            const items = all.map(img => ({ src: img.dataset.lbSrc, label: img.dataset.lbLabel || '' }));
+            const idx  = all.indexOf(imgEl);
+            cgLbOpen(items, Math.max(idx, 0));
+        };
+        function _lbRender() {
+            document.getElementById('cgLbImg').src       = _lbItems[_lbIdx].src;
+            document.getElementById('cgLbLabel').textContent   = _lbItems[_lbIdx].label || '';
+            document.getElementById('cgLbCounter').textContent =
+                _lbItems.length > 1 ? `${_lbIdx + 1} / ${_lbItems.length}` : '';
+        }
+        document.addEventListener('keydown', e => {
+            if (_lb.style.display === 'none') return;
+            if (e.key === 'Escape')      cgLbClose();
+            if (e.key === 'ArrowLeft')   cgLbNav(-1);
+            if (e.key === 'ArrowRight')  cgLbNav(1);
+        });
+    })();
+
     // ── text-selectable navigation ────────────────────────────────────────
     function navIfNoSelection(event, url) {
         if (event.button === 1) { window.open(url, '_blank'); return; }
@@ -487,6 +529,26 @@
             <i class="bi bi-arrow-up"></i>
         </button>
     </div>
+    <!-- ── thumbnail lightbox ────────────────────────────────────────────── -->
+    <div id="cgLightbox" onclick="if(event.target===this)cgLbClose()"
+         style="display:none; position:fixed; inset:0; z-index:5000;
+                background:rgba(0,0,0,0.88); align-items:center; justify-content:center; gap:1rem;">
+        <button onclick="cgLbNav(-1)" style="background:none; border:none; color:rgba(255,255,255,0.7);
+                font-size:2.5rem; cursor:pointer; padding:0 0.5rem; line-height:1;
+                transition:color 0.12s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">&#8249;</button>
+        <div style="text-align:center; max-width:88vw;">
+            <img id="cgLbImg" src="" alt="" style="max-width:88vw; max-height:80vh; border-radius:6px; display:block;">
+            <div id="cgLbLabel" style="color:rgba(255,255,255,0.75); font-size:0.85rem; margin-top:0.6rem; font-family:'IBM Plex Sans',sans-serif;"></div>
+            <div id="cgLbCounter" style="color:rgba(255,255,255,0.4); font-size:0.75rem; margin-top:0.2rem; font-family:'IBM Plex Mono',monospace;"></div>
+        </div>
+        <button onclick="cgLbNav(1)" style="background:none; border:none; color:rgba(255,255,255,0.7);
+                font-size:2.5rem; cursor:pointer; padding:0 0.5rem; line-height:1;
+                transition:color 0.12s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">&#8250;</button>
+        <button onclick="cgLbClose()" style="position:absolute; top:1rem; right:1.25rem;
+                background:none; border:none; color:rgba(255,255,255,0.6); font-size:1.5rem;
+                cursor:pointer; line-height:1;">&#x2715;</button>
+    </div>
+
     <div id="cg-toast-container" aria-live="polite" aria-atomic="false"></div>
 
     <!-- ── command palette ──────────────────────────────────────────────── -->
