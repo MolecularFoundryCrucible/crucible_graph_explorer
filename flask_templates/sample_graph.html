@@ -256,7 +256,7 @@
       <a href="/{{pid}}/entity-graph/sample/{{s['unique_id']}}" class="cg-action-btn" title="Entity graph"><i class="bi bi-diagram-3"></i></a>
       <a href="/{{pid}}/samples/{{s['unique_id']}}/upload-photo" class="cg-action-btn" title="Upload photo"><i class="bi bi-camera"></i></a>
       <a href="/{{pid}}/samples/{{s['unique_id']}}/edit" class="cg-action-btn" title="Edit"><i class="bi bi-pencil"></i></a>
-      <button class="cg-action-btn" onclick="document.getElementById('qrPopover').style.display=document.getElementById('qrPopover').style.display?'':'block'" title="QR code"><i class="bi bi-qr-code"></i></button>
+      <button class="cg-action-btn" onclick="let el=document.getElementById('qrPopover'); el.style.display=el.style.display==='none'?'block':'none'" title="QR code"><i class="bi bi-qr-code"></i></button>
       <a href="/{{pid}}/chat?about=sample:{{s['unique_id']}}" class="cg-action-btn primary"><i class="bi bi-chat-dots"></i> Chat</a>
     </div>
   </div>
