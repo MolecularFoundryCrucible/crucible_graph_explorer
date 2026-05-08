@@ -809,6 +809,16 @@
         history.replaceState(null, '', h ? '#' + h : location.pathname + location.search);
     }
 
+    // Save current hash to sessionStorage when navigating to a resource page
+    document.addEventListener('click', (e) => {
+        const link = e.target.closest('a[href]');
+        if (!link) return;
+        const href = link.getAttribute('href') || '';
+        if (href.includes('/sample-graph/') || href.includes('/dataset/')) {
+            sessionStorage.setItem('cg_overview_state_' + PID, location.hash || '#tab=samples');
+        }
+    });
+
     // ── keyboard navigation ───────────────────────────────────────────────────
     let _kbIdx = -1;
     let _kbRows = [];
@@ -874,6 +884,14 @@
         if (sgbEl) sgbEl.value = sgb;
         const dgbEl = document.getElementById('datasetGroupBySelect');
         if (dgbEl) dgbEl.value = dgb;
+
+        // Restore saved state if returning from a resource page and URL has no hash
+        if (!location.hash) {
+            const stored = sessionStorage.getItem('cg_overview_state_' + PID);
+            if (stored) {
+                history.replaceState(null, '', stored);
+            }
+        }
 
         // Restore URL state
         const hs = _readHash();
