@@ -32,14 +32,16 @@
         position: sticky; top: 5em; max-height: calc(100vh - 5.5em);
         overflow-y: auto; padding: 0.5rem 0; display: flex; flex-direction: column;
         overflow: hidden;
+        opacity: 1; transition: opacity 0.15s;
     }
-    .cg-sidebar.collapsed .cg-sidebar-content { visibility: hidden; }
+    .cg-sidebar.collapsed .cg-sidebar-content { visibility: hidden; opacity: 0; }
     .cg-sidebar-icon-rail {
         position: sticky; top: 5em;
-        display: none; flex-direction: column; align-items: center;
+        display: flex; flex-direction: column; align-items: center;
         gap: 0.5rem; padding-top: 0.5rem;
+        opacity: 0; pointer-events: none; transition: opacity 0.15s 0.1s;
     }
-    .cg-sidebar.collapsed .cg-sidebar-icon-rail { display: flex; }
+    .cg-sidebar.collapsed .cg-sidebar-icon-rail { opacity: 1; pointer-events: auto; }
     .cg-rail-btn {
         width: 28px; height: 28px; border-radius: 0.25rem;
         display: flex; align-items: center; justify-content: center;
