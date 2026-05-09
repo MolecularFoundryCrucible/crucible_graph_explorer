@@ -243,10 +243,11 @@ def create_blueprint(auth):
                 pass
         img_datasets = [d for d in all_datasets if d['unique_id'] in img_thumbnails]
 
-        sample_type = self_info.get('sample_type')
-        if sample_type:
+        group_by  = request.args.get('sgb', 'sample_type')
+        group_val = self_info.get(group_by)
+        if group_val:
             siblings = sorted(
-                [s for s in pc['samples'] if s.get('sample_type') == sample_type],
+                [s for s in pc['samples'] if s.get(group_by) == group_val],
                 key=lambda x: x.get('sample_name') or ''
             )
         else:
@@ -273,6 +274,7 @@ def create_blueprint(auth):
                                sibling_index=sibling_idx + 1,
                                sibling_count=len(siblings),
                                siblings=siblings,
+                               sibling_label=group_val or '',
                                img_datasets=img_datasets,
                                img_thumbnails=img_thumbnails)
 

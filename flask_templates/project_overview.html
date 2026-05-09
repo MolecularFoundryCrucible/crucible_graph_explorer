@@ -458,9 +458,11 @@
                 '<span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--bs-secondary-color);white-space:nowrap;flex-shrink:0;">Recent</span>' +
                 forProject.map(r => {
                     const icon = r.type === 'sample' ? 'bi-eyedropper' : 'bi-database';
+                    const sgb = localStorage.getItem('pref_sample_groupby') || 'sample_type';
+                    const dgb = localStorage.getItem('pref_dataset_groupby') || 'measurement';
                     const url  = r.type === 'sample'
-                        ? `/${PID}/sample-graph/${r.id}`
-                        : `/${PID}/dataset/${r.id}`;
+                        ? `/${PID}/sample-graph/${r.id}?sgb=${encodeURIComponent(sgb)}`
+                        : `/${PID}/dataset/${r.id}?dgb=${encodeURIComponent(dgb)}`;
                     return `<a href="${url}" class="cg-recent-chip">
                         <i class="bi ${icon}" style="color:var(--cg-accent-mid);font-size:0.8em;flex-shrink:0;"></i>
                         <span>${_esc(r.name)}</span>
@@ -603,7 +605,7 @@
             const groupEl = buildGroupEl(gid, 'eyedropper', gkey, items,
                 'sample-item', 'sample-count',
                 s => `<a class="list-row sample-item"
-                         href="/${PID}/sample-graph/${escHtml(s.unique_id)}"
+                         href="/${PID}/sample-graph/${escHtml(s.unique_id)}?sgb=${encodeURIComponent(field)}"
                          data-search="${escHtml(sampleSearch(s))}"
                          data-owner-orcid="${escHtml(s.owner_orcid || '')}">
                          <span>${escHtml(s.sample_name || s.unique_id)}</span>
@@ -639,7 +641,7 @@
             const groupEl = buildGroupEl(gid, 'database', gkey, items,
                 'dataset-item', 'dataset-count',
                 ds => `<a class="list-row dataset-item"
-                          href="/${PID}/dataset/${escHtml(ds.unique_id)}"
+                          href="/${PID}/dataset/${escHtml(ds.unique_id)}?dgb=${encodeURIComponent(field)}"
                           data-search="${escHtml(datasetSearch(ds))}"
                           data-owner-orcid="${escHtml(ds.owner_orcid || '')}">
                           <span class="text-truncate me-3">${escHtml(ds.dataset_name || ds.unique_id)}</span>

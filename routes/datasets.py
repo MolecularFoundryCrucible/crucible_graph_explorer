@@ -69,10 +69,11 @@ def create_blueprint(auth):
                     except Exception as err:
                         logger.warning("Failed to render markdown for %s: %s", dsid, err)
 
-        measurement = ds.get('measurement')
-        if measurement:
+        group_by  = request.args.get('dgb', 'measurement')
+        group_val = ds.get(group_by)
+        if group_val:
             ds_siblings = sorted(
-                [d for d in pc['datasets'] if d.get('measurement') == measurement],
+                [d for d in pc['datasets'] if d.get(group_by) == group_val],
                 key=lambda x: x.get('dataset_name') or ''
             )
         else:
@@ -95,7 +96,8 @@ def create_blueprint(auth):
                                next_sibling=next_sibling,
                                sibling_index=ds_sibling_idx + 1,
                                sibling_count=len(ds_siblings),
-                               siblings=ds_siblings)
+                               siblings=ds_siblings,
+                               sibling_label=group_val or '')
 
     @bp.route("/<project_id>/dataset/<dsid>/mdnote-edit", methods=['GET', 'POST'])
     @auth.oidc_auth('orcid')
