@@ -33,10 +33,12 @@
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h1 class="fs-4 fw-semibold mb-0">
         <i class="bi bi-people me-2 text-secondary"></i>Users
+        <span id="userVisibleCount" class="text-muted fw-normal ms-1" style="font-size:0.85rem;"></span>
     </h1>
 </div>
 
-<div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap"
+     style="position:sticky; top:3.2rem; z-index:20; background:var(--bs-body-bg); padding:0.5rem 0; margin-top:-0.25rem; border-bottom:1px solid var(--bs-border-color);">
     <input type="search" class="form-control form-control-sm" id="filterInput"
            placeholder="Search name, email, ORCID…"
            style="flex:1; min-width:180px;" oninput="applyFilter()">
@@ -169,7 +171,25 @@
 
         document.getElementById('noResults').style.display =
             (totalVisible === 0 && q) ? '' : 'none';
+
+        // Update user count badge in heading
+        const countEl = document.getElementById('userVisibleCount');
+        if (countEl) {
+            const totalUsers = document.querySelectorAll('.list-row[data-search]').length;
+            if (q || showUnique) {
+                countEl.textContent = `${totalVisible} of ${totalUsers}`;
+            } else {
+                countEl.textContent = totalUsers;
+            }
+        }
     }
+
+    // Initialize count display
+    (function() {
+        const total = document.querySelectorAll('.list-row[data-search]').length;
+        const el = document.getElementById('userVisibleCount');
+        if (el) el.textContent = total;
+    })();
 </script>
 
 {% endblock %}
