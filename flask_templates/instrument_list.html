@@ -116,7 +116,7 @@ function applyFilter() {
     INSTRUMENTS.forEach(inst => {
         const type = inst.instrument_type || '—';
         if (activeTypes.size && !activeTypes.has(type)) return;
-        const searchText = [inst.instrument_name, inst.instrument_type, inst.location, inst.manufacturer, inst.model].join(' ').toLowerCase();
+        const searchText = [inst.instrument_name, inst.instrument_type, inst.location, inst.manufacturer, inst.model].filter(Boolean).join(' ').toLowerCase();
         if (q && !searchText.includes(q)) return;
         if (!groups[type]) groups[type] = [];
         groups[type].push(inst);
@@ -134,7 +134,7 @@ function applyFilter() {
             const mfr  = [inst.manufacturer, inst.model].filter(Boolean).map(esc).join(' · ');
             const loc  = inst.location ? `<i class="bi bi-geo-alt" style="font-size:0.72rem;"></i> ${esc(inst.location)}` : '';
             return `<a class="list-row" href="${url}"
-                        data-search="${esc([inst.instrument_name,inst.instrument_type,inst.location,inst.manufacturer,inst.model].join(' ').toLowerCase())}">
+                        data-search="${esc([inst.instrument_name,inst.instrument_type,inst.location,inst.manufacturer,inst.model].filter(Boolean).join(' ').toLowerCase())}">
                 <i class="bi bi-cpu text-secondary flex-shrink-0" style="font-size:1.05rem;"></i>
                 <div style="min-width:0; flex:1;">
                     <div class="fw-medium">${name}</div>
