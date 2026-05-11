@@ -86,22 +86,27 @@
       </select>
     </div>
     <div class="d-flex align-items-center gap-1 ms-auto flex-wrap">
-      <div class="d-flex align-items-center gap-1 me-1">
-        <button class="cg-action-btn" style="font-size:0.78rem;" onclick="setAllSections(true)"><i class="bi bi-chevron-expand"></i></button>
-        <button class="cg-action-btn" style="font-size:0.78rem;" onclick="setAllSections(false)"><i class="bi bi-chevron-contract"></i></button>
-      </div>
       {% if ds['measurement'] == 'MDNote' %}
       <a href="/{{project_id}}/dataset/{{ds['unique_id']}}/mdnote-edit" class="cg-action-btn" title="Edit note"><i class="bi bi-pencil"></i></a>
       {% endif %}
       {% for cv in custom_views %}
       <a href="{{ cv.url }}" class="cg-action-btn" title="{{ cv.label }}"><i class="bi bi-journal-text me-1"></i>{{ cv.label }}</a>
       {% endfor %}
-      <a href="/{{project_id}}/search" class="cg-action-btn" title="Search"><i class="bi bi-search"></i></a>
-      <a href="/{{project_id}}/entity-graph/dataset/{{ds['unique_id']}}" class="cg-action-btn" title="Entity graph"><i class="bi bi-diagram-3"></i></a>
-      <a href="/{{project_id}}/chat?about=dataset:{{ds['unique_id']}}" class="cg-action-btn primary"><i class="bi bi-chat-dots"></i> Chat</a>
     </div>
   </div>
 
+</div>
+
+<!-- ── section controls ─────────────────────────────────────────────── -->
+<div class="d-flex align-items-center gap-1 mb-2" style="max-width:860px;">
+  <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
+          style="font-size:0.75rem; text-decoration:none;" onclick="setAllSections(true)">
+    <i class="bi bi-chevron-expand"></i><span>Expand all</span>
+  </button>
+  <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
+          style="font-size:0.75rem; text-decoration:none;" onclick="setAllSections(false)">
+    <i class="bi bi-chevron-contract"></i><span>Collapse all</span>
+  </button>
 </div>
 
 <!-- ── details (metadata fields) — expanded by default ───────────────── -->
