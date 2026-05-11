@@ -458,6 +458,21 @@
             color: var(--bs-secondary-color); font-size: 0.75rem; padding: 0 0.3rem;
             cursor: pointer; max-width: 110px;
         }
+
+        /* ── graph node popup ───────────────────────────────────────────── */
+        .cg-graph-popup {
+            background: var(--bs-body-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15), 0 1px 4px rgba(0,0,0,0.06);
+            padding: 0.65rem 0.8rem;
+            font-size: 0.85rem;
+            font-family: 'IBM Plex Sans', sans-serif;
+        }
+        [data-bs-theme="dark"] .cg-graph-popup {
+            box-shadow: 0 4px 20px rgba(0,0,0,0.45), 0 1px 4px rgba(0,0,0,0.2);
+        }
+        .popup-link:hover { color: var(--cg-link-hover) !important; text-decoration: none !important; }
     </style>
 
     <title>{% block title %}{% endblock %} - Crucible</title>
@@ -610,20 +625,21 @@
     }
 
     // ── thumbnail lightbox ─────────────────────────────────────────────────
+    // _lb() is a lazy getter because #cgLightbox lives after this <script> block in the DOM
     (function() {
         let _lbItems = [];
         let _lbIdx   = 0;
-        const _lb    = document.getElementById('cgLightbox');
+        const _lb    = () => document.getElementById('cgLightbox');
 
         window.cgLbOpen = function(items, startIdx) {
             _lbItems = items;
             _lbIdx   = startIdx || 0;
             _lbRender();
-            _lb.style.display = 'flex';
+            _lb().style.display = 'flex';
             document.body.style.overflow = 'hidden';
         };
         window.cgLbClose = function() {
-            _lb.style.display = 'none';
+            _lb().style.display = 'none';
             document.body.style.overflow = '';
         };
         window.cgLbNav = function(dir) {
@@ -646,7 +662,8 @@
                 _lbItems.length > 1 ? `${_lbIdx + 1} / ${_lbItems.length}` : '';
         }
         document.addEventListener('keydown', e => {
-            if (_lb.style.display === 'none') return;
+            const lb = _lb();
+            if (!lb || lb.style.display === 'none') return;
             if (e.key === 'Escape')      cgLbClose();
             if (e.key === 'ArrowLeft')   cgLbNav(-1);
             if (e.key === 'ArrowRight')  cgLbNav(1);

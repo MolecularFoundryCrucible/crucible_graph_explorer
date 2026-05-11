@@ -2404,6 +2404,7 @@ source = { editable = "../nano-crucible" }
 dependencies = [
     { name = "argcomplete" },
     { name = "configupdater" },
+    { name = "google-crc32c" },
     { name = "ipywidgets" },
     { name = "mfid" },
     { name = "platformdirs" },
@@ -2423,6 +2424,7 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=21.0" },
     { name = "configupdater", specifier = ">=3.0" },
     { name = "flake8", marker = "extra == 'dev'", specifier = ">=3.8" },
+    { name = "google-crc32c", specifier = ">=1.1.0" },
     { name = "ipywidgets" },
     { name = "mfid", specifier = ">=1.0.0" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.5" },

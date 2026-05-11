@@ -163,11 +163,11 @@
             <button id="fitBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
                 <i class="bi bi-bounding-box me-1"></i>Fit
             </button>
-            <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem; display:none;">
+            <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
                 <i class="bi bi-image me-1"></i>Thumbnails
             </button>
-            <button id="toggleEntityBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
-                <i class="bi bi-diagram-3 me-1"></i>With Datasets
+            <button id="toggleDatasetsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                <i class="bi bi-database me-1"></i>Hide Datasets
             </button>
             <button id="fullscreenBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
                 <i class="bi bi-fullscreen me-1"></i>Fullscreen
@@ -325,71 +325,63 @@
 {{ section_metadata(s.get('scientific_metadata')) }}
 
 <script type="module">
-  let cyInstance   = null;
-  let currentMode  = 'sample';   // 'sample' | 'entity'
-  let sampleData   = null;
-  let entityData   = null;
-  let graphLoaded  = false;
+  let cyInstance  = null;
+  let graphData   = null;
+  let graphLoaded = false;
+  let datasetsVisible = true;
 
-  async function fetchSampleData() {
-    if (!sampleData) {
-      const r = await fetch('/{{pid}}/api/sample-graph-data/{{s["unique_id"]}}');
-      sampleData = await r.json();
-    }
-    return sampleData;
-  }
-
-  async function fetchEntityData() {
-    if (!entityData) {
-      const r = await fetch('/{{pid}}/api/entity-graph-data/sample/{{s["unique_id"]}}');
-      entityData = await r.json();
-    }
-    return entityData;
-  }
-
-  async function renderGraph(mode) {
+  async function renderGraph() {
     const spinner = document.getElementById('cy-spinner');
-    if (spinner) { spinner.style.display = 'flex'; }
-
+    if (spinner) spinner.style.display = 'flex';
     if (cyInstance) { cyInstance.destroy(); cyInstance = null; }
-    currentMode = mode;
 
-    const layoutBtn     = document.getElementById('toggleLayoutBtn');
-    const thumbBtn      = document.getElementById('toggleThumbnailsBtn');
-    const entityBtn     = document.getElementById('toggleEntityBtn');
-    const titleEl       = document.getElementById('graphSectionTitle');
-
-    // Reset layout button label
-    layoutBtn.innerHTML = '<i class="bi bi-arrow-left-right me-1"></i>Vertical';
-
-    if (mode === 'sample') {
-      const data = await fetchSampleData();
-      if (window.initSampleGraph) cyInstance = window.initSampleGraph('cy', data);
-      titleEl.textContent = 'Sample Graph';
-      entityBtn.innerHTML = '<i class="bi bi-diagram-3 me-1"></i>With Datasets';
-      thumbBtn.style.display = 'none';
-    } else {
-      const data = await fetchEntityData();
-      if (window.initEntityGraph) cyInstance = window.initEntityGraph('cy', data);
-      titleEl.textContent = 'Entity Graph';
-      entityBtn.innerHTML = '<i class="bi bi-eyedropper me-1"></i>Sample Only';
-      thumbBtn.style.display = '';
-      thumbBtn.innerHTML = '<i class="bi bi-image me-1"></i>Thumbnails';
+    if (!graphData) {
+      const r = await fetch('/{{pid}}/api/entity-graph-data/sample/{{s["unique_id"]}}');
+      graphData = await r.json();
     }
 
-    // Show the zoom hint then fade it out
+    if (window.initEntityGraph) cyInstance = window.initEntityGraph('cy', graphData);
+
+    // If datasets were toggled off before a re-render, reapply
+    if (!datasetsVisible && cyInstance) applyDatasetVisibility(false);
+
     const hint = document.getElementById('zoomHint');
     if (hint) {
       hint.style.transition = 'none';
       hint.style.opacity = '1';
       setTimeout(() => { hint.style.transition = 'opacity 1.5s'; hint.style.opacity = '0'; }, 2500);
     }
-
     if (spinner) spinner.style.display = 'none';
   }
 
-  document.getElementById('toggleEntityBtn').addEventListener('click', () => {
-    renderGraph(currentMode === 'sample' ? 'entity' : 'sample');
+  function applyDatasetVisibility(visible) {
+    if (!cyInstance) return;
+    const display = visible ? 'element' : 'none';
+    cyInstance.nodes('[type="dataset"]').style('display', display);
+    cyInstance.edges().forEach(edge => {
+      const hidden = edge.source().style('display') === 'none'
+                  || edge.target().style('display') === 'none';
+      edge.style('display', hidden ? 'none' : 'element');
+    });
+    cyInstance.layout({
+      name: 'dagre',
+      rankDir: cyInstance.layoutDir || 'LR',
+      nodeSep: 40,
+      rankSep: 80,
+      padding: 30,
+      animate: true,
+      animationDuration: 400
+    }).run();
+    setTimeout(() => { if (cyInstance) cyInstance.fit(); }, 450);
+    document.getElementById('toggleThumbnailsBtn').disabled = !visible;
+  }
+
+  document.getElementById('toggleDatasetsBtn').addEventListener('click', function() {
+    datasetsVisible = !datasetsVisible;
+    applyDatasetVisibility(datasetsVisible);
+    this.innerHTML = datasetsVisible
+      ? '<i class="bi bi-database me-1"></i>Hide Datasets'
+      : '<i class="bi bi-database me-1"></i>Show Datasets';
   });
 
   document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
@@ -398,7 +390,6 @@
       this.innerHTML = newLayout === 'LR'
         ? '<i class="bi bi-arrow-left-right me-1"></i>Vertical'
         : '<i class="bi bi-arrow-down me-1"></i>Horizontal';
-      // After the 500ms animation, resize the canvas and re-fit
       setTimeout(() => { if (cyInstance) { cyInstance.resize(); cyInstance.fit(); } }, 550);
     }
   });
@@ -420,14 +411,10 @@
     const section = document.getElementById('section-graph');
     const body    = section.querySelector('.res-section-body');
     if (!document.fullscreenElement) {
-      // Expand if collapsed
-      if (body.style.display === 'none') {
-        toggleSection(section.querySelector('.res-section-header'));
-      }
-      // Load graph if not yet loaded
+      if (body.style.display === 'none') toggleSection(section.querySelector('.res-section-header'));
       if (!graphLoaded) {
         graphLoaded = true;
-        await renderGraph(currentMode);
+        await renderGraph();
       } else if (cyInstance) {
         cyInstance.resize(); cyInstance.fit();
       }
@@ -447,15 +434,13 @@
     }));
   });
 
-  // Expose lazy-load toggle so the section header can call it
   window.toggleGraphSection = function(header) {
     toggleSection(header);
     const body = header.nextElementSibling;
     if (body.style.display !== 'none') {
-      // Section just opened
       if (!graphLoaded) {
         graphLoaded = true;
-        renderGraph(currentMode);
+        renderGraph();
       } else if (cyInstance) {
         cyInstance.resize(); cyInstance.fit();
       }

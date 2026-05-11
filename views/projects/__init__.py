@@ -16,8 +16,7 @@ Available helpers
 -----------------
     get_project(project_id, include_metadata=False)
     is_user_in_project(project_id)
-    get_project_sample_graph(project_id)
-    get_sample_lineage_graph(sample_id)
+    get_project_graph(project_id)
     get_entity_graph_nx(entity_id)
 """
 

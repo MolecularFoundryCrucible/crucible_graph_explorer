@@ -4,7 +4,7 @@ import flask
 from flask import Blueprint, abort, jsonify, render_template
 
 from utils.cache import get_project, is_user_in_project
-from utils.graph import get_entity_graph_nx, get_project_sample_graph, _to_nx
+from utils.graph import get_entity_graph_nx, _to_nx
 
 logger = logging.getLogger(__name__)
 

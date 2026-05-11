@@ -15,7 +15,7 @@ def create_blueprint(auth, helpers):
 
     get_project = helpers['get_project']
     is_user_in_project = helpers['is_user_in_project']
-    get_project_sample_graph = helpers['get_project_sample_graph']
+    get_project_graph = helpers['get_project_graph']
 
     @bp.route('/overview')
     @auth.oidc_auth('orcid')
@@ -23,7 +23,7 @@ def create_blueprint(auth, helpers):
         if not is_user_in_project(PROJECT_ID):
             abort(403)
         pc = get_project(PROJECT_ID, include_metadata=True)
-        G = get_project_sample_graph(PROJECT_ID)
+        G = get_project_graph(PROJECT_ID)
 
         thin_films = [s for s in pc['samples'] if s['sample_name'].startswith('TF')]
         thin_films.sort(key=lambda x: x['sample_name'])

@@ -3,21 +3,26 @@ import dagre from 'cytoscape-dagre';
 
 cytoscape.use(dagre);
 
+function getCSSVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 function createNodePopup() {
   const el = document.createElement('div');
-  el.style.cssText = 'position:fixed;display:none;z-index:1050;max-width:280px;pointer-events:auto;';
+  el.style.cssText = 'position:fixed;display:none;z-index:1050;max-width:272px;pointer-events:auto;font-family:inherit;';
   el.innerHTML = `
-    <div class="card shadow" style="font-size:0.85em;">
-      <div class="card-body p-3">
-        <button class="popup-close btn-close float-end" style="margin-top:-2px;margin-left:8px;"></button>
-        <span class="popup-badge badge mb-1" style="font-size:0.75em;display:block;width:fit-content;"></span>
-        <h6 class="popup-title mb-1" style="word-break:break-word;margin-top:4px;"></h6>
-        <div class="popup-img mb-2" style="display:none;">
-          <img style="max-width:100%;max-height:120px;object-fit:contain;border:2px solid #5a9e6f;border-radius:3px;">
-        </div>
-        <p class="popup-desc text-muted mb-2" style="display:none;font-size:0.8em;"></p>
-        <a class="popup-link btn btn-sm btn-outline-primary" href="#">View Details →</a>
+    <div class="cg-graph-popup">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem;margin-bottom:0.4rem;">
+        <span class="popup-badge" style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:600;border:1px solid;white-space:nowrap;"></span>
+        <button class="popup-close" style="background:none;border:none;cursor:pointer;padding:0;line-height:1;color:var(--bs-secondary-color);font-size:1.25rem;flex-shrink:0;margin-top:-2px;">&times;</button>
       </div>
+      <div class="popup-title" style="font-weight:600;word-break:break-word;margin-bottom:0.3rem;line-height:1.35;font-size:0.88rem;"></div>
+      <div class="popup-img" style="display:none;margin-bottom:0.4rem;">
+        <img style="max-width:100%;max-height:96px;object-fit:contain;border-radius:4px;border:1px solid var(--bs-border-color);">
+      </div>
+      <a class="popup-link" href="#" style="display:inline-flex;align-items:center;gap:0.3rem;font-size:0.8rem;color:var(--cg-link);text-decoration:none;">
+        View details <i class="bi bi-arrow-right" style="font-size:0.72rem;"></i>
+      </a>
     </div>`;
   document.body.appendChild(el);
 
@@ -32,22 +37,21 @@ function createNodePopup() {
 
   function show(node, clientX, clientY) {
     ignoreNextClick = true;
-    const label    = node.data('label') || node.data('name') || '';
-    const type     = node.data('type') || 'sample';
-    const desc     = node.data('description') || '';
-    const measure  = node.data('measurement') || '';
-    const thumb    = node.data('thumbnail');
-    const url      = node.data('url') || '#';
+    const label   = node.data('label') || node.data('name') || '';
+    const type    = node.data('type') || 'sample';
+    const measure = node.data('measurement') || '';
+    const thumb   = node.data('thumbnail');
+    const url     = node.data('url') || '#';
 
     const badge = el.querySelector('.popup-badge');
-    badge.textContent = measure || (type === 'dataset' ? 'Dataset' : 'Sample');
-    badge.className = `popup-badge badge mb-1 ${type === 'dataset' ? 'bg-success' : 'bg-primary'}`;
+    const isDataset  = type === 'dataset';
+    const badgeColor = isDataset ? getCSSVar('--cy-dataset-color') : getCSSVar('--cy-sample-color');
+    badge.textContent = measure || (isDataset ? 'Dataset' : 'Sample');
+    badge.style.color       = badgeColor;
+    badge.style.borderColor = badgeColor + '66';
+    badge.style.background  = badgeColor + '18';
 
     el.querySelector('.popup-title').textContent = label;
-
-    const descEl = el.querySelector('.popup-desc');
-    descEl.textContent = desc;
-    descEl.style.display = desc ? '' : 'none';
 
     const imgDiv = el.querySelector('.popup-img');
     if (thumb) {
@@ -58,12 +62,12 @@ function createNodePopup() {
     }
 
     el.querySelector('.popup-link').href = url;
-
     el.style.display = 'block';
+
     const rect = el.getBoundingClientRect();
-    let x = clientX + 12;
+    let x = clientX + 14;
     let y = clientY - rect.height / 2;
-    if (x + rect.width > window.innerWidth - 8)  x = clientX - rect.width - 12;
+    if (x + rect.width > window.innerWidth - 8)  x = clientX - rect.width - 14;
     if (y < 8)                                    y = 8;
     if (y + rect.height > window.innerHeight - 8) y = window.innerHeight - rect.height - 8;
     el.style.left = x + 'px';
@@ -78,6 +82,11 @@ function createNodePopup() {
 export function initEntityGraph(containerId, graphData) {
   const { nodes, edges, centerNodeId } = graphData;
   let currentRankDir = 'LR';
+
+  const sampleColor  = getCSSVar('--cy-sample-color')  || '#4a7ba7';
+  const datasetColor = getCSSVar('--cy-dataset-color') || '#5a9e6f';
+  const accentMid    = getCSSVar('--cg-accent-mid')    || '#6fa4b0';
+  const accent       = getCSSVar('--cg-accent')        || '#a8c4cd';
 
   const cyNodes = nodes.map(node => ({
     data: {
@@ -107,14 +116,15 @@ export function initEntityGraph(containerId, graphData) {
       {
         selector: 'node[type="sample"]',
         style: {
-          'background-color': '#4a7ba7',
+          'background-color': sampleColor,
           'label': 'data(label)',
           'color': '#fff',
           'text-valign': 'center',
           'text-halign': 'center',
           'font-size': '11px',
+          'font-family': "'IBM Plex Sans', sans-serif",
           'width': node => Math.max(node.data('label').length * 7, 60),
-          'height': 40,
+          'height': 36,
           'shape': 'roundrectangle',
           'text-wrap': 'wrap',
           'text-max-width': '120px'
@@ -123,15 +133,16 @@ export function initEntityGraph(containerId, graphData) {
       {
         selector: 'node[type="dataset"]',
         style: {
-          'background-color': '#5a9e6f',
+          'background-color': datasetColor,
           'label': 'data(label)',
           'color': '#fff',
           'text-valign': 'center',
           'text-halign': 'center',
           'font-size': '10px',
+          'font-family': "'IBM Plex Sans', sans-serif",
           'width': node => Math.max(node.data('label').length * 6, 60),
-          'height': 32,
-          'shape': 'rectangle',
+          'height': 28,
+          'shape': 'roundrectangle',
           'text-wrap': 'wrap',
           'text-max-width': '120px'
         }
@@ -142,44 +153,52 @@ export function initEntityGraph(containerId, graphData) {
           'background-image': 'data(thumbnail)',
           'background-fit': 'contain',
           'background-color': '#f8f9fa',
-          'border-width': 3,
-          'border-color': '#5a9e6f',
+          'border-width': 2,
+          'border-color': datasetColor,
           'color': '#333',
           'width': 100,
-          'height': 80,
+          'height': 78,
           'text-valign': 'bottom',
           'text-halign': 'center',
           'text-margin-y': 6,
-          'font-size': '10px',
+          'font-size': '10px'
         }
       },
       {
         selector: 'node[?isCenterNode]',
         style: {
           'border-width': 3,
-          'border-color': '#001f3f',
+          'border-color': accentMid,
           'font-weight': 'bold',
-          'font-size': '13px',
-          'shape': 'octagon'
+          'font-size': '12px',
+          'shape': 'roundrectangle'
         }
       },
       {
         selector: 'edge',
         style: {
-          'width': 2,
-          'line-color': '#aaa',
-          'target-arrow-color': '#aaa',
+          'width': 1.5,
+          'line-color': accent,
+          'target-arrow-color': accent,
           'target-arrow-shape': 'triangle',
           'curve-style': 'unbundled-bezier',
-          'arrow-scale': 1.5
+          'arrow-scale': 1.1
+        }
+      },
+      {
+        selector: 'node.hovered:not([?isCenterNode])',
+        style: {
+          'border-width': 2,
+          'border-color': accentMid,
+          'border-opacity': 0.85
         }
       },
       {
         selector: 'node:selected',
         style: {
-          'background-color': '#ff6b6b',
           'border-width': 3,
-          'border-color': '#c92a2a'
+          'border-color': accentMid,
+          'background-blacken': -0.15
         }
       }
     ],
@@ -195,7 +214,6 @@ export function initEntityGraph(containerId, graphData) {
     userZoomingEnabled: false
   });
 
-  // Ctrl+scroll to zoom (regular scroll passes through to the page)
   document.getElementById(containerId).addEventListener('wheel', e => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -225,15 +243,20 @@ export function initEntityGraph(containerId, graphData) {
     popup.show(node, orig.clientX, orig.clientY);
   });
 
-  cy.on('mouseover', 'node', () => {
+  cy.on('mouseover', 'node', function(evt) {
+    evt.target.addClass('hovered');
     document.getElementById(containerId).style.cursor = 'pointer';
   });
-  cy.on('mouseout', 'node', () => {
+  cy.on('mouseout', 'node', function(evt) {
+    evt.target.removeClass('hovered');
     document.getElementById(containerId).style.cursor = 'default';
   });
 
+  cy.layoutDir = currentRankDir;
+
   cy.toggleLayout = function() {
     currentRankDir = currentRankDir === 'LR' ? 'TB' : 'LR';
+    cy.layoutDir = currentRankDir;
     cy.layout({
       name: 'dagre',
       rankDir: currentRankDir,
@@ -255,10 +278,10 @@ export function initEntityGraph(containerId, graphData) {
     } else {
       thumbNodes.style({
         'background-image': 'none',
-        'background-color': '#5a9e6f',
+        'background-color': datasetColor,
         'color': '#fff',
         'width': node => Math.max(node.data('label').length * 6, 60),
-        'height': 32,
+        'height': 28,
         'text-valign': 'center',
         'text-margin-y': 0
       });
@@ -269,166 +292,3 @@ export function initEntityGraph(containerId, graphData) {
   return cy;
 }
 
-export function initSampleGraph(containerId, graphData) {
-  console.log('Initializing sample graph:', { containerId, nodeCount: graphData.nodes?.length, edgeCount: graphData.edges?.length });
-  const { nodes, edges, centerNodeId } = graphData;
-
-  // Track current layout direction
-  let currentRankDir = 'LR';
-
-  const projectId = document.getElementById(containerId).dataset.projectId;
-
-  // Transform nodes and edges to Cytoscape format
-  const cyNodes = nodes.map(node => ({
-    data: {
-      id: node.id,
-      label: node.label,
-      name: node.name,
-      description: node.description,
-      type: 'sample',
-      url: `/${projectId}/sample-graph/${node.id}`,
-      isCenterNode: node.id === centerNodeId
-    }
-  }));
-
-  const cyEdges = edges.map(edge => ({
-    data: {
-      id: `${edge.source}-${edge.target}`,
-      source: edge.source,
-      target: edge.target
-    }
-  }));
-
-  const cy = cytoscape({
-    container: document.getElementById(containerId),
-
-    elements: {
-      nodes: cyNodes,
-      edges: cyEdges
-    },
-
-    style: [
-      {
-        selector: 'node',
-        style: {
-          'background-color': '#666',
-          'label': 'data(label)',
-          'color': '#fff',
-          'text-valign': 'center',
-          'text-halign': 'center',
-          'font-size': '12px',
-          'width': (node) => node.data('name').length * 7,
-          'height': 40,
-          'padding': '10px',
-          'shape': 'roundrectangle',
-          'text-wrap': 'wrap',
-          'text-max-width': '100px'
-        }
-      },
-      {
-        selector: 'node[?isCenterNode]',
-        style: {
-          'background-color': '#4a7ba7',
-          'border-width': 3,
-          'border-color': '#003366',
-          'font-weight': 'bold',
-          'font-size': '13px',
-          'shape': 'octagon'
-        }
-      },
-      {
-        selector: 'edge',
-        style: {
-          'width': 2,
-          'line-color': '#999',
-          'target-arrow-color': '#999',
-          'target-arrow-shape': 'triangle',
-          'curve-style': 'unbundled-bezier',
-          'arrow-scale': 1.5
-        }
-      },
-      {
-        selector: 'node:selected',
-        style: {
-          'background-color': '#ff6b6b',
-          'border-width': 3,
-          'border-color': '#c92a2a'
-        }
-      }
-    ],
-
-    layout: {
-      name: 'dagre',
-      rankDir: 'LR',
-      nodeSep: 50,
-      rankSep: 100,
-      padding: 30
-    },
-
-    minZoom: 0.3,
-    maxZoom: 3,
-    userZoomingEnabled: false
-  });
-
-  console.log('Cytoscape instance created, nodes:', cy.nodes().length, 'edges:', cy.edges().length);
-
-  // Ctrl+scroll to zoom (regular scroll passes through to the page)
-  document.getElementById(containerId).addEventListener('wheel', e => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-      cy.zoom({ level: Math.min(Math.max(cy.zoom() * factor, cy.minZoom()), cy.maxZoom()),
-                renderedPosition: { x: e.offsetX, y: e.offsetY } });
-    }
-  }, { passive: false });
-
-  const samplePopup = createNodePopup();
-
-  cy.on('tap', evt => { if (evt.target === cy) samplePopup.hide(); });
-
-  cy.on('tap', 'node', function(evt) {
-    const node = evt.target;
-    const orig = evt.originalEvent;
-    if (orig.ctrlKey || orig.metaKey) {
-      const url = node.data('url');
-      if (url) {
-        cy.nodes().style('opacity', 0.3);
-        node.style('opacity', 1);
-        document.body.style.cursor = 'wait';
-        window.location.href = url;
-      }
-      return;
-    }
-    samplePopup.show(node, orig.clientX, orig.clientY);
-  });
-
-  // Add hover effects
-  const container = document.getElementById(containerId);
-
-  cy.on('mouseover', 'node', function() {
-    container.style.cursor = 'pointer';
-  });
-
-  cy.on('mouseout', 'node', function() {
-    container.style.cursor = 'default';
-  });
-
-  // Add layout toggle function
-  cy.toggleLayout = function() {
-    currentRankDir = currentRankDir === 'LR' ? 'TB' : 'LR';
-
-    cy.layout({
-      name: 'dagre',
-      rankDir: currentRankDir,
-      nodeSep: 50,
-      rankSep: 100,
-      padding: 30,
-      animate: true,
-      animationDuration: 500
-    }).run();
-
-    return currentRankDir;
-  };
-
-  return cy;
-}

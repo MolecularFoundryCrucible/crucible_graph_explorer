@@ -10,7 +10,7 @@ from flask_pyoidc.user_session import UserSession
 from PIL import Image
 
 from utils.cache import clear_project_cache, get_project, is_user_in_project
-from utils.graph import get_sample_lineage_graph
+from utils.graph import get_entity_graph_nx
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ def create_blueprint(auth):
         self_info = pc['samples_by_id'].get(sample_id)
         if not self_info:
             abort(404)
-        G = get_sample_lineage_graph(sample_id)
+        G = get_entity_graph_nx(sample_id)
         direct_parents  = [pc['samples_by_id'][sid] for sid in G.predecessors(sample_id)
                            if sid in pc['samples_by_id']]
         direct_children = [pc['samples_by_id'][sid] for sid in G.successors(sample_id)
@@ -76,7 +76,7 @@ def create_blueprint(auth):
     def sample_edit_post(project_id, sample_id):
         if not is_user_in_project(project_id):
             abort(403)
-        G = get_sample_lineage_graph(sample_id)
+        G = get_entity_graph_nx(sample_id)
         existing_parent_ids = set(G.predecessors(sample_id))
         existing_child_ids  = set(G.successors(sample_id))
 
@@ -163,7 +163,7 @@ def create_blueprint(auth):
         if not is_user_in_project(project_id):
             abort(403)
         pc = get_project(project_id)
-        G  = get_sample_lineage_graph(sample_id)
+        G  = get_entity_graph_nx(sample_id)
 
         descendants = nx.descendants(G, sample_id)
         ancestors   = nx.ancestors(G, sample_id)
@@ -171,7 +171,7 @@ def create_blueprint(auth):
         # Fetch any nodes that appear in the graph but are missing from cache
         # (soft-deleted resources are filtered from list endpoints but still appear in graph topology)
         for node_id in G.nodes():
-            if node_id not in pc['samples_by_id']:
+            if node_id not in pc['samples_by_id'] and node_id not in pc['datasets_by_id']:
                 try:
                     resource = client.get(node_id)
                     if resource and resource.get('resource_type') == 'sample':
@@ -281,26 +281,5 @@ def create_blueprint(auth):
                                img_datasets=img_datasets,
                                img_thumbnails=img_thumbnails,
                                all_projects=all_projects)
-
-    @bp.route("/<project_id>/api/sample-graph-data/<sample_id>")
-    @auth.oidc_auth('orcid')
-    def sample_graph_data(project_id, sample_id):
-        if not is_user_in_project(project_id):
-            abort(403)
-        pc = get_project(project_id)
-        G  = get_sample_lineage_graph(sample_id)
-
-        nodes = []
-        for node_id in G.nodes():
-            sample = pc['samples_by_id'].get(node_id, {})
-            nodes.append({
-                'id': node_id,
-                'label': sample.get('sample_name', node_id),
-                'name': sample.get('sample_name', node_id),
-                'description': sample.get('description', ''),
-            })
-        edges = [{'source': src, 'target': tgt} for src, tgt in G.edges()]
-
-        return jsonify({'nodes': nodes, 'edges': edges, 'centerNodeId': sample_id})
 
     return bp
