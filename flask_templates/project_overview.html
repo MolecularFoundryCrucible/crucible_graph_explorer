@@ -225,8 +225,10 @@
         {% endif %}
     </div>
 
-    <!-- ── tab switcher + expand/collapse (sticky) ────────────────────── -->
-    <div class="d-flex rounded border overflow-hidden mb-3" id="tabBar">
+    <!-- ── tab switcher + controls (sticky) ─────────────────────────────── -->
+    <div id="tabGroup" class="mb-3">
+
+      <div class="d-flex border rounded-top overflow-hidden" id="tabBar">
 
         <div class="tab-stat active p-3 border-end" id="tabSamples"
              onclick="switchTab('samples')">
@@ -254,45 +256,66 @@
             </div>
         </div>
 
-        <div class="d-flex flex-column justify-content-center gap-1 px-3 border-start flex-shrink-0"
-             style="background:var(--bs-tertiary-bg);">
+      </div>
 
-            <!-- group-by row -->
-            <div class="d-flex align-items-center gap-2">
-                <i class="bi bi-collection text-muted" style="font-size:0.8rem;" title="Group by"></i>
-                <span class="text-muted text-nowrap d-none d-lg-inline" style="font-size:0.7rem; letter-spacing:0.03em;">Group by</span>
-                <select class="form-select form-select-sm" id="sampleGroupBySelect"
-                        style="font-size:0.8rem; width:auto;"
-                        onclick="event.stopPropagation()" onchange="onSettingChange()">
-                    <option value="sample_type">Type</option>
-                    <option value="owner_orcid">Owner</option>
-                    <option value="timestamp">Date</option>
-                </select>
-                <select class="form-select form-select-sm" id="datasetGroupBySelect"
-                        style="font-size:0.8rem; width:auto; display:none;"
-                        onclick="event.stopPropagation()" onchange="onSettingChange()">
-                    <option value="measurement">Measurement</option>
-                    <option value="instrument_name">Instrument</option>
-                    <option value="session_name">Session</option>
-                    <option value="data_format">Format</option>
-                    <option value="owner_orcid">Owner</option>
-                    <option value="timestamp">Date</option>
-                </select>
-            </div>
+      <!-- ── controls bar ──────────────────────────────────────────────────── -->
+      <div id="ctrlBar" class="d-flex align-items-center gap-1 px-2 border border-top-0 rounded-bottom"
+           style="background:var(--bs-tertiary-bg); min-height:2rem;">
 
-            <!-- expand / collapse row -->
-            <div class="d-flex gap-1">
-                <button class="btn btn-sm text-muted border-0 bg-transparent px-1 py-0 d-flex align-items-center gap-1"
-                        style="font-size:0.75rem;" onclick="setAllGroups(true); event.stopPropagation();">
-                    <i class="bi bi-arrows-expand"></i> expand
-                </button>
-                <button class="btn btn-sm text-muted border-0 bg-transparent px-1 py-0 d-flex align-items-center gap-1"
-                        style="font-size:0.75rem;" onclick="setAllGroups(false); event.stopPropagation();">
-                    <i class="bi bi-arrows-collapse"></i> collapse
-                </button>
-            </div>
+        <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
+                style="font-size:0.78rem; text-decoration:none;"
+                onclick="setAllGroups(true); event.stopPropagation();" title="Expand all">
+            <i class="bi bi-chevron-expand"></i>
+            <span class="d-none d-lg-inline">Expand</span>
+        </button>
+        <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
+                style="font-size:0.78rem; text-decoration:none;"
+                onclick="setAllGroups(false); event.stopPropagation();" title="Collapse all">
+            <i class="bi bi-chevron-contract"></i>
+            <span class="d-none d-lg-inline">Collapse</span>
+        </button>
 
+        <div class="ms-auto d-flex align-items-center gap-2">
+            <span class="text-muted" style="font-size:0.72rem; white-space:nowrap; letter-spacing:0.03em;">Group</span>
+            <select class="form-select form-select-sm" id="sampleGroupBySelect"
+                    style="font-size:0.78rem; width:auto; padding-top:0.15rem; padding-bottom:0.15rem;"
+                    onclick="event.stopPropagation()" onchange="onSettingChange()">
+                <option value="sample_type">Type</option>
+                <option value="owner_orcid">Owner</option>
+                <option value="timestamp">Date</option>
+            </select>
+            <select class="form-select form-select-sm" id="datasetGroupBySelect"
+                    style="font-size:0.78rem; width:auto; display:none; padding-top:0.15rem; padding-bottom:0.15rem;"
+                    onclick="event.stopPropagation()" onchange="onSettingChange()">
+                <option value="measurement">Measurement</option>
+                <option value="instrument_name">Instrument</option>
+                <option value="session_name">Session</option>
+                <option value="data_format">Format</option>
+                <option value="owner_orcid">Owner</option>
+                <option value="timestamp">Date</option>
+            </select>
+            <span class="text-muted" style="font-size:0.72rem; white-space:nowrap; letter-spacing:0.03em;">Sort</span>
+            <select class="form-select form-select-sm" id="sampleSortBySelect"
+                    style="font-size:0.78rem; width:auto; padding-top:0.15rem; padding-bottom:0.15rem;"
+                    onclick="event.stopPropagation()" onchange="onSettingChange()">
+                <option value="name_asc">Name A→Z</option>
+                <option value="name_desc">Name Z→A</option>
+                <option value="timestamp_desc">Newest</option>
+                <option value="timestamp_asc">Oldest</option>
+                <option value="id_asc">ID</option>
+            </select>
+            <select class="form-select form-select-sm" id="datasetSortBySelect"
+                    style="font-size:0.78rem; width:auto; display:none; padding-top:0.15rem; padding-bottom:0.15rem;"
+                    onclick="event.stopPropagation()" onchange="onSettingChange()">
+                <option value="name_asc">Name A→Z</option>
+                <option value="name_desc">Name Z→A</option>
+                <option value="timestamp_desc">Newest</option>
+                <option value="timestamp_asc">Oldest</option>
+                <option value="id_asc">ID</option>
+            </select>
         </div>
+
+      </div>
     </div>
 
     <!-- ── recently visited ─────────────────────────────────────────────── -->
@@ -506,7 +529,21 @@
         return val;
     }
 
-    function groupBy(items, field) {
+    function sortItems(items, sortBy) {
+        return items.slice().sort((a, b) => {
+            const nameA = a.sample_name || a.dataset_name || '';
+            const nameB = b.sample_name || b.dataset_name || '';
+            switch (sortBy) {
+                case 'name_desc':      return nameB.localeCompare(nameA);
+                case 'timestamp_desc': return (b.timestamp || '').localeCompare(a.timestamp || '');
+                case 'timestamp_asc':  return (a.timestamp || '').localeCompare(b.timestamp || '');
+                case 'id_asc':         return (a.unique_id  || '').localeCompare(b.unique_id  || '');
+                default:               return nameA.localeCompare(nameB); // name_asc
+            }
+        });
+    }
+
+    function groupBy(items, field, sortBy = 'name_asc') {
         const groups = {};
         items.forEach(item => {
             const key = groupLabel(item, field);
@@ -521,7 +558,6 @@
             keys.sort((a, b) => {
                 if (a === '(no date)') return  1;
                 if (b === '(no date)') return -1;
-                // compare by the timestamp of the first item in each group
                 return (groups[b][0].timestamp || '').localeCompare(groups[a][0].timestamp || '');
             });
         } else {
@@ -529,16 +565,7 @@
         }
 
         const sorted = {};
-        keys.forEach(k => {
-            sorted[k] = groups[k].slice().sort((a, b) => {
-                if (isDate) {
-                    // within a month, most recent first
-                    return (b.timestamp || '').localeCompare(a.timestamp || '');
-                }
-                return (a.sample_name || a.dataset_name || '')
-                    .localeCompare(b.sample_name || b.dataset_name || '');
-            });
-        });
+        keys.forEach(k => { sorted[k] = sortItems(groups[k], sortBy); });
         return sorted;
     }
 
@@ -591,8 +618,8 @@
     }
 
     // ── render sample groups ──────────────────────────────────────────────────
-    function renderSampleGroups(field) {
-        const grouped   = groupBy(SAMPLES, field);
+    function renderSampleGroups(field, sortBy = 'name_asc') {
+        const grouped   = groupBy(SAMPLES, field, sortBy);
         const container = document.getElementById('samples-groups');
         const nav       = document.getElementById('sampleNav');
         container.innerHTML = '';
@@ -627,8 +654,8 @@
     }
 
     // ── render dataset groups ─────────────────────────────────────────────────
-    function renderDatasetGroups(field) {
-        const grouped   = groupBy(DATASETS, field);
+    function renderDatasetGroups(field, sortBy = 'name_asc') {
+        const grouped   = groupBy(DATASETS, field, sortBy);
         const container = document.getElementById('datasets-groups');
         const nav       = document.getElementById('datasetNav');
         container.innerHTML = '';
@@ -666,10 +693,14 @@
     function onSettingChange() {
         const sgb = document.getElementById('sampleGroupBySelect')?.value  || 'sample_type';
         const dgb = document.getElementById('datasetGroupBySelect')?.value || 'measurement';
-        localStorage.setItem('pref_sample_groupby',  sgb);
+        const ssb = document.getElementById('sampleSortBySelect')?.value   || 'name_asc';
+        const dsb = document.getElementById('datasetSortBySelect')?.value  || 'name_asc';
+        localStorage.setItem('pref_sample_groupby', sgb);
         localStorage.setItem('pref_dataset_groupby', dgb);
-        renderSampleGroups(sgb);
-        renderDatasetGroups(dgb);
+        localStorage.setItem('pref_sample_sortby',  ssb);
+        localStorage.setItem('pref_dataset_sortby', dsb);
+        renderSampleGroups(sgb, ssb);
+        renderDatasetGroups(dgb, dsb);
     }
 
     // ── avatar + project card accent ──────────────────────────────────────────
@@ -691,10 +722,10 @@
         el.style.background = hashColor(el.dataset.avatarFor || '?');
     });
 
-    // ── sticky tab bar ────────────────────────────────────────────────────────
+    // ── sticky tab group ──────────────────────────────────────────────────────
     (function () {
-        const nav = document.querySelector('nav[aria-label="breadcrumb"]');
-        const bar = document.getElementById('tabBar');
+        const nav   = document.querySelector('nav[aria-label="breadcrumb"]');
+        const bar = document.getElementById('tabGroup');
         if (nav && bar) {
             const offset = nav.getBoundingClientRect().height;
             bar.style.position  = 'sticky';
@@ -717,9 +748,11 @@
         document.getElementById('tabDatasets').classList.toggle('active',   tab === 'datasets');
         document.getElementById('tabDatasets').classList.toggle('inactive', tab !== 'datasets');
 
-        // swap group-by dropdown
+        // swap group-by and sort-by dropdowns
         document.getElementById('sampleGroupBySelect').style.display  = tab === 'samples'  ? '' : 'none';
         document.getElementById('datasetGroupBySelect').style.display = tab === 'datasets' ? '' : 'none';
+        document.getElementById('sampleSortBySelect').style.display   = tab === 'samples'  ? '' : 'none';
+        document.getElementById('datasetSortBySelect').style.display  = tab === 'datasets' ? '' : 'none';
 
         const sLbl = document.getElementById('sampleNavLabel');
         const dLbl = document.getElementById('datasetNavLabel');
@@ -949,11 +982,17 @@
     (function () {
         const sgb = localStorage.getItem('pref_sample_groupby')  || 'sample_type';
         const dgb = localStorage.getItem('pref_dataset_groupby') || 'measurement';
+        const ssb = localStorage.getItem('pref_sample_sortby')   || 'name_asc';
+        const dsb = localStorage.getItem('pref_dataset_sortby')  || 'name_asc';
 
         const sgbEl = document.getElementById('sampleGroupBySelect');
         if (sgbEl) sgbEl.value = sgb;
         const dgbEl = document.getElementById('datasetGroupBySelect');
         if (dgbEl) dgbEl.value = dgb;
+        const ssbEl = document.getElementById('sampleSortBySelect');
+        if (ssbEl) ssbEl.value = ssb;
+        const dsbEl = document.getElementById('datasetSortBySelect');
+        if (dsbEl) dsbEl.value = dsb;
 
         // Restore saved state if returning from a resource page and URL has no hash
         if (!location.hash) {
@@ -992,8 +1031,8 @@
                 DATASETS = data.datasets;
                 document.getElementById('samplesSpinner')?.remove();
                 document.getElementById('datasetsSpinner')?.remove();
-                renderSampleGroups(sgb);
-                renderDatasetGroups(dgb);
+                renderSampleGroups(sgb, ssb);
+                renderDatasetGroups(dgb, dsb);
                 // Apply URL filter after render
                 if (hs.q) applyFilter();
             })
