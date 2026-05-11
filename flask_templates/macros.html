@@ -1,5 +1,77 @@
 {# Shared Jinja2 macros for resource detail pages (dataset.html, sample_graph.html). #}
 
+{# ── resource_sidebar: left nav sidebar for sample/dataset pages ─────────────── #}
+{%- macro resource_sidebar(pid, resource_label, resource_icon, resource_title, all_projects) -%}
+<div id="resourceSidebar" class="cg-sidebar d-none d-md-block">
+  <button class="cg-sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+    <i class="bi bi-chevron-left" id="sidebarToggleIcon"></i>
+  </button>
+  <div class="cg-sidebar-content" id="sidebarContent">
+    <div class="mb-2 px-2">
+      <div class="d-flex align-items-center gap-2 mb-1" onclick="goBackToProject()"
+           style="cursor:pointer;" title="Back to project">
+        <div id="projectAvatar" style="flex-shrink:0;"></div>
+        <span class="fw-semibold small text-body text-truncate">{{pid}}</span>
+      </div>
+      <a href="javascript:void(0)" onclick="goBackToProject()" class="nav-link py-1 px-1 text-muted small">
+        <i class="bi bi-arrow-left me-1"></i>Back to project
+      </a>
+    </div>
+    <hr class="my-1 mx-2">
+    <div class="px-2 mb-1" style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--cg-link);">
+      <i class="{{ resource_icon }} me-1"></i>This {{ resource_label }}
+    </div>
+    <div class="px-2 mb-2 small fw-semibold text-body" style="font-size:0.8rem; word-break:break-word;">{{ resource_title }}</div>
+    <hr class="my-1 mx-2">
+    {% if all_projects %}
+    <div class="px-2 mt-1 mb-1" style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--bs-secondary-color);">
+      <i class="bi bi-grid me-1"></i>Projects
+    </div>
+    <div style="overflow-y:auto; flex:1;">
+      {% for proj in all_projects %}
+      <a class="nav-link py-1 px-2 d-flex align-items-center gap-2 {% if proj['project_id'] == pid %}fw-semibold{% endif %}"
+         style="font-size:0.8rem;" href="/{{proj['project_id']}}/">
+        <span class="text-truncate">{{proj['project_id']}}</span>
+        {% if proj['project_id'] == pid %}<i class="bi bi-dot ms-auto flex-shrink-0" style="color:var(--cg-link);"></i>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  <div class="cg-sidebar-icon-rail" id="sidebarIconRail">
+    <div id="projectAvatarRail" style="width:24px;height:24px;border-radius:50%;"></div>
+    <button class="cg-rail-btn" onclick="goBackToProject()" title="Back to project"><i class="bi bi-house"></i></button>
+  </div>
+</div>
+{%- endmacro -%}
+
+{# ── resource_card_identity: avatar + title + uuid + badges + QR ─────────────── #}
+{%- macro resource_card_identity(avatar_id, title, uuid, keywords=none, type_badge=none) -%}
+<div class="cg-card-identity">
+  <div id="{{ avatar_id }}" class="cg-card-avatar"></div>
+  <div class="cg-card-names">
+    <h1 class="cg-card-title">{{ title }}</h1>
+    <div class="mfid cg-card-uuid">{{ uuid }}</div>
+    {% if keywords %}
+    <div class="d-flex flex-wrap gap-1 mt-1">
+      {% set kw_list = keywords if (keywords is sequence and keywords is not string) else [keywords] %}
+      {% for kw in kw_list %}
+      <span class="badge fw-normal border text-body-secondary" style="background:var(--bs-tertiary-bg); font-size:0.7rem;">{{ kw }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if type_badge %}
+    <div class="mt-1">
+      <span class="badge fw-normal border text-body-secondary" style="background:var(--bs-tertiary-bg);">{{ type_badge }}</span>
+    </div>
+    {% endif %}
+  </div>
+  <div class="flex-shrink-0">
+    <img src="{{ qrcode(uuid, box_size=3, border=2) }}" style="border-radius:4px; opacity:0.75;" title="{{ uuid }}">
+  </div>
+</div>
+{%- endmacro -%}
+
 {# ── mrow: one metadata label/value row ─────────────────────────────────────── #}
 {%- macro mrow(label, value) -%}
 <div class="meta-row">

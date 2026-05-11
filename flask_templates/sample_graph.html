@@ -1,7 +1,7 @@
 {% set s = self_info %}
 {% set pid = pc['project_id'] %}
 
-{% from 'macros.html' import mrow, mrow_link, section_metadata, deletion_banner %}
+{% from 'macros.html' import mrow, mrow_link, section_metadata, deletion_banner, resource_sidebar, resource_card_identity %}
 
 {% extends "base.html" %}
 {% block title %}{{s['sample_name']}}{% endblock %}
@@ -10,51 +10,6 @@
 {{ super() }}
 {{ vite_tags() }}
 <style>
-    /* ── collapsible sidebar ────────────────────────────────────────────────── */
-    .cg-sidebar {
-        width: 200px; flex-shrink: 0;
-        position: sticky; top: 3rem; height: calc(100vh - 3rem); align-self: flex-start;
-        transition: width 0.25s cubic-bezier(0.4,0,0.2,1);
-        border-right: 1px solid var(--bs-border-color);
-        margin-right: 0.75rem;
-        overflow: hidden;
-        display: flex; flex-direction: column;
-    }
-    .cg-sidebar.collapsed { width: 40px; }
-    .cg-sidebar-toggle {
-        position: absolute; right: -10px; top: 0.5rem; z-index: 200;
-        width: 20px; height: 20px; border-radius: 50%;
-        border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
-        color: var(--bs-secondary-color); cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 0.65rem; box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-        transition: background 0.15s;
-    }
-    .cg-sidebar-toggle:hover { background: var(--bs-tertiary-bg); }
-    .cg-sidebar-toggle i { transition: transform 0.25s; }
-    .cg-sidebar.collapsed .cg-sidebar-toggle i { transform: rotate(180deg); }
-    .cg-sidebar-content {
-        flex: 1; overflow-y: auto; overflow-x: hidden;
-        padding: 0.5rem 0; display: flex; flex-direction: column;
-        opacity: 1; transition: opacity 0.15s;
-    }
-    .cg-sidebar.collapsed .cg-sidebar-content { visibility: hidden; opacity: 0; }
-    .cg-sidebar-icon-rail {
-        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-        display: flex; flex-direction: column; align-items: center;
-        gap: 0.5rem; padding-top: 2.5rem;
-        opacity: 0; pointer-events: none; transition: opacity 0.15s 0.1s;
-    }
-    .cg-sidebar.collapsed .cg-sidebar-icon-rail { opacity: 1; pointer-events: auto; }
-    .cg-rail-btn {
-        width: 28px; height: 28px; border-radius: 0.25rem;
-        display: flex; align-items: center; justify-content: center;
-        color: var(--bs-secondary-color); font-size: 0.9rem;
-        text-decoration: none; border: none; background: none;
-        transition: background 0.12s; cursor: pointer; padding: 0;
-    }
-    .cg-rail-btn:hover { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
-
     /* ── graph containers ───────────────────────────────────────────────── */
     #cy {
         width: 100%; height: 40vh; min-height: 280px;
@@ -72,89 +27,6 @@
     #section-graph:fullscreen #cy {
         flex: 1; height: unset !important; min-height: unset !important;
     }
-
-    /* ── compact resource card ─────────────────────────────────────────────── */
-    .cg-resource-card {
-        border: 1px solid var(--bs-border-color);
-        border-left-width: 5px;
-        border-radius: 0.375rem;
-        background: var(--bs-body-bg);
-    }
-    .cg-card-identity {
-        display: flex; align-items: flex-start; gap: 0.75rem;
-        padding: 0.75rem 1rem;
-    }
-    .cg-card-avatar {
-        width: 2rem; height: 2rem; min-width: 2rem; border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 0.7rem; font-weight: 700; flex-shrink: 0; color: #fff;
-    }
-    .cg-card-names { flex: 1; min-width: 0; }
-    .cg-card-title { font-size: 1.05rem; font-weight: 600; margin: 0 0 0.15rem; line-height: 1.3; overflow-wrap: break-word; }
-    .cg-card-uuid { font-size: 0.78rem; }
-    .cg-count-chip {
-        display: inline-flex; align-items: center; padding: 2px 8px;
-        border-radius: 10px; font-size: 0.72rem; white-space: nowrap;
-        border: 1px solid rgba(58,122,135,0.25); background: rgba(58,122,135,0.07); color: var(--cg-link);
-    }
-    .cg-card-actions {
-        display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
-        padding: 0.35rem 0.75rem;
-        border-top: 1px solid var(--bs-border-color);
-        background: var(--bs-tertiary-bg);
-    }
-    /* sibling nav */
-    .cg-sibling-nav { display: flex; align-items: center; gap: 0.3rem; position: relative; }
-    .cg-sib-btn {
-        display: inline-flex; align-items: center; justify-content: center;
-        width: 1.6rem; height: 1.6rem; border-radius: 0.25rem;
-        border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
-        color: var(--bs-secondary-color); font-size: 0.75rem; cursor: pointer;
-        text-decoration: none; transition: background 0.12s; padding: 0;
-    }
-    .cg-sib-btn:hover:not([disabled]) { background: var(--bs-body-bg); color: var(--bs-body-color); }
-    .cg-sib-btn[disabled] { opacity: 0.4; cursor: default; pointer-events: none; }
-    .cg-sib-label { font-size: 0.8rem; color: var(--bs-secondary-color); white-space: nowrap; padding: 0 0.2rem; }
-    .cg-sib-type { font-size: 0.75rem; margin-left: 0.2rem; opacity: 0.7; }
-    .cg-sib-jump-btn {
-        border: 1px solid var(--cg-accent-mid); border-radius: 0.25rem;
-        padding: 0.15rem 0.5rem; font-size: 0.78rem; background: var(--bs-body-bg);
-        color: var(--cg-link); cursor: pointer; white-space: nowrap; transition: background 0.12s;
-    }
-    .cg-sib-jump-btn:hover { background: var(--bs-tertiary-bg); }
-    .cg-sib-dropdown {
-        position: absolute; top: calc(100% + 4px); left: 0; z-index: 600;
-        min-width: 200px; max-width: 320px; max-height: 280px; overflow-y: auto;
-        background: var(--bs-body-bg); border: 1px solid var(--bs-border-color);
-        border-radius: 0.375rem; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-    }
-    .cg-sib-item {
-        display: block; padding: 0.4rem 0.75rem; font-size: 0.82rem;
-        color: var(--bs-body-color); text-decoration: none;
-        border-bottom: 1px solid var(--bs-border-color);
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        transition: background 0.08s;
-    }
-    .cg-sib-item:last-child { border-bottom: none; }
-    .cg-sib-item:hover { background: var(--bs-tertiary-bg); }
-    .cg-sib-item.active { background: rgba(58,122,135,0.08); color: var(--cg-link); font-weight: 600; }
-    /* action buttons */
-    .cg-action-btn {
-        display: inline-flex; align-items: center; justify-content: center;
-        height: 1.7rem; padding: 0 0.5rem; border-radius: 0.25rem;
-        border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
-        color: var(--bs-secondary-color); font-size: 0.82rem; text-decoration: none;
-        cursor: pointer; transition: background 0.12s, color 0.12s; white-space: nowrap; gap: 0.25rem;
-    }
-    .cg-action-btn:hover { color: var(--bs-body-color); }
-    .cg-action-btn.primary { background: var(--cg-link); border-color: var(--cg-link); color: #fff; }
-    .cg-action-btn.primary:hover { background: #2e6370; border-color: #2e6370; color: #fff; }
-    .cg-sib-groupby {
-        height: 1.6rem; border-radius: 0.25rem;
-        border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
-        color: var(--bs-secondary-color); font-size: 0.75rem; padding: 0 0.3rem;
-        cursor: pointer; max-width: 110px;
-    }
 </style>
 {% endblock %}
 
@@ -164,50 +36,7 @@
 {% endblock %}
 
 {% block sidebar %}
-<div id="resourceSidebar" class="cg-sidebar d-none d-md-block">
-  <button class="cg-sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
-    <i class="bi bi-chevron-left" id="sidebarToggleIcon"></i>
-  </button>
-
-  <div class="cg-sidebar-content" id="sidebarContent">
-    <div class="mb-2 px-2">
-      <div class="d-flex align-items-center gap-2 mb-1">
-        <div id="projectAvatar" style="flex-shrink:0;"></div>
-        <span class="fw-semibold small text-body text-truncate">{{pid}}</span>
-      </div>
-      <a href="javascript:void(0)" onclick="goBackToProject()" class="nav-link py-1 px-1 text-muted small">
-        <i class="bi bi-arrow-left me-1"></i>Back to project
-      </a>
-    </div>
-    <hr class="my-1 mx-2">
-    <div class="px-2 mb-1" style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--cg-link);">
-      <i class="bi bi-eyedropper me-1"></i>This sample
-    </div>
-    <div class="px-2 mb-2 small fw-semibold text-body" style="font-size:0.8rem; word-break:break-word;">{{s['sample_name']}}</div>
-    <hr class="my-1 mx-2">
-
-    {% if all_projects %}
-    <div class="px-2 mt-1 mb-1" style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--bs-secondary-color);">
-      <i class="bi bi-grid me-1"></i>Projects
-    </div>
-    <div style="overflow-y:auto; flex:1;">
-      {% for proj in all_projects %}
-      <a class="nav-link py-1 px-2 d-flex align-items-center gap-2 {% if proj['project_id'] == pid %}fw-semibold{% endif %}"
-         style="font-size:0.8rem;" href="/{{proj['project_id']}}/">
-        <span class="text-truncate">{{proj['project_id']}}</span>
-        {% if proj['project_id'] == pid %}<i class="bi bi-dot ms-auto flex-shrink-0" style="color:var(--cg-link);"></i>{% endif %}
-      </a>
-      {% endfor %}
-    </div>
-    {% endif %}
-  </div>
-
-  <!-- Icon rail shown when collapsed -->
-  <div class="cg-sidebar-icon-rail" id="sidebarIconRail">
-    <div id="projectAvatarRail" style="width:24px;height:24px;border-radius:50%;"></div>
-    <button class="cg-rail-btn" onclick="goBackToProject()" title="Back to project"><i class="bi bi-house"></i></button>
-  </div>
-</div>
+{{ resource_sidebar(pid, 'sample', 'bi-eyedropper', s['sample_name'], all_projects) }}
 {% endblock %}
 
 {% block main_col_class %}col-12 col-md{% endblock %}
@@ -223,29 +52,8 @@
 <div class="cg-resource-card mb-3" id="sampleCard" style="max-width:860px;">
 
   <!-- Identity strip -->
-  <div class="cg-card-identity">
-    <div id="sampleAvatar" class="cg-card-avatar"></div>
-    <div class="cg-card-names">
-      <h1 class="cg-card-title">{{s['sample_name']}}</h1>
-      <div class="mfid cg-card-uuid">{{s['unique_id']}}</div>
-      {% set kws = s.get('keywords') %}
-      {% if kws %}
-      <div class="d-flex flex-wrap gap-1 mt-1">
-        {% for kw in (kws if kws is sequence and kws is not string else [kws]) %}
-        <span class="badge fw-normal border text-body-secondary" style="background:var(--bs-tertiary-bg); font-size:0.7rem;">{{kw}}</span>
-        {% endfor %}
-      </div>
-      {% endif %}
-      {% if s.get('sample_type') %}
-      <div class="mt-1">
-        <span class="badge fw-normal border text-body-secondary" style="background:var(--bs-tertiary-bg);">{{s['sample_type']}}</span>
-      </div>
-      {% endif %}
-    </div>
-    <div class="flex-shrink-0">
-      <img src="{{ qrcode(s['unique_id'], box_size=3, border=2) }}" style="border-radius:4px; opacity:0.75;" title="{{s['unique_id']}}">
-    </div>
-  </div>
+  {{ resource_card_identity('sampleAvatar', s['sample_name'], s['unique_id'],
+                            keywords=s.get('keywords'), type_badge=s.get('sample_type')) }}
 
   <!-- Action strip -->
   <div class="cg-card-actions">
