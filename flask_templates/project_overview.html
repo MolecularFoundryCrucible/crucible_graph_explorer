@@ -76,7 +76,7 @@
         border-radius: 0.375rem 0.375rem 0 0;
         cursor: pointer; user-select: none;
     }
-    .group-header:hover { filter: brightness(0.97); }
+    .group-header:hover { background: color-mix(in srgb, var(--cg-accent) 10%, var(--bs-tertiary-bg)); }
     .group-chevron {
         margin-left: auto; color: var(--bs-secondary-color);
         transition: transform 0.2s; flex-shrink: 0;
@@ -94,6 +94,7 @@
     .list-row:last-child { border-bottom: none; }
     .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; box-shadow: inset 3px 0 0 var(--cg-accent); }
     .list-row.kb-focused { background: var(--bs-tertiary-bg) !important; box-shadow: inset 3px 0 0 var(--cg-accent) !important; outline: none; }
+    a.member-row { transition: background 0.12s; }
     a.member-row:hover { background: var(--bs-tertiary-bg); }
 
     /* ── skeleton loading ─────────────────────────────────────────────── */
@@ -205,9 +206,6 @@
         <div class="d-flex border-top">
             <a href="/{{pid}}/search" class="action-link flex-fill py-2 border-end text-secondary">
                 <i class="bi bi-search"></i> Search
-            </a>
-            <a href="/{{pid}}/project-graph" class="action-link flex-fill py-2 border-end text-secondary">
-                <i class="bi bi-diagram-3"></i> Graph
             </a>
             <a href="/{{pid}}/chat" class="action-link flex-fill py-2 text-primary">
                 <i class="bi bi-chat-dots"></i> Chat
@@ -610,9 +608,10 @@
         const li = document.createElement('li');
         li.className = 'nav-item';
         li.id = `${navPrefix}-${idx}`;
-        li.innerHTML = `<a class="nav-link py-1 px-1 text-body" style="font-size:0.82rem;"
-            href="#${gid}" onclick="expandAndScroll('${gid}', event)">
-            ${escHtml(gkey)} <span class="text-muted">(${count})</span>
+        li.innerHTML = `<a class="cg-sidebar-link" href="#${gid}"
+            onclick="expandAndScroll('${gid}', event)">
+            <span class="text-truncate">${escHtml(gkey)}</span>
+            <span class="ms-auto flex-shrink-0" style="font-size:0.72rem; opacity:0.6;">${count}</span>
         </a>`;
         return li;
     }
