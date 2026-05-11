@@ -363,15 +363,7 @@
                   || edge.target().style('display') === 'none';
       edge.style('display', hidden ? 'none' : 'element');
     });
-    cyInstance.layout({
-      name: 'dagre',
-      rankDir: cyInstance.layoutDir || 'LR',
-      nodeSep: 40,
-      rankSep: 80,
-      padding: 30,
-      animate: true,
-      animationDuration: 400
-    }).run();
+    cyInstance.relayout();
     setTimeout(() => { if (cyInstance) cyInstance.fit(); }, 450);
     document.getElementById('toggleThumbnailsBtn').disabled = !visible;
   }

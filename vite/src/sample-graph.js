@@ -1,7 +1,26 @@
 import cytoscape from 'cytoscape';
-import dagre from 'cytoscape-dagre';
+import elk from 'cytoscape-elk';
 
-cytoscape.use(dagre);
+cytoscape.use(elk);
+
+function elkLayout(rankDir, animate) {
+  return {
+    name: 'elk',
+    nodeDimensionsIncludeLabels: false,
+    fit: false,
+    padding: 30,
+    animate: !!animate,
+    animationDuration: animate || 400,
+    elk: {
+      algorithm: 'layered',
+      'elk.direction': rankDir === 'LR' ? 'RIGHT' : 'DOWN',
+      'elk.spacing.nodeNode': 40,
+      'elk.layered.spacing.nodeNodeBetweenLayers': 80,
+      'elk.edgeRouting': 'ORTHOGONAL',
+      'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
+    }
+  };
+}
 
 function getCSSVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -202,13 +221,7 @@ export function initEntityGraph(containerId, graphData) {
         }
       }
     ],
-    layout: {
-      name: 'dagre',
-      rankDir: 'LR',
-      nodeSep: 40,
-      rankSep: 80,
-      padding: 30
-    },
+    layout: elkLayout('LR'),
     minZoom: 0.2,
     maxZoom: 3,
     userZoomingEnabled: false
@@ -254,18 +267,14 @@ export function initEntityGraph(containerId, graphData) {
 
   cy.layoutDir = currentRankDir;
 
+  cy.relayout = function(animate) {
+    cy.layout(elkLayout(currentRankDir, animate !== false ? 400 : 0)).run();
+  };
+
   cy.toggleLayout = function() {
     currentRankDir = currentRankDir === 'LR' ? 'TB' : 'LR';
     cy.layoutDir = currentRankDir;
-    cy.layout({
-      name: 'dagre',
-      rankDir: currentRankDir,
-      nodeSep: 40,
-      rankSep: 80,
-      padding: 30,
-      animate: true,
-      animationDuration: 500
-    }).run();
+    cy.relayout();
     return currentRankDir;
   };
 
