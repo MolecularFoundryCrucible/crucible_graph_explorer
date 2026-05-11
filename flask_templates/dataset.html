@@ -179,6 +179,21 @@
     </div>
     <div class="px-2 mb-2 small fw-semibold text-body" style="font-size:0.8rem; word-break:break-word;">{{ds['dataset_name']}}</div>
     <hr class="my-1 mx-2">
+
+    {% if all_projects %}
+    <div class="px-2 mt-1 mb-1" style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--bs-secondary-color);">
+      <i class="bi bi-grid me-1"></i>Projects
+    </div>
+    <div style="overflow-y:auto; flex:1;">
+      {% for proj in all_projects %}
+      <a class="nav-link py-1 px-2 d-flex align-items-center gap-2 {% if proj['project_id'] == project_id %}fw-semibold{% endif %}"
+         style="font-size:0.8rem;" href="/{{proj['project_id']}}/">
+        <span class="text-truncate">{{proj['project_id']}}</span>
+        {% if proj['project_id'] == project_id %}<i class="bi bi-dot ms-auto flex-shrink-0" style="color:var(--cg-link);"></i>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
 
   <!-- Icon rail shown when collapsed -->
@@ -705,7 +720,7 @@
 </div>{# end flex-1 content column #}
 
 <!-- ── right panel: relationships (xl+ only) ─────────────────────────── -->
-<div class="d-none d-xl-block flex-shrink-0" style="width: 200px;">
+<div class="d-none d-xl-block flex-shrink-0" style="width: 280px;">
   <div style="position: sticky; top: 3.25rem; max-height: calc(100vh - 3.5rem); overflow-y: auto;">
     <div class="rounded border overflow-hidden">
 

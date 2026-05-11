@@ -159,6 +159,7 @@ def create_blueprint(auth):
     @auth.oidc_auth('orcid')
     def sample_graph(project_id, sample_id):
         client = flask.current_app.crucible_client
+        orcid = UserSession(flask.session).userinfo['sub']
         if not is_user_in_project(project_id):
             abort(403)
         pc = get_project(project_id)
@@ -256,6 +257,8 @@ def create_blueprint(auth):
         prev_sibling = siblings[sibling_idx - 1] if sibling_idx > 0 else None
         next_sibling = siblings[sibling_idx + 1] if sibling_idx < len(siblings) - 1 else None
 
+        all_projects = client.projects.list(orcid=orcid)
+
         return render_template('sample_graph.html',
                                pc=pc,
                                self_info=self_info,
@@ -276,7 +279,8 @@ def create_blueprint(auth):
                                siblings=siblings,
                                sibling_label=group_val or '',
                                img_datasets=img_datasets,
-                               img_thumbnails=img_thumbnails)
+                               img_thumbnails=img_thumbnails,
+                               all_projects=all_projects)
 
     @bp.route("/<project_id>/api/sample-graph-data/<sample_id>")
     @auth.oidc_auth('orcid')

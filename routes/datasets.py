@@ -28,6 +28,8 @@ def create_blueprint(auth):
         if not is_user_in_project(project_id):
             abort(403)
 
+        orcid = UserSession(flask.session).userinfo['sub']
+
         def _get_links():
             try:
                 return client.datasets.get_download_links(dsid)
@@ -44,6 +46,7 @@ def create_blueprint(auth):
             f_links    = ex.submit(_get_links)
             f_children = ex.submit(client.datasets.list_children, dsid)
             f_parents  = ex.submit(client.datasets.list_parents, dsid)
+            f_projects = ex.submit(client.projects.list, orcid=orcid)
 
         pc               = f_pc.result()
         ds               = f_ds.result()
@@ -53,6 +56,7 @@ def create_blueprint(auth):
         download_links   = f_links.result()
         child_datasets   = f_children.result()
         parent_datasets  = f_parents.result()
+        all_projects     = f_projects.result()
         logger.debug("dataset parallel fetch=%.3fs", time.perf_counter() - t0)
 
         markdown_html = None
@@ -97,7 +101,8 @@ def create_blueprint(auth):
                                sibling_index=ds_sibling_idx + 1,
                                sibling_count=len(ds_siblings),
                                siblings=ds_siblings,
-                               sibling_label=group_val or '')
+                               sibling_label=group_val or '',
+                               all_projects=all_projects)
 
     @bp.route("/<project_id>/dataset/<dsid>/mdnote-edit", methods=['GET', 'POST'])
     @auth.oidc_auth('orcid')
