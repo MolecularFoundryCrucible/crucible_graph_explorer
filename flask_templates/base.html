@@ -786,9 +786,10 @@
                 cgTrackResource('dataset', dm[2], h1?.textContent?.trim() || dm[2], dm[1]);
                 return;
             }
-            // Project overview page: URL is /<pid>/
+            // Project overview page: URL is /<pid>/ — guard with #projectCard so
+            // system pages like /search and /users aren't misclassified as projects.
             const pm = location.pathname.match(/^\/([^/]+)\/?$/);
-            if (pm) {
+            if (pm && document.getElementById('projectCard')) {
                 const pid = pm[1];
                 const h1 = document.querySelector('h1, .fs-4.fw-semibold');
                 cgTrackResource('project', pid, h1?.textContent?.trim() || pid, null);
