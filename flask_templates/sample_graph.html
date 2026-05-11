@@ -177,45 +177,6 @@
     </div>
     <div class="px-2 mb-2 small fw-semibold text-body" style="font-size:0.8rem; word-break:break-word;">{{s['sample_name']}}</div>
     <hr class="my-1 mx-2">
-
-    {% if ancestors_info %}
-    <div class="px-2 mb-1" style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--bs-secondary-color);">
-      <i class="bi bi-arrow-up-short me-1"></i>Ancestors ({{ancestors_info|length}})
-    </div>
-    <ul class="nav flex-column mb-2">
-      {% for anc in ancestors_info %}
-      <li class="nav-item">
-        <a class="nav-link py-1 px-2 text-body" style="font-size:0.8rem;" href="/{{pid}}/sample-graph/{{anc['unique_id']}}">{{anc['sample_name']}}</a>
-      </li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-
-    {% if descendants_info %}
-    <div class="px-2 mb-1" style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--bs-secondary-color);">
-      <i class="bi bi-arrow-down-short me-1"></i>Descendants ({{descendants_info|length}})
-    </div>
-    <ul class="nav flex-column mb-2">
-      {% for desc in descendants_info %}
-      <li class="nav-item">
-        <a class="nav-link py-1 px-2 text-body" style="font-size:0.8rem;" href="/{{pid}}/sample-graph/{{desc['unique_id']}}">{{desc['sample_name']}}</a>
-      </li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-
-    {% if s['datasets'] %}
-    <div class="px-2 mb-1" style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--bs-secondary-color);">
-      <i class="bi bi-database me-1"></i>Datasets ({{s['datasets']|length}})
-    </div>
-    <ul class="nav flex-column mb-2" style="overflow-y:auto; max-height:30vh;">
-      {% for ds in s['datasets'] %}
-      <li class="nav-item">
-        <a class="nav-link py-1 px-2 text-body" style="font-size:0.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" href="/{{pid}}/dataset/{{ds['unique_id']}}">{{ds['dataset_name']}}</a>
-      </li>
-      {% endfor %}
-    </ul>
-    {% endif %}
   </div>
 
   <!-- Icon rail shown when collapsed -->
@@ -231,6 +192,9 @@
 {% block content %}
 
 {{ deletion_banner(s) }}
+
+<div class="d-flex gap-3 align-items-start">
+<div style="flex: 1; min-width: 0;">
 
 <!-- ── compact resource card ────────────────────────────────────────────── -->
 <div class="cg-resource-card mb-3" id="sampleCard" style="max-width:860px;">
@@ -713,5 +677,86 @@
         }
     });
 </script>
+
+</div>{# end flex-1 content column #}
+
+<!-- ── right panel: relationships (xl+ only) ─────────────────────────── -->
+<div class="d-none d-xl-block flex-shrink-0" style="width: 200px;">
+  <div style="position: sticky; top: 3.25rem; max-height: calc(100vh - 3.5rem); overflow-y: auto;">
+    <div class="rounded border overflow-hidden">
+
+      {% if not direct_ancestors and not direct_descendants and not s['datasets'] %}
+      <div class="text-center text-muted py-4 px-2" style="font-size:0.8rem;">
+        <i class="bi bi-diagram-3 d-block mb-2 opacity-40"></i>No relationships
+      </div>
+      {% endif %}
+
+      {% if direct_ancestors %}
+      <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
+           style="background:var(--bs-tertiary-bg);">
+        <span style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--bs-secondary-color);">
+          <i class="bi bi-arrow-up-short"></i> Parents
+        </span>
+        <span class="badge fw-normal border text-muted"
+              style="background:var(--bs-body-bg); font-size:0.7rem;">{{direct_ancestors|length}}</span>
+      </div>
+      {% for anc in direct_ancestors %}
+      <a class="d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
+         style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
+         href="/{{pid}}/sample-graph/{{anc['unique_id']}}">
+        <span class="text-truncate">{{anc['sample_name']}}</span>
+      </a>
+      {% endfor %}
+      {% endif %}
+
+      {% if direct_ancestors and (direct_descendants or s['datasets']) %}
+      <div class="border-bottom"></div>
+      {% endif %}
+
+      {% if direct_descendants %}
+      <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
+           style="background:var(--bs-tertiary-bg);">
+        <span style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--bs-secondary-color);">
+          <i class="bi bi-arrow-down-short"></i> Children
+        </span>
+        <span class="badge fw-normal border text-muted"
+              style="background:var(--bs-body-bg); font-size:0.7rem;">{{direct_descendants|length}}</span>
+      </div>
+      {% for desc in direct_descendants %}
+      <a class="d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
+         style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
+         href="/{{pid}}/sample-graph/{{desc['unique_id']}}">
+        <span class="text-truncate">{{desc['sample_name']}}</span>
+      </a>
+      {% endfor %}
+      {% endif %}
+
+      {% if direct_descendants and s['datasets'] %}
+      <div class="border-bottom"></div>
+      {% endif %}
+
+      {% if s['datasets'] %}
+      <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
+           style="background:var(--bs-tertiary-bg);">
+        <span style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--bs-secondary-color);">
+          <i class="bi bi-database"></i> Datasets
+        </span>
+        <span class="badge fw-normal border text-muted"
+              style="background:var(--bs-body-bg); font-size:0.7rem;">{{s['datasets']|length}}</span>
+      </div>
+      {% for ds in s['datasets'] %}
+      <a class="d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
+         style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
+         href="/{{pid}}/dataset/{{ds['unique_id']}}">
+        <span class="text-truncate">{{ds['dataset_name']}}</span>
+      </a>
+      {% endfor %}
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+</div>{# end outer flex row #}
 
 {% endblock %}
