@@ -543,7 +543,7 @@
               style="background:var(--bs-body-bg); font-size:0.7rem;">{{direct_ancestors|length}}</span>
       </div>
       {% for anc in direct_ancestors %}
-      <a class="d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
+      <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
          style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
          href="/{{pid}}/sample-graph/{{anc['unique_id']}}">
         <span class="text-truncate">{{anc['sample_name']}}</span>
@@ -565,7 +565,7 @@
               style="background:var(--bs-body-bg); font-size:0.7rem;">{{direct_descendants|length}}</span>
       </div>
       {% for desc in direct_descendants %}
-      <a class="d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
+      <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
          style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
          href="/{{pid}}/sample-graph/{{desc['unique_id']}}">
         <span class="text-truncate">{{desc['sample_name']}}</span>
@@ -587,7 +587,7 @@
               style="background:var(--bs-body-bg); font-size:0.7rem;">{{s['datasets']|length}}</span>
       </div>
       {% for ds in s['datasets'] %}
-      <a class="d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
+      <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
          style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
          href="/{{pid}}/dataset/{{ds['unique_id']}}">
         <span class="text-truncate">{{ds['dataset_name']}}</span>

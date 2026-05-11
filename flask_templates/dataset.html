@@ -552,7 +552,7 @@
               style="background:var(--bs-body-bg); font-size:0.7rem;">{{samples|length}}</span>
       </div>
       {% for sample in samples %}
-      <a class="d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
+      <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
          style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
          href="/{{project_id}}/sample-graph/{{sample['unique_id']}}">
         <span class="text-truncate">{{sample['sample_name']}}</span>
@@ -574,7 +574,7 @@
               style="background:var(--bs-body-bg); font-size:0.7rem;">{{parent_datasets|length}}</span>
       </div>
       {% for pd in parent_datasets %}
-      <a class="d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
+      <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
          style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
          href="/{{project_id}}/dataset/{{pd['unique_id']}}">
         <span class="text-truncate">{{pd['dataset_name']}}</span>
@@ -596,7 +596,7 @@
               style="background:var(--bs-body-bg); font-size:0.7rem;">{{child_datasets|length}}</span>
       </div>
       {% for cd in child_datasets %}
-      <a class="d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
+      <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
          style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
          href="/{{project_id}}/dataset/{{cd['unique_id']}}">
         <span class="text-truncate">{{cd['dataset_name']}}</span>
