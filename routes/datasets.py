@@ -133,20 +133,17 @@ def create_blueprint(auth):
             return jsonify({'status': 'ok'})
 
         associated_files = client.datasets.get_associated_files(dsid)
-        try:
-            download_links = client.datasets.get_download_links(dsid)
-        except Exception as err:
-            logger.warning("Failed to get download links for %s: %s", dsid, err)
-            download_links = {}
         md_content = ''
         for file in associated_files:
             if file['filename'].endswith('.md'):
-                md_basename  = os.path.basename(file['filename'])
-                download_key = f"{ds['unique_id']}/{md_basename}"
-                if download_key in download_links:
-                    response = requests.get(download_links[download_key])
-                    if response.status_code == 200:
+                if file.get('storage_path'):
+                    try:
+                        url = client.files.get_download_link(file['mfid'])
+                        response = requests.get(url)
+                        response.raise_for_status()
                         md_content = response.text
+                    except Exception as err:
+                        logger.warning("Failed to fetch md content for %s: %s", dsid, err)
                 break
 
         return render_template('mdnote_edit.html',
