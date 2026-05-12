@@ -68,8 +68,8 @@ def create_blueprint(auth):
                 try:
                     url = client.files.get_download_link(md_file['mfid'])
                     response = requests.get(url)
-                    if response.status_code == 200:
-                        markdown_html = render_markdown(response.text, project_id)
+                    response.raise_for_status()
+                    markdown_html = render_markdown(response.text, project_id)
                 except Exception as err:
                     logger.warning("Failed to render markdown for %s: %s", dsid, err)
 
