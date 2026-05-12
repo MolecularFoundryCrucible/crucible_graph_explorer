@@ -23,9 +23,9 @@
     #listHeader {
         position: sticky; z-index: 10;
         padding: 0.3rem 1rem;
-        font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+        font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
         color: var(--bs-secondary-color);
-        background: var(--bs-tertiary-bg);
+        background: color-mix(in srgb, var(--cg-accent) 8%, var(--bs-tertiary-bg));
         border-top: 1px solid var(--bs-border-color);
         border-bottom: 1px solid var(--bs-border-color);
         cursor: pointer; user-select: none;
@@ -42,15 +42,17 @@
     .proj-list-row:last-child { border-bottom: none; }
     .proj-list-row:hover { background: var(--bs-tertiary-bg); }
 
-    /* ── stats loading pulse ────────────────────────────────────────────── */
+    /* ── stats loading shimmer ──────────────────────────────────────────── */
     .stat-placeholder {
         display: inline-block; width: 1.8rem; height: 0.75em;
-        background: var(--bs-border-color); border-radius: 3px;
-        animation: statPulse 1.4s ease-in-out infinite;
-        vertical-align: middle;
+        border-radius: 3px; vertical-align: middle;
+        background: linear-gradient(90deg, var(--bs-border-color) 25%, var(--bs-secondary-bg) 50%, var(--bs-border-color) 75%);
+        background-size: 200% 100%;
+        animation: statShimmer 1.4s ease-in-out infinite;
     }
-    @keyframes statPulse {
-        0%, 100% { opacity: 0.4; } 50% { opacity: 0.85; }
+    @keyframes statShimmer {
+        0%   { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
     }
 
     /* ── hidden section ─────────────────────────────────────────────────── */
@@ -66,6 +68,7 @@
 {% block main_col_class %}col-12{% endblock %}
 
 {% block content %}
+<div style="max-width:1100px; margin:0 auto;">
 
     <!-- ── welcome ──────────────────────────────────────────────────────── -->
     <div class="mb-4" style="border-left: 3px solid var(--cg-accent); padding-left: 1.1rem;">
@@ -161,6 +164,10 @@
         </div>
         <div id="hiddenList" style="display:none;" class="mb-4"></div>
     </div>
+
+    </div><!-- end projects section -->
+
+</div><!-- end max-width wrapper -->
 
     <script>
         const PROJECTS = {{ projects | tojson }};
@@ -433,7 +440,7 @@
                 cardSort.style.display = '';
             } else {
                 container.className = 'border rounded overflow-hidden mb-2';
-                container.innerHTML = items.length ? items.map(listRowHTML).join('') : '';
+                container.innerHTML = items.map(listRowHTML).join('');
                 listHeader.style.display = '';
                 cardSort.style.display = 'none';
                 updateListHeaders();

@@ -133,7 +133,7 @@
         <div class="res-section-body">
             {% for ds in recent_datasets[:50] %}
             {% if ds.get('project_id') and ds.get('unique_id') %}
-            <a class="list-row" href="/{{ ds['project_id'] }}/dataset/{{ ds['unique_id'] }}">
+            <a class="list-row" href="/{{ ds['project_id'] }}/datasets/{{ ds['unique_id'] }}">
                 <div style="flex:1; min-width:0;">
                     <div class="fw-medium text-truncate">{{ ds.get('dataset_name') or ds['unique_id'] }}</div>
                     {% if ds.get('measurement') or ds.get('project_id') %}

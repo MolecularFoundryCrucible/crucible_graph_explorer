@@ -789,14 +789,14 @@
 
         // Detect current page resource and track it
         (function trackCurrentPage() {
-            // Sample page: URL is /<pid>/sample-graph/<id>
-            const sm = location.pathname.match(/^\/([^/]+)\/sample-graph\/([^/]+)/);
+            // Sample page: URL is /<pid>/samples/<id>
+            const sm = location.pathname.match(/^\/([^/]+)\/samples\/([^/]+)/);
             if (sm) {
                 const h1 = document.querySelector('h1, .fs-4.fw-semibold');
                 cgTrackResource('sample', sm[2], h1?.textContent?.trim() || sm[2], sm[1]);
                 return;
             }
-            // Dataset page: URL is /<pid>/dataset/<id>
+            // Dataset page: URL is /<pid>/datasets/<id>
             const dm = location.pathname.match(/^\/([^/]+)\/dataset\/([^/]+)/);
             if (dm) {
                 const h1 = document.querySelector('h1, .fs-4.fw-semibold');
@@ -854,8 +854,8 @@
         }
         function _url(r) {
             if (r.type === 'project') return '/' + r.id + '/';
-            if (r.type === 'sample')  return '/' + r.projectId + '/sample-graph/' + r.id;
-            if (r.type === 'dataset') return '/' + r.projectId + '/dataset/' + r.id;
+            if (r.type === 'sample')  return '/' + r.projectId + '/samples/' + r.id;
+            if (r.type === 'dataset') return '/' + r.projectId + '/datasets/' + r.id;
             return '#';
         }
         function _label(type) {

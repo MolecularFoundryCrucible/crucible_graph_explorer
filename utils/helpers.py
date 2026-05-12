@@ -26,18 +26,18 @@ def render_markdown(md_content: str, project_id: str) -> str:
     """Resolve wiki-style links then convert markdown to HTML.
 
     Supported link syntax:
-      [[dataset:ID|Label]]  →  [Label](/<project_id>/dataset/ID)
-      [[sample:ID|Label]]   →  [Label](/<project_id>/sample-graph/ID)
+      [[dataset:ID|Label]]  →  [Label](/<project_id>/datasets/ID)
+      [[sample:ID|Label]]   →  [Label](/<project_id>/samples/ID)
     """
     def replace_dataset_link(match):
         dataset_id = match.group(1)
         name = match.group(2) if match.group(2) else f'Dataset-{dataset_id}'
-        return f'[{name}](/{project_id}/dataset/{dataset_id})'
+        return f'[{name}](/{project_id}/datasets/{dataset_id})'
 
     def replace_sample_link(match):
         sample_id = match.group(1)
         name = match.group(2) if match.group(2) else f'Sample-{sample_id}'
-        return f'[{name}](/{project_id}/sample-graph/{sample_id})'
+        return f'[{name}](/{project_id}/samples/{sample_id})'
 
     md_content = re.sub(
         r'\[\[dataset:([^\]|]+)(?:\|([^\]]+))?\]\]',

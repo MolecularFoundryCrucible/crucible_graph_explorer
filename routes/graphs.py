@@ -57,7 +57,7 @@ def create_blueprint(auth):
                     'label': sample.get('sample_name', attrs.get('name', node_id[:13])),
                     'type': 'sample',
                     'description': sample.get('description', ''),
-                    'url': f'/{project_id}/sample-graph/{node_id}'
+                    'url': f'/{project_id}/samples/{node_id}'
                 })
             else:
                 dataset_ids.append(node_id)
@@ -81,7 +81,7 @@ def create_blueprint(auth):
                 'label': ds.get('dataset_name', attrs.get('name', node_id[:13])),
                 'type': 'dataset',
                 'measurement': ds.get('measurement', ''),
-                'url': f'/{project_id}/dataset/{node_id}',
+                'url': f'/{project_id}/datasets/{node_id}',
                 'thumbnail': thumbnails.get(node_id)
             })
 
@@ -121,7 +121,7 @@ def create_blueprint(auth):
                     'label': sample.get('sample_name', attrs.get('name', node_id[:13])),
                     'type': 'sample',
                     'description': sample.get('description', ''),
-                    'url': f'/{project_id}/sample-graph/{node_id}'
+                    'url': f'/{project_id}/samples/{node_id}'
                 })
             else:
                 ds = pc['datasets_by_id'].get(node_id, {})
@@ -130,7 +130,7 @@ def create_blueprint(auth):
                     'label': ds.get('dataset_name', attrs.get('name', node_id[:13])),
                     'type': 'dataset',
                     'measurement': ds.get('measurement', ''),
-                    'url': f'/{project_id}/dataset/{node_id}'
+                    'url': f'/{project_id}/datasets/{node_id}'
                 })
 
         return jsonify({'nodes': nodes, 'edges': edges})

@@ -34,9 +34,9 @@
 {% block breadcrumb %}
     <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a></li>
     {% if entity_type == 'sample' %}
-    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/sample-graph/{{entity_id}}"><b>Sample</b> {{entity_name}}</a></li>
+    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/samples/{{entity_id}}"><b>Sample</b> {{entity_name}}</a></li>
     {% else %}
-    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/dataset/{{entity_id}}"><b>Dataset</b> {{entity_name}}</a></li>
+    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/datasets/{{entity_id}}"><b>Dataset</b> {{entity_name}}</a></li>
     {% endif %}
     <li class="breadcrumb-item active" aria-current="page">Entity Graph</li>
 {% endblock %}

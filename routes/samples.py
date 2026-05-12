@@ -52,7 +52,7 @@ def create_blueprint(auth):
             children=[{'unique_id': cid} for cid in child_ids],
         )
         clear_project_cache(project_id)
-        return redirect(f'/{project_id}/sample-graph/{result["unique_id"]}')
+        return redirect(f'/{project_id}/samples/{result["unique_id"]}')
 
     @bp.route("/<project_id>/samples/<sample_id>/edit", methods=['GET'])
     @auth.oidc_auth('orcid')
@@ -99,7 +99,7 @@ def create_blueprint(auth):
             children=[{'unique_id': cid} for cid in new_child_ids],
         )
         clear_project_cache(project_id)
-        return redirect(f'/{project_id}/sample-graph/{sample_id}')
+        return redirect(f'/{project_id}/samples/{sample_id}')
 
     @bp.route("/<project_id>/samples/<sample_id>/upload-photo", methods=['GET'])
     @auth.oidc_auth('orcid')
@@ -155,7 +155,7 @@ def create_blueprint(auth):
         clear_project_cache(project_id)
         return jsonify({'dataset_id': dataset_id, 'project_id': project_id})
 
-    @bp.route("/<project_id>/sample-graph/<sample_id>")
+    @bp.route("/<project_id>/samples/<sample_id>")
     @auth.oidc_auth('orcid')
     def sample_graph(project_id, sample_id):
         client = flask.current_app.crucible_client

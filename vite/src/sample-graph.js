@@ -267,8 +267,10 @@ export function initEntityGraph(containerId, graphData) {
 
   cy.layoutDir = currentRankDir;
 
-  cy.relayout = function(animate) {
-    cy.layout(elkLayout(currentRankDir, animate !== false ? 400 : 0)).run();
+  cy.relayout = function(animate, eles) {
+    const opts = elkLayout(currentRankDir, animate !== false ? 400 : 0);
+    if (eles) opts.eles = eles;
+    cy.layout(opts).run();
   };
 
   cy.toggleLayout = function() {

@@ -98,7 +98,7 @@ def create_blueprint(auth, helpers):
             dsid = img_dsid.get(tf['unique_id'])
             tn = dict(batch.get(dsid, {})) if dsid else {}
             tn['sample_name'] = tf['sample_name']
-            tn['sample_url'] = f'/{PROJECT_ID}/sample-graph/{tf["unique_id"]}'
+            tn['sample_url'] = f'/{PROJECT_ID}/samples/{tf["unique_id"]}'
             tf_thumbs.append(tn)
 
         return render_template('proj10k_templates/thinfilm-gallery.html',

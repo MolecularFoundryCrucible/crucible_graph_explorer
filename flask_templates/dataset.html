@@ -352,6 +352,12 @@
             {% if file.get('storage_path') %}
             <button class="btn btn-sm btn-outline-secondary border-0 border-start rounded-0 px-3"
                     style="flex-shrink:0; height:100%; border-radius:0 !important;"
+                    onclick="shareFile(event, '{{file['mfid']}}')"
+                    title="Copy share link for {{basename}}">
+                <i class="bi bi-share"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-secondary border-0 border-start rounded-0 px-3"
+                    style="flex-shrink:0; height:100%; border-radius:0 !important;"
                     onclick="downloadFile(event, '{{file['mfid']}}', '{{basename}}')"
                     title="Download {{basename}}">
                 <i class="bi bi-download"></i>
@@ -526,6 +532,29 @@
         const sel = document.querySelector('.cg-sib-groupby');
         if (sel) sel.value = gbParam;
     })();
+
+    async function shareFile(event, mfid) {
+        const btn = event.currentTarget;
+        const icon = btn.querySelector('i');
+        btn.disabled = true;
+        icon.className = 'bi bi-hourglass-split';
+        try {
+            const resp = await fetch(
+                '/{{project_id}}/datasets/{{ds["unique_id"]}}/files/' + mfid + '/download_link'
+            );
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const { url } = await resp.json();
+            await navigator.clipboard.writeText(url);
+            cgToast('Link copied to clipboard', 'bi-share');
+            icon.className = 'bi bi-check2';
+            setTimeout(() => { icon.className = 'bi bi-share'; btn.disabled = false; }, 1500);
+            return;
+        } catch (err) {
+            alert('Could not get share link: ' + err.message);
+        }
+        btn.disabled = false;
+        icon.className = 'bi bi-share';
+    }
 
     async function downloadFile(event, mfid, filename) {
         const btn = event.currentTarget;

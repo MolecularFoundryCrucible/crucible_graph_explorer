@@ -55,7 +55,7 @@ def create_blueprint(auth):
                         or ql in (s.get('unique_id') or '').lower()
                         or ql in (s.get('owner_orcid') or '').lower()):
                     s_hits.append({**s, '_pid': pid,
-                                   '_url': f'/{pid}/sample-graph/{s["unique_id"]}'})
+                                   '_url': f'/{pid}/samples/{s["unique_id"]}'})
             for d in pc.get('datasets', []):
                 if (ql in (d.get('dataset_name') or '').lower()
                         or ql in (d.get('measurement') or '').lower()
@@ -64,7 +64,7 @@ def create_blueprint(auth):
                         or ql in (d.get('unique_id') or '').lower()
                         or ql in (d.get('owner_orcid') or '').lower()):
                     d_hits.append({**d, '_pid': pid,
-                                   '_url': f'/{pid}/dataset/{d["unique_id"]}'})
+                                   '_url': f'/{pid}/datasets/{d["unique_id"]}'})
             return s_hits, d_hits
 
         if q:
@@ -92,7 +92,7 @@ def create_blueprint(auth):
             'description': s.get('description', ''),
             'type': s.get('sample_type', ''),
             'owner': s.get('owner_orcid', ''),
-            'url': f'/{project_id}/sample-graph/{s["unique_id"]}'
+            'url': f'/{project_id}/samples/{s["unique_id"]}'
         } for s in pc['samples']]
 
         datasets_index = [{
@@ -103,7 +103,7 @@ def create_blueprint(auth):
             'session': d.get('session_name', ''),
             'owner': d.get('owner_orcid', ''),
             'metadata_str': '\n'.join(_flatten_metadata(d.get('scientific_metadata') or {})),
-            'url': f'/{project_id}/dataset/{d["unique_id"]}'
+            'url': f'/{project_id}/datasets/{d["unique_id"]}'
         } for d in pc['datasets']]
 
         return render_template('search.html',

@@ -256,7 +256,7 @@ function showResult(ev) {
     const dryNote = ev.dry_run ? ' <span class="badge bg-warning text-dark ms-1">dry run</span>' : '';
     const dsLink  = ev.dry_run
         ? `<span class="font-monospace">${ev.dataset_id}</span>`
-        : `<a href="/${ev.project_id}/dataset/${ev.dataset_id}" class="alert-link font-monospace">${ev.dataset_id}</a>`;
+        : `<a href="/${ev.project_id}/datasets/${ev.dataset_id}" class="alert-link font-monospace">${ev.dataset_id}</a>`;
     $('resultAlert').innerHTML =
         `<h5 class="alert-heading mb-1">Done${dryNote}</h5>` +
         `<p class="mb-1"><strong>${ev.dataset_name}</strong> (${ev.measurement})</p>` +

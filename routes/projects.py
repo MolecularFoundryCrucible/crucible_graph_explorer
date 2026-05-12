@@ -130,6 +130,7 @@ def create_blueprint(auth):
                                project_meta=project_meta,
                                owner_map=owner_map,
                                project_users=project_users,
+                               all_projects=user_projects,
                                custom_views=project_views.get_views(project_id))
 
     @bp.route("/<project_id>/api/overview-data")

@@ -25,7 +25,7 @@
             </button>
         </div>
 
-        <div class="mb-3">
+        <div class="mb-2">
             <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
                  id="sampleNavLabel"
                  style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--cg-link);">
@@ -34,7 +34,9 @@
             <ul class="nav flex-column" id="sampleNav"></ul>
         </div>
 
-        <div class="mb-3">
+        <hr class="my-2 mx-1">
+
+        <div class="mb-2">
             <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
                  id="datasetNavLabel"
                  style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bs-secondary-color); opacity: 0.6;">
@@ -42,6 +44,21 @@
             </div>
             <ul class="nav flex-column" id="datasetNav"></ul>
         </div>
+
+        {% if all_projects and all_projects|length > 1 %}
+        <hr class="mt-3 mb-2 mx-1">
+        <div class="mb-1 px-1"
+             style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--bs-secondary-color);">
+            <i class="bi bi-grid me-1"></i>Projects
+        </div>
+        {% for proj in all_projects %}
+        <a class="cg-sidebar-link {% if proj['project_id'] == pc['project_id'] %}active{% endif %}"
+           href="/{{proj['project_id']}}/">
+            <span class="text-truncate">{{proj['project_id']}}</span>
+            {% if proj['project_id'] == pc['project_id'] %}<i class="bi bi-dot ms-auto flex-shrink-0"></i>{% endif %}
+        </a>
+        {% endfor %}
+        {% endif %}
 
     </div>
 </div>
@@ -156,7 +173,7 @@
 {% set title = project_meta.get('title') %}
 {% set pid   = pc['project_id'] %}
 
-<div class="d-flex gap-4 align-items-start">
+<div class="d-flex gap-4 align-items-start" style="max-width: calc(860px + 1.5rem + 220px);">
 <div style="max-width: 860px; flex: 1; min-width: 0;">
 
     <!-- ── project header card ────────────────────────────────────────── -->
@@ -482,8 +499,8 @@
                     const sgb = localStorage.getItem('pref_sample_groupby') || 'sample_type';
                     const dgb = localStorage.getItem('pref_dataset_groupby') || 'measurement';
                     const url  = r.type === 'sample'
-                        ? `/${PID}/sample-graph/${r.id}?sgb=${encodeURIComponent(sgb)}`
-                        : `/${PID}/dataset/${r.id}?dgb=${encodeURIComponent(dgb)}`;
+                        ? `/${PID}/samples/${r.id}?sgb=${encodeURIComponent(sgb)}`
+                        : `/${PID}/datasets/${r.id}?dgb=${encodeURIComponent(dgb)}`;
                     return `<a href="${url}" class="cg-recent-chip">
                         <i class="bi ${icon}" style="color:var(--cg-accent-mid);font-size:0.8em;flex-shrink:0;"></i>
                         <span>${_esc(r.name)}</span>
@@ -631,7 +648,7 @@
             const groupEl = buildGroupEl(gid, 'eyedropper', gkey, items,
                 'sample-item', 'sample-count',
                 s => `<a class="list-row sample-item"
-                         href="/${PID}/sample-graph/${escHtml(s.unique_id)}?sgb=${encodeURIComponent(field)}"
+                         href="/${PID}/samples/${escHtml(s.unique_id)}?sgb=${encodeURIComponent(field)}"
                          data-search="${escHtml(sampleSearch(s))}"
                          data-owner-orcid="${escHtml(s.owner_orcid || '')}">
                          <span>${escHtml(s.sample_name || s.unique_id)}</span>
@@ -667,7 +684,7 @@
             const groupEl = buildGroupEl(gid, 'database', gkey, items,
                 'dataset-item', 'dataset-count',
                 ds => `<a class="list-row dataset-item"
-                          href="/${PID}/dataset/${escHtml(ds.unique_id)}?dgb=${encodeURIComponent(field)}"
+                          href="/${PID}/datasets/${escHtml(ds.unique_id)}?dgb=${encodeURIComponent(field)}"
                           data-search="${escHtml(datasetSearch(ds))}"
                           data-owner-orcid="${escHtml(ds.owner_orcid || '')}">
                           <span class="text-truncate me-3">${escHtml(ds.dataset_name || ds.unique_id)}</span>
@@ -916,7 +933,7 @@
         const link = e.target.closest('a[href]');
         if (!link) return;
         const href = link.getAttribute('href') || '';
-        if (href.includes('/sample-graph/') || href.includes('/dataset/')) {
+        if (href.includes('/samples/') || href.includes('/datasets/')) {
             sessionStorage.setItem('cg_overview_state_' + PID, location.hash || '#tab=samples');
         }
     });

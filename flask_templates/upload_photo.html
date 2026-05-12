@@ -3,7 +3,7 @@
 
 {% block breadcrumb %}
     <li class="breadcrumb-item"><a href="/{{ pc['project_id'] }}/">{{ pc['project_id'] }}</a></li>
-    <li class="breadcrumb-item"><a href="/{{ pc['project_id'] }}/sample-graph/{{ sample['unique_id'] }}">{{ sample['sample_name'] }}</a></li>
+    <li class="breadcrumb-item"><a href="/{{ pc['project_id'] }}/samples/{{ sample['unique_id'] }}">{{ sample['sample_name'] }}</a></li>
     <li class="breadcrumb-item active" aria-current="page">Upload Photo</li>
 {% endblock %}
 
@@ -87,7 +87,7 @@ $('uploadForm').addEventListener('submit', async function (e) {
     if (!resp.ok || data.error) { showError(data.error || `HTTP ${resp.status}`); return; }
 
     $('formSection').style.display = 'none';
-    const dsLink = `<a href="/${data.project_id}/dataset/${data.dataset_id}"
+    const dsLink = `<a href="/${data.project_id}/datasets/${data.dataset_id}"
                        class="alert-link font-monospace">${data.dataset_id}</a>`;
     $('resultAlert').innerHTML =
         `<h5 class="alert-heading mb-1">Done</h5>` +

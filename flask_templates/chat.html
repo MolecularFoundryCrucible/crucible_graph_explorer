@@ -125,7 +125,7 @@
         <div style="min-width:0;">
             Asking about
             <strong>{{ about_type }}</strong>
-            <a href="/{{pc['project_id']}}/{% if about_type == 'sample' %}sample-graph{% else %}dataset{% endif %}/{{about_id}}"
+            <a href="/{{pc['project_id']}}/{% if about_type == 'sample' %}samples{% else %}datasets{% endif %}/{{about_id}}"
                class="mfid text-decoration-none ms-1">{{about_id}}</a>
         </div>
         <button type="button" class="btn-close btn-close-sm ms-auto flex-shrink-0"
@@ -375,7 +375,7 @@ function handleEvent(event) {
         img.style.cssText = 'max-width:220px;max-height:180px;object-fit:contain;border:1px solid var(--bs-border-color);border-radius:4px;display:block;margin:6px 0;';
         if (event.dataset_id) {
             img.style.cursor = 'pointer';
-            img.addEventListener('click', () => window.open(`/${PROJECT_ID}/dataset/${event.dataset_id}`, '_blank'));
+            img.addEventListener('click', () => window.open(`/${PROJECT_ID}/datasets/${event.dataset_id}`, '_blank'));
         }
         _currentBubble.appendChild(img);
         scrollToBottom();
