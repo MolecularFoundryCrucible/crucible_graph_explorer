@@ -58,13 +58,13 @@
     <div class="cg-sibling-nav">
       {% if sibling_count > 1 %}
         {% if prev_sibling %}
-        <a class="cg-sib-btn" href="/{{project_id}}/dataset/{{prev_sibling['unique_id']}}" title="{{prev_sibling['dataset_name']}}"><i class="bi bi-chevron-left"></i></a>
+        <a class="cg-sib-btn" href="/{{project_id}}/datasets/{{prev_sibling['unique_id']}}" title="{{prev_sibling['dataset_name']}}"><i class="bi bi-chevron-left"></i></a>
         {% else %}
         <button class="cg-sib-btn" disabled><i class="bi bi-chevron-left"></i></button>
         {% endif %}
         <span class="cg-sib-label">{{sibling_index}}&thinsp;/&thinsp;{{sibling_count}}{% if sibling_label %}<span class="cg-sib-type">{{sibling_label}}</span>{% endif %}</span>
         {% if next_sibling %}
-        <a class="cg-sib-btn" href="/{{project_id}}/dataset/{{next_sibling['unique_id']}}" title="{{next_sibling['dataset_name']}}"><i class="bi bi-chevron-right"></i></a>
+        <a class="cg-sib-btn" href="/{{project_id}}/datasets/{{next_sibling['unique_id']}}" title="{{next_sibling['dataset_name']}}"><i class="bi bi-chevron-right"></i></a>
         {% else %}
         <button class="cg-sib-btn" disabled><i class="bi bi-chevron-right"></i></button>
         {% endif %}
@@ -72,7 +72,7 @@
         <div id="sibJumpDropdown" class="cg-sib-dropdown" style="display:none;">
           {% for sib in siblings %}
           <a class="cg-sib-item {% if sib['unique_id'] == ds['unique_id'] %}active{% endif %}"
-             href="/{{project_id}}/dataset/{{sib['unique_id']}}">{{sib['dataset_name']}}</a>
+             href="/{{project_id}}/datasets/{{sib['unique_id']}}">{{sib['dataset_name']}}</a>
           {% endfor %}
         </div>
       {% endif %}
@@ -87,7 +87,7 @@
     </div>
     <div class="d-flex align-items-center gap-1 ms-auto flex-wrap">
       {% if ds['measurement'] == 'MDNote' %}
-      <a href="/{{project_id}}/dataset/{{ds['unique_id']}}/mdnote-edit" class="cg-action-btn" title="Edit note"><i class="bi bi-pencil"></i></a>
+      <a href="/{{project_id}}/datasets/{{ds['unique_id']}}/mdnote-edit" class="cg-action-btn" title="Edit note"><i class="bi bi-pencil"></i></a>
       {% endif %}
       {% for cv in custom_views %}
       <a href="{{ cv.url }}" class="cg-action-btn" title="{{ cv.label }}"><i class="bi bi-journal-text me-1"></i>{{ cv.label }}</a>
@@ -267,7 +267,7 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for sample in samples %}
-        <a class="list-row" href="/{{project_id}}/sample-graph/{{sample['unique_id']}}">
+        <a class="list-row" href="/{{project_id}}/samples/{{sample['unique_id']}}">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{sample['sample_name']}}</span>
             <span class="mfid small ms-auto">{{sample['unique_id']}}</span>
         </a>
@@ -289,7 +289,7 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for pd in parent_datasets %}
-        <a class="list-row" href="/{{project_id}}/dataset/{{pd['unique_id']}}">
+        <a class="list-row" href="/{{project_id}}/datasets/{{pd['unique_id']}}">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{pd['dataset_name']}}</span>
             <span class="mfid small ms-auto">{{pd['unique_id']}}</span>
         </a>
@@ -311,7 +311,7 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for cd in child_datasets %}
-        <a class="list-row" href="/{{project_id}}/dataset/{{cd['unique_id']}}">
+        <a class="list-row" href="/{{project_id}}/datasets/{{cd['unique_id']}}">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{cd['dataset_name']}}</span>
             <span class="mfid small ms-auto">{{cd['unique_id']}}</span>
         </a>
@@ -336,39 +336,33 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for file in files %}
-        <div class="list-row" style="padding:0; gap:0;">
-            <div style="flex:1; min-width:0; overflow-x:auto; scrollbar-width:none;
-                        display:flex; align-items:center; padding:0.5rem 1rem;
-                        -webkit-mask-image:linear-gradient(to right, black 80%, transparent 100%);
-                        mask-image:linear-gradient(to right, black 80%, transparent 100%);">
-                <span class="text-nowrap">{{file['filename']}}</span>
+        {% set basename = file['filename'].split('/')|last %}
+        <div class="list-row" style="padding:0; gap:0; flex-wrap:nowrap;">
+            <div style="flex:1; min-width:0; overflow:hidden; display:flex; align-items:center; padding:0.5rem 1rem; gap:0.5rem;">
+                {% if file.get('storage_path') %}
+                <i class="bi bi-file-earmark text-muted flex-shrink-0" style="font-size:0.9rem;"></i>
+                {% else %}
+                <i class="bi bi-hourglass-split text-muted flex-shrink-0" style="font-size:0.9rem;"></i>
+                {% endif %}
+                <span class="text-truncate" title="{{basename}}">{{basename}}</span>
             </div>
-            <span class="text-muted small text-nowrap px-3 border-start" style="flex-shrink:0; line-height:2.2;">
+            <span class="text-muted small text-nowrap px-2 border-start d-flex align-items-center" style="flex-shrink:0;">
                 {{file['size'] | humanize_size}}
             </span>
+            {% if file.get('storage_path') %}
+            <button class="btn btn-sm btn-outline-secondary border-0 border-start rounded-0 px-3"
+                    style="flex-shrink:0; height:100%; border-radius:0 !important;"
+                    onclick="downloadFile(event, '{{file['mfid']}}', '{{basename}}')"
+                    title="Download {{basename}}">
+                <i class="bi bi-download"></i>
+            </button>
+            {% else %}
+            <span class="badge fw-normal border text-muted d-flex align-items-center px-2 mx-2"
+                  style="background:var(--bs-tertiary-bg); font-size:0.7rem; flex-shrink:0;">
+                Pending
+            </span>
+            {% endif %}
         </div>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
-
-<!-- ── download links — collapsed by default ─────────────────────────── -->
-{% if download_links %}
-<div class="res-section" id="section-downloads">
-    <div class="res-section-header" onclick="toggleSection(this)">
-        <i class="bi bi-download text-muted"></i>
-        <span>Download Links</span>
-        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
-            {{download_links|length}}
-        </span>
-        <i class="bi bi-chevron-right res-section-chevron"></i>
-    </div>
-    <div class="res-section-body" style="display:none;">
-        {% for fname, link in download_links.items() %}
-        <a href="{{link}}" target="_blank" class="list-row" style="overflow-x: auto;">
-            <i class="bi bi-box-arrow-up-right me-1 small text-muted"></i>
-            <span class="text-nowrap">{{fname}}</span>
-        </a>
         {% endfor %}
     </div>
 </div>
@@ -387,7 +381,7 @@
     document.getElementById('toggleLayoutBtn').innerHTML = '<i class="bi bi-arrow-left-right me-1"></i>Vertical';
 
     if (!entityData) {
-      const r = await fetch('/{{project_id}}/api/entity-graph-data/dataset/{{ds["unique_id"]}}');
+      const r = await fetch('/{{project_id}}/api/entity-graph-data/datasets/{{ds["unique_id"]}}');
       entityData = await r.json();
     }
 
@@ -532,6 +526,26 @@
         const sel = document.querySelector('.cg-sib-groupby');
         if (sel) sel.value = gbParam;
     })();
+
+    async function downloadFile(event, mfid, filename) {
+        const btn = event.currentTarget;
+        const icon = btn.querySelector('i');
+        btn.disabled = true;
+        icon.className = 'bi bi-hourglass-split';
+        try {
+            const resp = await fetch(
+                '/{{project_id}}/datasets/{{ds["unique_id"]}}/files/' + mfid + '/download_link'
+            );
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const { url } = await resp.json();
+            window.open(url, '_blank', 'noopener');
+        } catch (err) {
+            alert('Could not get download link: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            icon.className = 'bi bi-download';
+        }
+    }
 </script>
 
 </div>{# end flex-1 content column #}
@@ -559,7 +573,7 @@
       {% for sample in samples %}
       <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
          style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
-         href="/{{project_id}}/sample-graph/{{sample['unique_id']}}">
+         href="/{{project_id}}/samples/{{sample['unique_id']}}">
         <span class="text-truncate">{{sample['sample_name']}}</span>
       </a>
       {% endfor %}
@@ -581,7 +595,7 @@
       {% for pd in parent_datasets %}
       <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
          style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
-         href="/{{project_id}}/dataset/{{pd['unique_id']}}">
+         href="/{{project_id}}/datasets/{{pd['unique_id']}}">
         <span class="text-truncate">{{pd['dataset_name']}}</span>
       </a>
       {% endfor %}
@@ -603,7 +617,7 @@
       {% for cd in child_datasets %}
       <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
          style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
-         href="/{{project_id}}/dataset/{{cd['unique_id']}}">
+         href="/{{project_id}}/datasets/{{cd['unique_id']}}">
         <span class="text-truncate">{{cd['dataset_name']}}</span>
       </a>
       {% endfor %}
