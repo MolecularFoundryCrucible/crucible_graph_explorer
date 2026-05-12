@@ -30,11 +30,26 @@
             --bs-link-color:       #3a7a87;
             --bs-link-color-rgb:   58, 122, 135;
             --bs-link-hover-color: #031e2d;
+
+            /* ── elevation shadows ────────────────────────────────────── */
+            --cg-shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
+            --cg-shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+        }
+        [data-bs-theme="light"] body {
+            background-color: #f7f8f9;
         }
         [data-bs-theme="dark"] {
+            --bs-body-bg:         #0f1117;
+            --bs-body-bg-rgb:     15, 17, 23;
+            --bs-secondary-bg:    #161b22;
+            --bs-tertiary-bg:     #1c2128;
+            --bs-border-color:    rgba(255,255,255,0.09);
             --bs-link-color:       #a8c4cd;
             --bs-link-color-rgb:   168, 196, 205;
             --bs-link-hover-color: #fff;
+            --cg-link-hover:       #fff;
+            --cg-shadow-sm: 0 1px 3px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04);
+            --cg-shadow-md: 0 4px 16px rgba(0,0,0,0.55), 0 1px 4px rgba(0,0,0,0.3);
         }
 
         /* ── brand-tinted primary button ─────────────────────────────── */
@@ -161,8 +176,9 @@
         /* ── resource-page section pattern ─────────────────────────────── */
         .res-section {
             border: 1px solid var(--bs-border-color);
-            border-radius: 0.375rem; overflow: hidden;
+            border-radius: 0.5rem; overflow: hidden;
             margin-bottom: 1rem; max-width: 860px;
+            box-shadow: var(--cg-shadow-sm);
         }
         .res-section-header {
             display: flex; align-items: center; gap: 0.5rem;
@@ -382,8 +398,9 @@
         .cg-resource-card {
             border: 1px solid var(--bs-border-color);
             border-left-width: 5px;
-            border-radius: 0.375rem;
+            border-radius: 0.5rem;
             background: var(--bs-body-bg);
+            box-shadow: var(--cg-shadow-md);
         }
         .cg-card-identity {
             display: flex; align-items: flex-start; gap: 0.75rem;
@@ -430,7 +447,7 @@
             position: absolute; top: calc(100% + 4px); left: 0; z-index: 600;
             min-width: 200px; max-width: 320px; max-height: 280px; overflow-y: auto;
             background: var(--bs-body-bg); border: 1px solid var(--bs-border-color);
-            border-radius: 0.375rem; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            border-radius: 0.5rem; box-shadow: var(--cg-shadow-md);
         }
         .cg-sib-item {
             display: block; padding: 0.4rem 0.75rem; font-size: 0.82rem;
@@ -464,15 +481,29 @@
             background: var(--bs-body-bg);
             border: 1px solid var(--bs-border-color);
             border-radius: 0.5rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15), 0 1px 4px rgba(0,0,0,0.06);
+            box-shadow: var(--cg-shadow-md);
             padding: 0.65rem 0.8rem;
             font-size: 0.85rem;
             font-family: 'IBM Plex Sans', sans-serif;
         }
-        [data-bs-theme="dark"] .cg-graph-popup {
-            box-shadow: 0 4px 20px rgba(0,0,0,0.45), 0 1px 4px rgba(0,0,0,0.2);
-        }
         .popup-link:hover { color: var(--cg-link-hover) !important; text-decoration: none !important; }
+
+        /* ── text selection ─────────────────────────────────────────────── */
+        ::selection { background: rgba(58,122,135,0.18); color: inherit; }
+
+        /* ── tabular numbers for data values ────────────────────────────── */
+        .mfid, .metadata-tree, code, pre, kbd, samp,
+        .badge, .cg-count-chip { font-variant-numeric: tabular-nums; }
+
+        /* ── thin scrollbars ────────────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: var(--bs-border-color); border-radius: 99px;
+            transition: background 0.15s;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: var(--bs-secondary-color); }
+        * { scrollbar-width: thin; scrollbar-color: var(--bs-border-color) transparent; }
     </style>
 
     <title>{% block title %}{% endblock %} - Crucible</title>
