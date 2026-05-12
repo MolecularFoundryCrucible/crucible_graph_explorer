@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 def create_blueprint(auth):
     bp = Blueprint('datasets', __name__)
 
-    @bp.route("/<project_id>/dataset/<dsid>")
+    @bp.route("/<project_id>/datasets/<dsid>")
     @auth.oidc_auth('orcid')
     def dataset(project_id, dsid):
         import views.datasets as dataset_views
@@ -30,12 +30,12 @@ def create_blueprint(auth):
 
         orcid = UserSession(flask.session).userinfo['sub']
 
-        def _get_links():
+        def _safe(future, name, default):
             try:
-                return client.datasets.get_download_links(dsid)
+                return future.result()
             except Exception as err:
-                logger.warning("Failed to get download links for %s: %s", dsid, err)
-                return {}
+                logger.warning("dataset %s: %s failed: %s", dsid, name, err)
+                return default
 
         with ThreadPoolExecutor() as ex:
             f_pc       = ex.submit(get_project, project_id, client=client)
@@ -43,35 +43,35 @@ def create_blueprint(auth):
             f_samples  = ex.submit(client.samples.list, dataset_id=dsid)
             f_thumbs   = ex.submit(client.datasets.get_thumbnails, dsid)
             f_files    = ex.submit(client.datasets.get_associated_files, dsid)
-            f_links    = ex.submit(_get_links)
             f_children = ex.submit(client.datasets.list_children, dsid)
             f_parents  = ex.submit(client.datasets.list_parents, dsid)
             f_projects = ex.submit(client.projects.list, orcid=orcid)
 
+        # Critical: let HTTPError propagate so Flask returns a proper error page.
+        # Other exceptions are logged and re-raised as 500.
         pc               = f_pc.result()
         ds               = f_ds.result()
-        samples          = f_samples.result()
-        thumbnails       = f_thumbs.result()
-        associated_files = f_files.result()
-        download_links   = f_links.result()
-        child_datasets   = f_children.result()
-        parent_datasets  = f_parents.result()
-        all_projects     = f_projects.result()
+        # Non-critical: degrade gracefully so a single failing sub-request doesn't
+        # bring down the whole page.
+        samples          = _safe(f_samples,  'samples',          [])
+        thumbnails       = _safe(f_thumbs,   'thumbnails',       [])
+        associated_files = _safe(f_files,    'files',            [])
+        child_datasets   = _safe(f_children, 'list_children',    [])
+        parent_datasets  = _safe(f_parents,  'list_parents',     [])
+        all_projects     = _safe(f_projects, 'projects',         [])
         logger.debug("dataset parallel fetch=%.3fs", time.perf_counter() - t0)
 
         markdown_html = None
         if ds.get('measurement') == 'MDNote':
             md_file = next((f for f in associated_files if f['filename'].endswith('.md')), None)
-            if md_file:
-                md_basename  = os.path.basename(md_file['filename'])
-                download_key = f"{ds['unique_id']}/{md_basename}"
-                if download_key in download_links:
-                    try:
-                        response = requests.get(download_links[download_key])
-                        if response.status_code == 200:
-                            markdown_html = render_markdown(response.text, project_id)
-                    except Exception as err:
-                        logger.warning("Failed to render markdown for %s: %s", dsid, err)
+            if md_file and md_file.get('storage_path'):
+                try:
+                    url = client.files.get_download_link(md_file['mfid'])
+                    response = requests.get(url)
+                    if response.status_code == 200:
+                        markdown_html = render_markdown(response.text, project_id)
+                except Exception as err:
+                    logger.warning("Failed to render markdown for %s: %s", dsid, err)
 
         group_by  = request.args.get('dgb', 'measurement')
         group_val = ds.get(group_by)
@@ -92,7 +92,6 @@ def create_blueprint(auth):
                                parent_datasets=parent_datasets,
                                samples=samples,
                                files=associated_files,
-                               download_links=download_links,
                                thumbnails=thumbnails,
                                markdown_html=markdown_html,
                                custom_views=dataset_views.get_views(ds.get('measurement'), project_id, dsid),
@@ -104,7 +103,7 @@ def create_blueprint(auth):
                                sibling_label=group_val or '',
                                all_projects=all_projects)
 
-    @bp.route("/<project_id>/dataset/<dsid>/mdnote-edit", methods=['GET', 'POST'])
+    @bp.route("/<project_id>/datasets/<dsid>/mdnote-edit", methods=['GET', 'POST'])
     @auth.oidc_auth('orcid')
     def mdnote_edit(project_id, dsid):
         client = flask.current_app.crucible_client
