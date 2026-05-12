@@ -149,4 +149,20 @@ def create_blueprint(auth):
         return render_template('mdnote_edit.html',
                                project_id=project_id, ds=ds, md_content=md_content)
 
+    @bp.route("/<project_id>/datasets/<dsid>/files/<file_id>/download_link")
+    @auth.oidc_auth('orcid')
+    def file_download_link(project_id, dsid, file_id):
+        client = flask.current_app.crucible_client
+        if not is_user_in_project(project_id):
+            abort(403)
+        try:
+            url = client.files.get_download_link(file_id)
+            return jsonify({'url': url})
+        except Exception as err:
+            status = getattr(getattr(err, 'response', None), 'status_code', None)
+            if status == 404:
+                abort(404)
+            logger.warning("download_link error for file %s: %s", file_id, err)
+            abort(502)
+
     return bp
