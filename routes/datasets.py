@@ -9,6 +9,7 @@ import requests
 from flask import Blueprint, abort, jsonify, render_template, request
 from flask_pyoidc.user_session import UserSession
 
+from utils.auth import get_user_client
 from utils.cache import get_project, is_user_in_project
 from utils.helpers import render_markdown
 
@@ -22,7 +23,7 @@ def create_blueprint(auth):
     @auth.oidc_auth('orcid')
     def dataset(project_id, dsid):
         import views.datasets as dataset_views
-        client = flask.current_app.crucible_client
+        client = get_user_client()
         t0 = time.perf_counter()
 
         if not is_user_in_project(project_id):
@@ -38,7 +39,7 @@ def create_blueprint(auth):
                 return default
 
         with ThreadPoolExecutor() as ex:
-            f_pc       = ex.submit(get_project, project_id, client=client)
+            f_pc       = ex.submit(get_project, project_id, orcid, client=client)
             f_ds       = ex.submit(client.datasets.get, dsid, include_metadata=True)
             f_samples  = ex.submit(client.samples.list, dataset_id=dsid)
             f_thumbs   = ex.submit(client.datasets.get_thumbnails, dsid)
@@ -106,7 +107,7 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/datasets/<dsid>/mdnote-edit", methods=['GET', 'POST'])
     @auth.oidc_auth('orcid')
     def mdnote_edit(project_id, dsid):
-        client = flask.current_app.crucible_client
+        client = get_user_client()
         if not is_user_in_project(project_id):
             abort(403)
         ds = client.datasets.get(dsid, include_metadata=True)
@@ -152,7 +153,7 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/datasets/<dsid>/files/<file_id>/download_link")
     @auth.oidc_auth('orcid')
     def file_download_link(project_id, dsid, file_id):
-        client = flask.current_app.crucible_client
+        client = get_user_client()
         if not is_user_in_project(project_id):
             abort(403)
         try:

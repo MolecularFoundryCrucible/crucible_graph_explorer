@@ -9,6 +9,7 @@ from flask import Blueprint, abort, jsonify, redirect, render_template, request
 from flask_pyoidc.user_session import UserSession
 from PIL import Image
 
+from utils.auth import get_user_client
 from utils.cache import clear_project_cache, get_project, is_user_in_project
 from utils.graph import get_entity_graph_nx
 
@@ -23,7 +24,9 @@ def create_blueprint(auth):
     def sample_new(project_id):
         if not is_user_in_project(project_id):
             abort(403)
-        pc = get_project(project_id)
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        pc = get_project(project_id, orcid)
         return render_template('create_sample.html', pc=pc)
 
     @bp.route("/<project_id>/samples/new", methods=['POST'])
@@ -42,7 +45,7 @@ def create_blueprint(auth):
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
 
-        result = flask.current_app.crucible_client.samples.create(
+        result = get_user_client().samples.create(
             sample_name=sample_name,
             sample_type=sample_type,
             description=description,
@@ -51,7 +54,7 @@ def create_blueprint(auth):
             parents=[{'unique_id': pid} for pid in parent_ids],
             children=[{'unique_id': cid} for cid in child_ids],
         )
-        clear_project_cache(project_id)
+        clear_project_cache(project_id, orcid)
         return redirect(f'/{project_id}/samples/{result["unique_id"]}')
 
     @bp.route("/<project_id>/samples/<sample_id>/edit", methods=['GET'])
@@ -59,7 +62,9 @@ def create_blueprint(auth):
     def sample_edit(project_id, sample_id):
         if not is_user_in_project(project_id):
             abort(403)
-        pc = get_project(project_id)
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        pc = get_project(project_id, orcid)
         self_info = pc['samples_by_id'].get(sample_id)
         if not self_info:
             abort(404)
@@ -76,6 +81,8 @@ def create_blueprint(auth):
     def sample_edit_post(project_id, sample_id):
         if not is_user_in_project(project_id):
             abort(403)
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
         G = get_entity_graph_nx(sample_id)
         existing_parent_ids = set(G.predecessors(sample_id))
         existing_child_ids  = set(G.successors(sample_id))
@@ -90,7 +97,7 @@ def create_blueprint(auth):
         new_child_ids  = [cid for cid in request.form.getlist('child_ids')
                           if cid and cid not in existing_child_ids]
 
-        flask.current_app.crucible_client.samples.update(
+        get_user_client().samples.update(
             unique_id=sample_id,
             sample_name=sample_name,
             sample_type=sample_type,
@@ -98,7 +105,7 @@ def create_blueprint(auth):
             parents=[{'unique_id': pid} for pid in new_parent_ids],
             children=[{'unique_id': cid} for cid in new_child_ids],
         )
-        clear_project_cache(project_id)
+        clear_project_cache(project_id, orcid)
         return redirect(f'/{project_id}/samples/{sample_id}')
 
     @bp.route("/<project_id>/samples/<sample_id>/upload-photo", methods=['GET'])
@@ -106,7 +113,9 @@ def create_blueprint(auth):
     def upload_photo(project_id, sample_id):
         if not is_user_in_project(project_id):
             abort(403)
-        pc = get_project(project_id)
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        pc = get_project(project_id, orcid)
         sample = pc['samples_by_id'].get(sample_id)
         if not sample:
             abort(404)
@@ -118,8 +127,10 @@ def create_blueprint(auth):
         if not is_user_in_project(project_id):
             abort(403)
 
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
         from crucible.models import Dataset
-        client = flask.current_app.crucible_client
+        client = get_user_client()
 
         f = request.files.get('file')
         if not f or not f.filename:
@@ -152,17 +163,17 @@ def create_blueprint(auth):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
-        clear_project_cache(project_id)
+        clear_project_cache(project_id, orcid)
         return jsonify({'dataset_id': dataset_id, 'project_id': project_id})
 
     @bp.route("/<project_id>/samples/<sample_id>")
     @auth.oidc_auth('orcid')
     def sample_graph(project_id, sample_id):
-        client = flask.current_app.crucible_client
+        client = get_user_client()
         orcid = UserSession(flask.session).userinfo['sub']
         if not is_user_in_project(project_id):
             abort(403)
-        pc = get_project(project_id)
+        pc = get_project(project_id, orcid)
         G  = get_entity_graph_nx(sample_id)
 
         descendants = nx.descendants(G, sample_id)

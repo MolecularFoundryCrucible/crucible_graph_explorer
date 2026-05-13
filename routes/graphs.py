@@ -2,9 +2,11 @@ import logging
 
 import flask
 from flask import Blueprint, abort, jsonify, render_template
+from flask_pyoidc.user_session import UserSession
 
+from utils.auth import get_user_client
 from utils.cache import get_project, is_user_in_project
-from utils.graph import get_entity_graph_nx, _to_nx
+from utils.graph import get_entity_graph_nx, get_project_graph, _to_nx
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +21,9 @@ def create_blueprint(auth):
             abort(400)
         if not is_user_in_project(project_id):
             abort(403)
-        pc = get_project(project_id)
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        pc = get_project(project_id, orcid)
         if entity_type == 'sample':
             entity = pc['samples_by_id'].get(entity_id, {})
             entity_name = entity.get('sample_name', entity_id[:13])
@@ -40,8 +44,10 @@ def create_blueprint(auth):
         if not is_user_in_project(project_id):
             abort(403)
 
-        client = flask.current_app.crucible_client
-        pc = get_project(project_id)
+        client = get_user_client()
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        pc = get_project(project_id, orcid)
         G = get_entity_graph_nx(entity_id)
 
         nodes = []
@@ -97,7 +103,9 @@ def create_blueprint(auth):
     def project_graph(project_id):
         if not is_user_in_project(project_id):
             abort(403)
-        pc = get_project(project_id)
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        pc = get_project(project_id, orcid)
         return render_template('project_graph.html', pc=pc)
 
     @bp.route("/<project_id>/api/project-graph-data")
@@ -106,9 +114,10 @@ def create_blueprint(auth):
         if not is_user_in_project(project_id):
             abort(403)
 
-        client = flask.current_app.crucible_client
-        pc = get_project(project_id)
-        G = _to_nx(client.graphs.project(project_id))
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        pc = get_project(project_id, orcid)
+        G = get_project_graph(project_id)
 
         nodes = []
         edges = [{'source': src, 'target': tgt} for src, tgt in G.edges()]

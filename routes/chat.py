@@ -20,6 +20,8 @@ from flask import (
 )
 from flask_pyoidc.user_session import UserSession
 
+from utils.auth import get_user_client
+
 CHAT_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-haiku-20241022")
 
 CHAT_TOOL_DEFS = [
@@ -258,8 +260,9 @@ def create_blueprint(auth, helpers):
     def project_chat(project_id):
         if not is_user_in_project(project_id):
             abort(403)
-        pc = get_project(project_id)
-        orcid = UserSession(session).userinfo.get('sub', 'unknown')
+        user_session = UserSession(session)
+        orcid = user_session.userinfo['sub']
+        pc = get_project(project_id, orcid)
         about = request.args.get('about')  # e.g. "sample:uuid" or "dataset:uuid"
         return render_template('chat.html', pc=pc, orcid=orcid, about=about)
 
@@ -272,7 +275,9 @@ def create_blueprint(auth, helpers):
         body = request.get_json(force=True)
         history = body.get('history', [])
 
-        pc = get_project(project_id)
+        user_session = UserSession(session)
+        orcid = user_session.userinfo['sub']
+        pc = get_project(project_id, orcid)
         system_prompt = build_system_prompt(pc)
 
         def generate():
@@ -308,7 +313,7 @@ def create_blueprint(auth, helpers):
                                 if block.name == 'get_thumbnail':
                                     dsid = block.input['dataset_id']
                                     try:
-                                        thumbs = current_app.crucible_client.datasets.get_thumbnails(dsid)
+                                        thumbs = get_user_client().datasets.get_thumbnails(dsid)
                                         if thumbs:
                                             src = f"data:image/png;base64,{thumbs[0]['thumbnail_b64str']}"
                                             label = pc['datasets_by_id'].get(dsid, {}).get('dataset_name', dsid[:13])
@@ -321,7 +326,7 @@ def create_blueprint(auth, helpers):
                                 else:
                                     result_text = execute_chat_tool(
                                         block.name, block.input,
-                                        current_app.crucible_client, pc,
+                                        get_user_client(), pc,
                                         get_entity_graph_nx,
                                     )
 

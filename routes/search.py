@@ -5,6 +5,7 @@ import flask
 from flask import Blueprint, abort, render_template, request
 from flask_pyoidc.user_session import UserSession
 
+from utils.auth import get_user_client
 from utils.cache import get_project, is_user_in_project
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ def create_blueprint(auth):
     @bp.route("/search")
     @auth.oidc_auth('orcid')
     def global_search():
-        client = flask.current_app.crucible_client
+        client = get_user_client()
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         user_projects = client.projects.list(orcid=orcid)
@@ -42,7 +43,7 @@ def create_blueprint(auth):
         def search_project(p):
             pid = p['project_id']
             try:
-                pc = get_project(pid, include_metadata=False, client=client)
+                pc = get_project(pid, orcid, include_metadata=False, client=client)
             except Exception as err:
                 logger.warning("global_search: failed to load project %s: %s", pid, err)
                 return [], []
@@ -84,7 +85,9 @@ def create_blueprint(auth):
     def project_search(project_id):
         if not is_user_in_project(project_id):
             abort(403)
-        pc = get_project(project_id, include_metadata=True)
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        pc = get_project(project_id, orcid, include_metadata=True)
 
         samples_index = [{
             'id': s['unique_id'],

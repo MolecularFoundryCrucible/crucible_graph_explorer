@@ -3,6 +3,8 @@ import logging
 import flask
 from flask import Blueprint, abort, render_template
 
+from utils.auth import get_user_client
+
 logger = logging.getLogger(__name__)
 
 
@@ -12,14 +14,14 @@ def create_blueprint(auth):
     @bp.route("/instruments/")
     @auth.oidc_auth('orcid')
     def instrument_list():
-        instruments = flask.current_app.crucible_client.instruments.list()
+        instruments = get_user_client().instruments.list()
         return render_template('instrument_list.html', instruments=instruments)
 
     @bp.route("/instrument/<instrument_id>")
     @auth.oidc_auth('orcid')
     def instrument_detail(instrument_id):
         import views.instruments as instrument_views
-        client = flask.current_app.crucible_client
+        client = get_user_client()
         instrument = client.instruments.get(instrument_id=instrument_id)
         if not instrument:
             abort(404)

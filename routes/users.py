@@ -6,6 +6,8 @@ import flask
 from flask import Blueprint, abort, jsonify, render_template
 from flask_pyoidc.user_session import UserSession
 
+from utils.auth import get_user_client
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,7 +17,7 @@ def create_blueprint(auth):
     @bp.route("/users")
     @auth.oidc_auth('orcid')
     def users_overview():
-        client = flask.current_app.crucible_client
+        client = get_user_client()
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         user_projects = client.projects.list(orcid=orcid)
@@ -38,7 +40,7 @@ def create_blueprint(auth):
     @bp.route("/user/<target_orcid>")
     @auth.oidc_auth('orcid')
     def user_detail(target_orcid):
-        client = flask.current_app.crucible_client
+        client = get_user_client()
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         is_own_profile = (target_orcid == orcid)
