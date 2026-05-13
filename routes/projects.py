@@ -6,6 +6,7 @@ import flask
 from flask import Blueprint, abort, jsonify, render_template, request
 from flask_pyoidc.user_session import UserSession
 
+from utils.auth import get_user_client
 from utils.cache import (
     _project_cache, _PROJECT_CACHE_TTL,
     get_project, is_user_in_project, warm_project_caches,
@@ -44,7 +45,7 @@ def create_blueprint(auth):
     @bp.route("/")
     @auth.oidc_auth('orcid')
     def list_projects():
-        client = flask.current_app.crucible_client
+        client = get_user_client()
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         info = user_session.userinfo
@@ -59,7 +60,7 @@ def create_blueprint(auth):
             p['project_lead_email'] = email
             p['project_lead_name']  = abbrev_name(first, last) or email
 
-        warm_project_caches([p['project_id'] for p in user_projects], client)
+        warm_project_caches([p['project_id'] for p in user_projects], client, orcid)
 
         return render_template('project_list.html', projects=user_projects, user_name=user_name)
 
@@ -67,13 +68,15 @@ def create_blueprint(auth):
     @auth.oidc_auth('orcid')
     def dashboard_stats():
         """Return dataset/sample counts for requested projects (async dashboard endpoint)."""
-        client = flask.current_app.crucible_client
+        client = get_user_client()
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
         ids = [i.strip() for i in request.args.get('ids', '').split(',') if i.strip()]
         if not ids:
             return jsonify({})
 
         def get_stats(pid):
-            cached = _project_cache.get((pid, False))
+            cached = _project_cache.get((orcid, pid, False))
             if cached and time.time() - cached[1] < _PROJECT_CACHE_TTL:
                 pc = cached[0]
                 return pid, len(pc.get('datasets', [])), len(pc.get('samples', []))
@@ -93,7 +96,7 @@ def create_blueprint(auth):
     @auth.oidc_auth('orcid')
     def project_overview(project_id):
         import views.projects as project_views
-        client = flask.current_app.crucible_client
+        client = get_user_client()
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         user_projects = client.projects.list(orcid=orcid)
@@ -139,8 +142,10 @@ def create_blueprint(auth):
         """Return slim samples + datasets JSON for async project overview loading."""
         if not is_user_in_project(project_id):
             abort(403)
-        client = flask.current_app.crucible_client
-        pc = get_project(project_id, client=client)
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        client = get_user_client()
+        pc = get_project(project_id, orcid, client=client)
         return jsonify({
             'samples':  [_slim_sample(s)   for s in pc['samples']],
             'datasets': [_slim_dataset(ds) for ds in pc['datasets']],
@@ -151,8 +156,10 @@ def create_blueprint(auth):
     def project_api_sample_types(project_id):
         if not is_user_in_project(project_id):
             abort(403)
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
         q = request.args.get('q', '').lower()
-        pc = get_project(project_id)
+        pc = get_project(project_id, orcid)
         types = sorted({s.get('sample_type') for s in pc['samples'] if s.get('sample_type')})
         if q:
             types = [t for t in types if q in t.lower()]
@@ -163,8 +170,10 @@ def create_blueprint(auth):
     def api_samples(project_id):
         if not is_user_in_project(project_id):
             abort(403)
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
         q = request.args.get('q', '').lower()
-        pc = get_project(project_id)
+        pc = get_project(project_id, orcid)
         samples = pc['samples']
         if q:
             samples = [s for s in samples
@@ -180,8 +189,10 @@ def create_blueprint(auth):
     def api_datasets(project_id):
         if not is_user_in_project(project_id):
             abort(403)
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
         q = request.args.get('q', '').lower()
-        pc = get_project(project_id)
+        pc = get_project(project_id, orcid)
         datasets = pc['datasets']
         if q:
             datasets = [d for d in datasets
