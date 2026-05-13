@@ -91,6 +91,29 @@ _LOGIN_EXEMPT       = {'/login', '/login/go', '/redirect_uri', '/auth-test/'}
 _ACCOUNT_SETUP_PATHS = {'/account/setup', '/account/profile'}
 
 
+def _fetch_user_api_key() -> None:
+    """Fetch the user's personal Crucible API key and store it in the session.
+
+    Calls GET /user_apikey forwarding the browser's cookies (the Crucible
+    platform sets crucible_user_token which the API uses for identification).
+    Silently logs and returns on any failure so login is never blocked.
+    """
+    if flask.session.get('crucible_apikey'):
+        return
+    try:
+        resp = requests.get(
+            f"{crucible_api_url}/user_apikey",
+            cookies=request.cookies,
+            timeout=5,
+        )
+        if resp.ok:
+            key = resp.json().get('crucible_apikey')
+            if key:
+                flask.session['crucible_apikey'] = key
+    except Exception as e:
+        app.logger.warning("Could not fetch user API key: %s", e)
+
+
 def _crucible_user_exists(orcid):
     """Return True if the ORCID has a Crucible account. Result cached in session."""
     if flask.session.get('crucible_user_ok'):
@@ -122,6 +145,9 @@ def require_login():
                 orcid = user_session.userinfo.get('sub')
                 if orcid and not _crucible_user_exists(orcid):
                     return redirect(url_for('account_setup'))
+            # Lazy fallback: ensure key is in session
+            if not flask.session.get('crucible_apikey'):
+                _fetch_user_api_key()
             return
     except Exception:
         pass
@@ -142,6 +168,7 @@ def login():
 @app.route('/login/go')
 @auth.oidc_auth('orcid')
 def login_go():
+    _fetch_user_api_key()
     return redirect('/')
 
 
