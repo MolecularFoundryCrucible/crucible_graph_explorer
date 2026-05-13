@@ -1,5 +1,5 @@
 import networkx as nx
-from flask import current_app
+from utils.auth import get_user_client
 
 
 def _to_nx(data: dict) -> nx.DiGraph:
@@ -10,8 +10,8 @@ def _to_nx(data: dict) -> nx.DiGraph:
 
 
 def get_entity_graph_nx(entity_id: str) -> nx.DiGraph:
-    return _to_nx(current_app.crucible_client.graphs.get(entity_id, recursive=True))
+    return _to_nx(get_user_client().graphs.get(entity_id, recursive=True))
 
 
 def get_project_graph(project_id: str) -> nx.DiGraph:
-    return _to_nx(current_app.crucible_client.graphs.project(project_id))
+    return _to_nx(get_user_client().graphs.project(project_id))
