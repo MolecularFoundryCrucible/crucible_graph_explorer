@@ -25,6 +25,8 @@ import requests as _requests
 from flask import Blueprint, Response, abort, current_app, render_template, request
 from PIL import Image
 
+from utils.auth import get_user_client
+
 MEASUREMENT_TYPES = ['sv_ramp']
 URL_PREFIX = '/dataset-view/sv-ramp-gcs'
 LABEL = 'SV Ramp Viewer'
@@ -169,8 +171,8 @@ def create_blueprint(auth, helpers):
     def view(project_id, dsid):
         if not is_user_in_project(project_id):
             abort(403)
-        ds    = current_app.crucible_client.datasets.get(dsid)
-        meta  = _ensure_meta(dsid, current_app.crucible_client)
+        ds    = get_user_client().datasets.get(dsid)
+        meta  = _ensure_meta(dsid, get_user_client())
         return render_template(
             'dataset_views/sv_ramp_gcs.html',
             project_id=project_id,
@@ -200,7 +202,7 @@ def create_blueprint(auth, helpers):
         if fi is None:
             abort(400)
 
-        meta = _ensure_meta(dsid, current_app.crucible_client)
+        meta = _ensure_meta(dsid, get_user_client())
         if not (0 <= fi < meta['n_frames']):
             abort(400)
 

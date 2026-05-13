@@ -5,6 +5,8 @@ import numpy as np
 import requests
 from flask import Blueprint, render_template, abort, current_app, jsonify
 
+from utils.auth import get_user_client
+
 MEASUREMENT_TYPES = ['automated_RGA_TEY_run']
 URL_PREFIX = '/dataset-view/rga-tey-run-plots'
 LABEL = 'RGA/TEY Plots'
@@ -29,10 +31,10 @@ def create_blueprint(auth, helpers):
         return None
 
     def _fetch_context(dsid):
-        ds = current_app.crucible_client.datasets.get(dsid)
-        associated_files = current_app.crucible_client.datasets.get_associated_files(dsid)
+        ds = get_user_client().datasets.get(dsid)
+        associated_files = get_user_client().datasets.get_associated_files(dsid)
         try:
-            download_links = current_app.crucible_client.datasets.get_download_links(dsid)
+            download_links = get_user_client().datasets.get_download_links(dsid)
         except Exception:
             download_links = {}
         return ds, associated_files, download_links

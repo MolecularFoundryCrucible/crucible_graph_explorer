@@ -2,6 +2,8 @@ import networkx as nx
 import pandas
 from flask import Blueprint, render_template, abort, current_app
 
+from utils.auth import get_user_client
+
 PROJECT_ID = '10k_perovskites'
 
 VIEWS = [
@@ -87,7 +89,7 @@ def create_blueprint(auth, helpers):
         dataset_ids = [dsid for dsid in img_dsid.values() if dsid]
         if dataset_ids:
             try:
-                batch = current_app.crucible_client._request(
+                batch = get_user_client()._request(
                     "POST", "/datasets/first_thumbnails", json=dataset_ids
                 )
             except Exception:

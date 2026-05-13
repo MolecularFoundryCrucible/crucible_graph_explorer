@@ -15,6 +15,8 @@ from flask import Blueprint, Response, abort, current_app, jsonify, render_templ
 from flask_pyoidc.user_session import UserSession
 from crucible.models import Dataset
 
+from utils.auth import get_user_client
+
 INSTRUMENT_TYPES = ['als-bl12012']
 URL_PREFIX = '/instrument-view/als-bl12012'
 VIEWS = [{'label': 'Upload Run', 'url': '/upload', 'icon': 'bi-upload'}]
@@ -46,7 +48,7 @@ def _save_files(files, tmpdir):
 def _run_job(job_id, tmpdir, project_id, dataset_name, app):
     """Background thread: run upload and push SSE progress events."""
     with app.app_context():
-        client = app.crucible_client
+        client = current_app.admin_client
         try:
             # 1. existing ID from crucible.yaml
             existing_id = None
@@ -174,7 +176,7 @@ def create_blueprint(auth, helpers):
     def upload():
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        projects = current_app.crucible_client.projects.list(orcid=orcid)
+        projects = get_user_client().projects.list(orcid=orcid)
         return render_template('instrument_views/als_bl12012_upload.html', projects=projects)
 
     @bp.route('/upload', methods=['POST'])

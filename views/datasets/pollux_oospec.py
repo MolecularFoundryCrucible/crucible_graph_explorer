@@ -7,6 +7,8 @@ import numpy as np
 import requests
 from flask import Blueprint, abort, current_app, jsonify, render_template
 
+from utils.auth import get_user_client
+
 MEASUREMENT_TYPES = ['pollux_oospec_multipos_line_scan']
 URL_PREFIX = '/dataset-view/pollux-oospec'
 LABEL = 'Spectra Plot'
@@ -122,10 +124,10 @@ def _parse_h5_position(content_bytes, pos_name):
 
 def _fetch_h5_bytes(dsid):
     """Fetch the first .h5 associated file for the dataset and return its bytes."""
-    ds = current_app.crucible_client.datasets.get(dsid)
-    associated_files = current_app.crucible_client.datasets.get_associated_files(dsid)
+    ds = get_user_client().datasets.get(dsid)
+    associated_files = get_user_client().datasets.get_associated_files(dsid)
     try:
-        download_links = current_app.crucible_client.datasets.get_download_links(dsid)
+        download_links = get_user_client().datasets.get_download_links(dsid)
     except Exception:
         download_links = {}
 
@@ -158,7 +160,7 @@ def create_blueprint(auth, helpers):
     def view(project_id, dsid):
         if not is_user_in_project(project_id):
             abort(403)
-        ds = current_app.crucible_client.datasets.get(dsid)
+        ds = get_user_client().datasets.get(dsid)
         return render_template('dataset_views/pollux_oospec.html',
                                project_id=project_id, ds=ds)
 

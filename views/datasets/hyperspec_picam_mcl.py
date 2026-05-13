@@ -5,6 +5,8 @@ import numpy as np
 from cachetools import TTLCache
 from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request
 
+from utils.auth import get_user_client
+
 MEASUREMENT_TYPES = ['hyperspec_picam_mcl']
 URL_PREFIX = '/dataset-view/hyperspec-picam-mcl'
 LABEL = 'Hyperspectral Viewer'
@@ -63,8 +65,8 @@ def create_blueprint(auth, helpers):
     def view(project_id, dsid):
         if not is_user_in_project(project_id):
             abort(403)
-        ds = current_app.crucible_client.datasets.get(dsid)
-        h5 = _get_h5(dsid, current_app.crucible_client)
+        ds = get_user_client().datasets.get(dsid)
+        h5 = _get_h5(dsid, get_user_client())
         meas = h5['measurement/hyperspec_picam_mcl']
         h_array = meas['h_array'][:].tolist()
         v_array = meas['v_array'][:].tolist()
@@ -96,7 +98,7 @@ def create_blueprint(auth, helpers):
         spec_min = request.args.get('spec_min', type=float)
         spec_max = request.args.get('spec_max', type=float)
 
-        h5   = _get_h5(dsid, current_app.crucible_client)
+        h5   = _get_h5(dsid, get_user_client())
         meas = h5['measurement/hyperspec_picam_mcl']
         h_array = meas['h_array'][:].tolist()
         v_array = meas['v_array'][:].tolist()
@@ -136,7 +138,7 @@ def create_blueprint(auth, helpers):
             abort(400)
 
         if dsid not in _spec_map_cache:
-            h5 = _get_h5(dsid, current_app.crucible_client)
+            h5 = _get_h5(dsid, get_user_client())
             _spec_map_cache[dsid] = h5['measurement/hyperspec_picam_mcl/spec_map'][0].astype(np.float32)
         arr = _spec_map_cache[dsid][yi, xi, :]
         return Response(arr.tobytes(), mimetype='application/octet-stream')

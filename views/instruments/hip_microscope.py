@@ -12,6 +12,8 @@ from flask import Blueprint, Response, abort, current_app, jsonify, render_templ
 from flask_pyoidc.user_session import UserSession
 from crucible.models import Dataset
 
+from utils.auth import get_user_client
+
 INSTRUMENT_TYPES = ['hip_microscope']
 URL_PREFIX = '/instrument-view/hip-microscope'
 VIEWS = [
@@ -74,7 +76,7 @@ def _push(job_id: str, event: dict):
 def _run_job(job_id, tmpfile_path, project_id, dataset_name, measurement, sample_id, app, clear_cache=None):
     """Background thread: upload single H5 file and push SSE progress events."""
     with app.app_context():
-        client = app.crucible_client
+        client = current_app.admin_client
         try:
             _push(job_id, {'type': 'info',
                            'message': '[DRY RUN] Creating dataset…' if DRY_RUN else 'Creating dataset…'})
@@ -134,7 +136,7 @@ def _save_files(files, tmpdir):
 def _run_session_job(job_id, tmpdir, project_id, dataset_name, sample_id, app, clear_cache=None):
     """Background thread: upload session folder as parent + per-H5 child datasets."""
     with app.app_context():
-        client = app.crucible_client
+        client = current_app.admin_client
         try:
             h5_files = sorted(
                 os.path.join(root, fname)
@@ -241,7 +243,7 @@ def create_blueprint(auth, helpers):
     def upload():
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        projects = current_app.crucible_client.projects.list(orcid=orcid)
+        projects = get_user_client().projects.list(orcid=orcid)
         return render_template('instrument_views/hip_microscope_upload.html', projects=projects)
 
     @bp.route('/upload/parse', methods=['POST'])
@@ -338,7 +340,7 @@ def create_blueprint(auth, helpers):
     def upload_session():
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        projects = current_app.crucible_client.projects.list(orcid=orcid)
+        projects = get_user_client().projects.list(orcid=orcid)
         return render_template('instrument_views/hip_microscope_session_upload.html', projects=projects)
 
     @bp.route('/upload/session/parse', methods=['POST'])
@@ -398,7 +400,7 @@ def create_blueprint(auth, helpers):
         q = request.args.get('q', '').lower()
         if not project_id or not is_user_in_project(project_id):
             abort(403)
-        samples = current_app.crucible_client.samples.list(project_id=project_id)
+        samples = get_user_client().samples.list(project_id=project_id)
         if q:
             samples = [s for s in samples if q in (s.get('sample_name') or '').lower()]
         return jsonify([{'id': s['unique_id'], 'name': s['sample_name']} for s in samples[:20]])

@@ -5,6 +5,8 @@ from cachetools import TTLCache
 from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request
 from werkzeug.exceptions import NotFound
 
+from utils.auth import get_user_client
+
 MEASUREMENT_TYPES = ['4D_STEM', 'TEM NANOPROBE']
 URL_PREFIX = '/dataset-view/4dstem-dm4'
 LABEL = '4D-STEM Viewer'
@@ -104,9 +106,9 @@ def create_blueprint(auth, helpers):
     def view(project_id, dsid):
         if not is_user_in_project(project_id):
             abort(403)
-        ds = current_app.crucible_client.datasets.get(dsid)
+        ds = get_user_client().datasets.get(dsid)
         try:
-            entry = _get_dm4(dsid, current_app.crucible_client)
+            entry = _get_dm4(dsid, get_user_client())
         except NotFound:
             return render_template(
                 'dataset_views/4dstem_dm4.html',
@@ -132,7 +134,7 @@ def create_blueprint(auth, helpers):
         """Return the virtual bright-field spatial map (sum over all detector pixels)."""
         if not is_user_in_project(project_id):
             abort(403)
-        entry = _get_dm4(dsid, current_app.crucible_client)
+        entry = _get_dm4(dsid, get_user_client())
         return jsonify({
             'scan_rows':   entry['scan_rows'],
             'scan_cols':   entry['scan_cols'],
@@ -161,7 +163,7 @@ def create_blueprint(auth, helpers):
         if row is None or col is None:
             abort(400)
 
-        entry = _get_dm4(dsid, current_app.crucible_client)
+        entry = _get_dm4(dsid, get_user_client())
         if not (0 <= row < entry['scan_rows'] and 0 <= col < entry['scan_cols']):
             abort(400)
 

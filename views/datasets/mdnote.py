@@ -3,6 +3,7 @@ import os
 import requests
 from flask import Blueprint, render_template, abort, current_app
 
+from utils.auth import get_user_client
 from utils.helpers import render_markdown
 
 MEASUREMENT_TYPES = ['MDNote']
@@ -21,10 +22,10 @@ def create_blueprint(auth, helpers):
         if not is_user_in_project(project_id):
             abort(403)
 
-        ds = current_app.crucible_client.datasets.get(dsid)
-        associated_files = current_app.crucible_client.datasets.get_associated_files(dsid)
+        ds = get_user_client().datasets.get(dsid)
+        associated_files = get_user_client().datasets.get_associated_files(dsid)
         try:
-            download_links = current_app.crucible_client.datasets.get_download_links(dsid)
+            download_links = get_user_client().datasets.get_download_links(dsid)
         except Exception:
             download_links = {}
 

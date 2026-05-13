@@ -1,5 +1,7 @@
 from flask import Blueprint, current_app, render_template
 
+from utils.auth import get_user_client
+
 INSTRUMENT_TYPES = ['Nirvana']
 URL_PREFIX = '/instrument-view/nirvana'
 VIEWS = [{'label': 'Dataset List', 'url': '/overview'}]
@@ -11,11 +13,11 @@ def create_blueprint(auth, helpers):
     @bp.route('/overview')
     @auth.oidc_auth('orcid')
     def view():
-        instrument = current_app.crucible_client.instruments.get(instrument_id='nirvana')
+        instrument = get_user_client().instruments.get(instrument_id='nirvana')
         #if not instrument:
         #    abort(404)
         #instrument_name = instrument.get('instrument_name', '')
-        datasets = current_app.crucible_client.datasets.list(
+        datasets = get_user_client().datasets.list(
             instrument_name='nirvana spectrometer', limit=500
         )
         datasets.sort(key=lambda d: d.get('timestamp') or '', reverse=True)
