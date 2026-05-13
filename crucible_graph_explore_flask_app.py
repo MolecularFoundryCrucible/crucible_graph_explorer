@@ -4,7 +4,7 @@ import os
 import flask
 import requests
 from dotenv import load_dotenv
-from flask import Flask, jsonify, redirect, render_template
+from flask import Flask, jsonify, redirect, render_template, request, url_for
 from flask_pyoidc import OIDCAuthentication
 from flask_pyoidc.provider_configuration import ClientMetadata, ProviderConfiguration
 from flask_pyoidc.user_session import UserSession
@@ -30,7 +30,8 @@ app.config.update(
 
 crucible_api_url = os.getenv("CRUCIBLE_API_URL", "https://crucible.lbl.gov/api/v2")
 crucible_api_key = os.getenv("CRUCIBLE_API_KEY")
-app.crucible_client = CrucibleClient(api_url=crucible_api_url, api_key=crucible_api_key)
+app.admin_client = CrucibleClient(api_url=crucible_api_url, api_key=crucible_api_key)
+app.config['CRUCIBLE_API_URL'] = crucible_api_url
 
 PROVIDER_NAME = 'orcid'
 CLIENT_META = ClientMetadata(
@@ -67,14 +68,18 @@ app.jinja_env.globals['abbrev_name'] = abbrev_name
 def inject_current_user():
     try:
         user_session = UserSession(flask.session)
-        orcid = user_session.userinfo.get('sub')
-        return {'current_user_orcid': orcid}
+        userinfo = user_session.userinfo
+        orcid = userinfo.get('sub')
+        name = (userinfo.get('name') or
+                (userinfo.get('given_name', '') + ' ' + userinfo.get('family_name', '')).strip()
+                or None)
+        return {'current_user_orcid': orcid, 'current_user_name': name}
     except Exception:
-        return {'current_user_orcid': None}
+        return {'current_user_orcid': None, 'current_user_name': None}
 
 
-@auth.oidc_auth('orcid')
 @app.route("/auth-test/")
+@auth.oidc_auth('orcid')
 def auth_test():
     user_session = UserSession(flask.session)
     return jsonify(access_token=user_session.access_token,
@@ -82,14 +87,164 @@ def auth_test():
                    userinfo=user_session.userinfo)
 
 
+_LOGIN_EXEMPT       = {'/login', '/login/go', '/redirect_uri', '/auth-test/'}
+_ACCOUNT_SETUP_PATHS = {'/account/setup', '/account/profile'}
+
+
+def _crucible_user_exists(orcid):
+    """Return True if the ORCID has a Crucible account. Result cached in session."""
+    if flask.session.get('crucible_user_ok'):
+        return True
+    try:
+        app.admin_client.users.get(orcid)
+        flask.session['crucible_user_ok'] = True
+        return True
+    except Exception as e:
+        err = str(e).lower()
+        if '404' in err or 'not found' in err:
+            return False
+        # Network / auth error — don't block login, log and proceed
+        app.logger.warning("Could not verify Crucible account for %s: %s", orcid, e)
+        return True
+
+
+@app.before_request
+def require_login():
+    path = request.path
+    if any(path == p or path.startswith(p) for p in ('/static/', '/redirect_uri')):
+        return
+    if path in _LOGIN_EXEMPT:
+        return
+    try:
+        user_session = UserSession(flask.session)
+        if user_session.userinfo:
+            if path not in _ACCOUNT_SETUP_PATHS:
+                orcid = user_session.userinfo.get('sub')
+                if orcid and not _crucible_user_exists(orcid):
+                    return redirect(url_for('account_setup'))
+            return
+    except Exception:
+        pass
+    return redirect(url_for('login'))
+
+
+@app.route('/login')
+def login():
+    try:
+        user_session = UserSession(flask.session)
+        if user_session.userinfo:
+            return redirect('/')
+    except Exception:
+        pass
+    return render_template('login.html')
+
+
+@app.route('/login/go')
+@auth.oidc_auth('orcid')
+def login_go():
+    return redirect('/')
+
+
+@app.route('/logout')
+def logout():
+    user_session = UserSession(flask.session)
+    user_session.clear()
+    flask.session.clear()
+    return redirect(url_for('login'))
+
+
+@app.route('/account/setup', methods=['GET', 'POST'])
+def account_setup():
+    try:
+        user_session = UserSession(flask.session)
+        userinfo = user_session.userinfo
+    except Exception:
+        return redirect(url_for('login'))
+    if not userinfo:
+        return redirect(url_for('login'))
+
+    orcid = userinfo.get('sub', '')
+
+    if request.method == 'POST':
+        first_name = request.form.get('first_name', '').strip()
+        last_name  = request.form.get('last_name',  '').strip()
+        email      = request.form.get('email', '').strip()
+        error = None
+        if not first_name:
+            error = 'First name is required.'
+        elif not last_name:
+            error = 'Last name is required.'
+        if not error:
+            try:
+                app.admin_client.users.create({
+                    'unique_id':  orcid,
+                    'first_name': first_name,
+                    'last_name':  last_name,
+                    'email':      email or None,
+                }, project_ids=[])
+                flask.session['crucible_user_ok'] = True
+                return redirect('/')
+            except Exception as e:
+                app.logger.error("Account creation failed for %s: %s", orcid, e)
+                error = 'Account creation failed. Please try again.'
+        return render_template('account_setup.html',
+                               orcid=orcid,
+                               first_name=first_name,
+                               last_name=last_name,
+                               email=email,
+                               error=error)
+
+    # GET — pre-fill from ORCID userinfo
+    given  = userinfo.get('given_name', '')
+    family = userinfo.get('family_name', '')
+    if not given and not family:
+        parts  = (userinfo.get('name') or '').rsplit(' ', 1)
+        given  = parts[0] if len(parts) > 0 else ''
+        family = parts[1] if len(parts) > 1 else ''
+    return render_template('account_setup.html',
+                           orcid=orcid,
+                           first_name=given,
+                           last_name=family,
+                           email=userinfo.get('email', ''),
+                           error=None)
+
+
+@app.route('/account/profile', methods=['POST'])
+def update_profile():
+    try:
+        user_session = UserSession(flask.session)
+        userinfo = user_session.userinfo
+    except Exception:
+        return redirect(url_for('login'))
+    if not userinfo:
+        return redirect(url_for('login'))
+
+    orcid      = userinfo.get('sub', '')
+    first_name = request.form.get('first_name', '').strip()
+    last_name  = request.form.get('last_name',  '').strip()
+    email      = request.form.get('email', '').strip()
+
+    updates = {}
+    if first_name: updates['first_name'] = first_name
+    if last_name:  updates['last_name']  = last_name
+    updates['email'] = email or None
+
+    try:
+        app.admin_client.users.update(orcid, **updates)
+        return redirect(f'/user/{orcid}?updated=1')
+    except Exception as e:
+        app.logger.error("Profile update failed for %s: %s", orcid, e)
+        return redirect(f'/user/{orcid}?update_error=1')
+
+
 @auth.error_view
 def error(error=None, error_description=None):
     if error == 'login_required':
         user_session = UserSession(flask.session)
         user_session.clear()
-        return redirect('/')
+        return redirect(url_for('login'))
     app.logger.error("OIDC error: %s — %s", error, error_description)
-    return redirect('/')
+    return redirect(url_for('login'))
 
 
 # ── Error handlers ────────────────────────────────────────────────────────────
