@@ -43,10 +43,10 @@
 {{ deletion_banner(ds) }}
 
 <div class="d-flex gap-3 align-items-start">
-<div style="flex: 1; min-width: 0; max-width: 860px;">
+<div style="flex: 1; min-width: 0; max-width: 680px;">
 
 <!-- ── compact resource card ────────────────────────────────────────────── -->
-<div class="cg-resource-card mb-3" id="dsCard" style="max-width:860px;">
+<div class="cg-resource-card mb-3" id="dsCard" style="max-width:680px;">
 
   <!-- Identity strip -->
   {{ resource_card_identity('dsAvatar', ds['dataset_name'], ds['unique_id'],
@@ -97,7 +97,7 @@
 </div>
 
 <!-- ── section controls ─────────────────────────────────────────────── -->
-<div class="d-flex align-items-center gap-1 mb-2" style="max-width:860px;">
+<div class="d-flex align-items-center gap-1 mb-2" style="max-width:680px;">
   <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
           style="font-size:0.75rem; text-decoration:none;" onclick="setAllSections(true)">
     <i class="bi bi-chevron-expand"></i><span>Expand all</span>
@@ -255,7 +255,7 @@
 
 <!-- ── linked samples — collapsed by default ─────────────────────────── -->
 {% if samples %}
-<div class="res-section" id="section-samples">
+<div class="res-section d-xl-none" id="section-samples">
     <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-eyedropper text-muted"></i>
         <span>Linked Samples</span>
@@ -277,7 +277,7 @@
 
 <!-- ── parent datasets — collapsed by default ────────────────────────── -->
 {% if parent_datasets %}
-<div class="res-section" id="section-parents">
+<div class="res-section d-xl-none" id="section-parents">
     <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-arrow-up-short text-muted"></i>
         <span>Parent Datasets</span>
@@ -299,7 +299,7 @@
 
 <!-- ── child datasets — collapsed by default ─────────────────────────── -->
 {% if child_datasets %}
-<div class="res-section" id="section-children">
+<div class="res-section d-xl-none" id="section-children">
     <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-arrow-down-short text-muted"></i>
         <span>Child Datasets</span>
@@ -569,84 +569,104 @@
             icon.className = 'bi bi-download';
         }
     }
+
+    function toggleRelGroup(btn) {
+        const body = btn.nextElementSibling;
+        const open = btn.classList.toggle('open');
+        body.classList.toggle('open', open);
+    }
 </script>
 
 </div>{# end flex-1 content column #}
 
 <!-- ── right panel: relationships (xl+ only) ─────────────────────────── -->
-<div class="d-none d-xl-block flex-shrink-0" style="width: 280px;">
+<div class="rel-panel d-none d-xl-flex flex-column flex-shrink-0">
   <div style="position: sticky; top: 3.25rem; max-height: calc(100vh - 3.5rem); overflow-y: auto;">
-    <div class="rounded border overflow-hidden">
 
-      {% if not samples and not parent_datasets and not child_datasets %}
-      <div class="text-center text-muted py-4 px-2" style="font-size:0.8rem;">
-        <i class="bi bi-diagram-3 d-block mb-2 opacity-40"></i>No relationships
-      </div>
-      {% endif %}
-
-      {% if samples %}
-      <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
-           style="background:var(--bs-tertiary-bg);">
-        <span style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--bs-secondary-color);">
-          <i class="bi bi-eyedropper"></i> Samples
-        </span>
-        <span class="badge fw-normal border text-muted"
-              style="background:var(--bs-body-bg); font-size:0.7rem;">{{samples|length}}</span>
-      </div>
-      {% for sample in samples %}
-      <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
-         style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
-         href="/{{project_id}}/samples/{{sample['unique_id']}}">
-        <span class="text-truncate">{{sample['sample_name']}}</span>
-      </a>
-      {% endfor %}
-      {% endif %}
-
-      {% if samples and (parent_datasets or child_datasets) %}
-      <div class="border-bottom"></div>
-      {% endif %}
-
-      {% if parent_datasets %}
-      <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
-           style="background:var(--bs-tertiary-bg);">
-        <span style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--bs-secondary-color);">
-          <i class="bi bi-arrow-up-short"></i> Parents
-        </span>
-        <span class="badge fw-normal border text-muted"
-              style="background:var(--bs-body-bg); font-size:0.7rem;">{{parent_datasets|length}}</span>
-      </div>
-      {% for pd in parent_datasets %}
-      <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
-         style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
-         href="/{{project_id}}/datasets/{{pd['unique_id']}}">
-        <span class="text-truncate">{{pd['dataset_name']}}</span>
-      </a>
-      {% endfor %}
-      {% endif %}
-
-      {% if parent_datasets and child_datasets %}
-      <div class="border-bottom"></div>
-      {% endif %}
-
-      {% if child_datasets %}
-      <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
-           style="background:var(--bs-tertiary-bg);">
-        <span style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--bs-secondary-color);">
-          <i class="bi bi-arrow-down-short"></i> Children
-        </span>
-        <span class="badge fw-normal border text-muted"
-              style="background:var(--bs-body-bg); font-size:0.7rem;">{{child_datasets|length}}</span>
-      </div>
-      {% for cd in child_datasets %}
-      <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
-         style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
-         href="/{{project_id}}/datasets/{{cd['unique_id']}}">
-        <span class="text-truncate">{{cd['dataset_name']}}</span>
-      </a>
-      {% endfor %}
-      {% endif %}
-
+    <!-- panel title -->
+    <div class="rel-panel-title">
+      <i class="bi bi-diagram-3"></i>
+      Relationships
+      {% set total = (samples|length) + (parent_datasets|length) + (child_datasets|length) %}
+      {% if total %}<span class="ms-auto" style="font-family:'IBM Plex Mono',monospace; font-size:0.72rem;">{{ total }}</span>{% endif %}
     </div>
+
+    {% if not samples and not parent_datasets and not child_datasets %}
+    <div class="rel-panel-empty">
+      <i class="bi bi-diagram-3 d-block mb-2 opacity-40" style="font-size:1.5rem;"></i>
+      No relationships
+    </div>
+    {% endif %}
+
+    <!-- Samples -->
+    {% if samples %}
+    <div class="rel-group">
+      <button class="rel-group-header open" onclick="toggleRelGroup(this)">
+        <i class="bi bi-eyedropper" style="color:var(--cg-accent-mid); font-size:0.8rem;"></i>
+        <span class="rel-group-label">Samples</span>
+        <span class="rel-group-count">{{ samples|length }}</span>
+        <i class="bi bi-chevron-right rel-group-chevron"></i>
+      </button>
+      <div class="rel-group-body open">
+        {% for sample in samples %}
+        <a class="rel-item" href="/{{project_id}}/samples/{{sample['unique_id']}}">
+          <i class="bi bi-eyedropper" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
+          <span class="rel-item-name">
+            <span class="rel-item-name-text">{{sample['sample_name']}}</span>
+            {% if sample.get('sample_type') %}<span class="rel-item-sub">{{sample['sample_type']}}</span>{% endif %}
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Parent datasets -->
+    {% if parent_datasets %}
+    <div class="rel-group">
+      <button class="rel-group-header open" onclick="toggleRelGroup(this)">
+        <i class="bi bi-arrow-up-short" style="color:var(--cg-accent-mid);"></i>
+        <span class="rel-group-label">Parents</span>
+        <span class="rel-group-count">{{ parent_datasets|length }}</span>
+        <i class="bi bi-chevron-right rel-group-chevron"></i>
+      </button>
+      <div class="rel-group-body open">
+        {% for pd in parent_datasets %}
+        <a class="rel-item" href="/{{project_id}}/datasets/{{pd['unique_id']}}">
+          <i class="bi bi-database" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
+          <span class="rel-item-name">
+            <span class="rel-item-name-text">{{pd['dataset_name']}}</span>
+            {% if pd.get('measurement') %}<span class="rel-item-sub">{{pd['measurement']}}</span>{% endif %}
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Child datasets -->
+    {% if child_datasets %}
+    <div class="rel-group">
+      <button class="rel-group-header open" onclick="toggleRelGroup(this)">
+        <i class="bi bi-arrow-down-short" style="color:var(--cg-accent-mid);"></i>
+        <span class="rel-group-label">Children</span>
+        <span class="rel-group-count">{{ child_datasets|length }}</span>
+        <i class="bi bi-chevron-right rel-group-chevron"></i>
+      </button>
+      <div class="rel-group-body open">
+        {% for cd in child_datasets %}
+        <a class="rel-item" href="/{{project_id}}/datasets/{{cd['unique_id']}}">
+          <i class="bi bi-database" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
+          <span class="rel-item-name">
+            <span class="rel-item-name-text">{{cd['dataset_name']}}</span>
+            {% if cd.get('measurement') %}<span class="rel-item-sub">{{cd['measurement']}}</span>{% endif %}
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 </div>
 
