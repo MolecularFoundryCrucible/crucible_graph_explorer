@@ -232,7 +232,6 @@ def create_blueprint(auth, helpers):
     bp = Blueprint('chat', __name__)
 
     get_project        = helpers['get_project']
-    is_user_in_project = helpers['is_user_in_project']
     get_entity_graph_nx = helpers['get_entity_graph_nx']
 
     _KEY_INFO_URL = 'https://api.cborg.lbl.gov/key/info'
@@ -258,8 +257,6 @@ def create_blueprint(auth, helpers):
     @bp.route('/<project_id>/chat')
     @auth.oidc_auth('orcid')
     def project_chat(project_id):
-        if not is_user_in_project(project_id):
-            abort(403)
         user_session = UserSession(session)
         orcid = user_session.userinfo['sub']
         pc = get_project(project_id, orcid)
@@ -269,8 +266,6 @@ def create_blueprint(auth, helpers):
     @bp.route('/<project_id>/api/chat', methods=['POST'])
     @auth.oidc_auth('orcid')
     def project_chat_api(project_id):
-        if not is_user_in_project(project_id):
-            abort(403)
 
         body = request.get_json(force=True)
         history = body.get('history', [])

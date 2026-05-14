@@ -5,7 +5,7 @@ from flask import Blueprint, abort, jsonify, render_template
 from flask_pyoidc.user_session import UserSession
 
 from utils.auth import get_user_client
-from utils.cache import get_project, is_user_in_project
+from utils.cache import get_project
 from utils.graph import get_entity_graph_nx, get_project_graph, _to_nx
 
 logger = logging.getLogger(__name__)
@@ -19,8 +19,6 @@ def create_blueprint(auth):
     def entity_graph(project_id, entity_type, entity_id):
         if entity_type not in ('sample', 'dataset'):
             abort(400)
-        if not is_user_in_project(project_id):
-            abort(403)
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         pc = get_project(project_id, orcid)
@@ -41,8 +39,6 @@ def create_blueprint(auth):
     def entity_graph_data(project_id, entity_type, entity_id):
         if entity_type not in ('sample', 'dataset'):
             abort(400)
-        if not is_user_in_project(project_id):
-            abort(403)
 
         client = get_user_client()
         user_session = UserSession(flask.session)
@@ -101,8 +97,6 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/project-graph")
     @auth.oidc_auth('orcid')
     def project_graph(project_id):
-        if not is_user_in_project(project_id):
-            abort(403)
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         pc = get_project(project_id, orcid)
@@ -111,8 +105,6 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/api/project-graph-data")
     @auth.oidc_auth('orcid')
     def project_graph_data(project_id):
-        if not is_user_in_project(project_id):
-            abort(403)
 
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']

@@ -10,7 +10,7 @@ from flask_pyoidc.user_session import UserSession
 from PIL import Image
 
 from utils.auth import get_user_client
-from utils.cache import clear_project_cache, get_project, get_user_projects, is_user_in_project
+from utils.cache import clear_project_cache, get_project, get_user_projects
 from utils.graph import get_entity_graph_nx
 
 logger = logging.getLogger(__name__)
@@ -22,8 +22,6 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/samples/new", methods=['GET'])
     @auth.oidc_auth('orcid')
     def sample_new(project_id):
-        if not is_user_in_project(project_id):
-            abort(403)
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         pc = get_project(project_id, orcid)
@@ -32,8 +30,6 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/samples/new", methods=['POST'])
     @auth.oidc_auth('orcid')
     def sample_new_post(project_id):
-        if not is_user_in_project(project_id):
-            abort(403)
         sample_name = request.form.get('sample_name', '').strip()
         sample_type = request.form.get('sample_type', '').strip()
         if not sample_name or not sample_type:
@@ -60,8 +56,6 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/samples/<sample_id>/edit", methods=['GET'])
     @auth.oidc_auth('orcid')
     def sample_edit(project_id, sample_id):
-        if not is_user_in_project(project_id):
-            abort(403)
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         pc = get_project(project_id, orcid)
@@ -79,8 +73,6 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/samples/<sample_id>/edit", methods=['POST'])
     @auth.oidc_auth('orcid')
     def sample_edit_post(project_id, sample_id):
-        if not is_user_in_project(project_id):
-            abort(403)
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         G = get_entity_graph_nx(sample_id)
@@ -111,8 +103,6 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/samples/<sample_id>/upload-photo", methods=['GET'])
     @auth.oidc_auth('orcid')
     def upload_photo(project_id, sample_id):
-        if not is_user_in_project(project_id):
-            abort(403)
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         pc = get_project(project_id, orcid)
@@ -124,8 +114,6 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/samples/<sample_id>/upload-photo", methods=['POST'])
     @auth.oidc_auth('orcid')
     def upload_photo_post(project_id, sample_id):
-        if not is_user_in_project(project_id):
-            abort(403)
 
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
@@ -171,8 +159,6 @@ def create_blueprint(auth):
     def sample_graph(project_id, sample_id):
         client = get_user_client()
         orcid = UserSession(flask.session).userinfo['sub']
-        if not is_user_in_project(project_id):
-            abort(403)
         pc = get_project(project_id, orcid)
         G  = get_entity_graph_nx(sample_id)
 

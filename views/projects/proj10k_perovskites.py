@@ -1,6 +1,8 @@
 import networkx as nx
 import pandas
-from flask import Blueprint, render_template, abort, current_app
+import flask
+from flask import Blueprint, render_template
+from flask_pyoidc.user_session import UserSession
 
 from utils.auth import get_user_client
 
@@ -16,15 +18,13 @@ def create_blueprint(auth, helpers):
     bp = Blueprint(f'proj_{PROJECT_ID}', __name__)
 
     get_project = helpers['get_project']
-    is_user_in_project = helpers['is_user_in_project']
     get_project_graph = helpers['get_project_graph']
 
     @bp.route('/overview')
     @auth.oidc_auth('orcid')
     def overview():
-        if not is_user_in_project(PROJECT_ID):
-            abort(403)
-        pc = get_project(PROJECT_ID, include_metadata=True)
+        orcid = UserSession(flask.session).userinfo['sub']
+        pc = get_project(PROJECT_ID, orcid, include_metadata=True)
         G = get_project_graph(PROJECT_ID)
 
         thin_films = [s for s in pc['samples'] if s['sample_name'].startswith('TF')]
@@ -71,9 +71,8 @@ def create_blueprint(auth, helpers):
     @bp.route('/thinfilm-gallery')
     @auth.oidc_auth('orcid')
     def thinfilm_gallery():
-        if not is_user_in_project(PROJECT_ID):
-            abort(403)
-        pc = get_project(PROJECT_ID)
+        orcid = UserSession(flask.session).userinfo['sub']
+        pc = get_project(PROJECT_ID, orcid)
 
         thin_films = [s for s in pc['samples'] if s['sample_name'].startswith('TF')]
         thin_films.sort(key=lambda x: x['sample_name'])

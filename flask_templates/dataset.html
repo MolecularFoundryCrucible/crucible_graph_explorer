@@ -33,7 +33,15 @@
 {% endblock %}
 
 {% block sidebar %}
-{{ resource_sidebar(project_id, 'dataset', 'bi-database', ds['dataset_name'], all_projects, ds['unique_id']) }}
+{% set sidebar_actions = [] %}
+{% if ds['measurement'] == 'MDNote' %}
+  {% set _ = sidebar_actions.append({'label': 'Edit note', 'url': '/' ~ project_id ~ '/datasets/' ~ ds['unique_id'] ~ '/mdnote-edit', 'icon': 'bi-pencil'}) %}
+{% endif %}
+{% for cv in custom_views %}
+  {% set _ = sidebar_actions.append({'label': cv['label'], 'url': cv['url'], 'icon': cv.get('icon', 'bi-journal-text')}) %}
+{% endfor %}
+{% set _ = sidebar_actions.append({'label': 'Files & downloads', 'url': '#section-files', 'icon': 'bi-download', 'section': 'section-files'}) %}
+{{ resource_sidebar(project_id, 'dataset', 'bi-database', ds['dataset_name'], all_projects, ds['unique_id'], sidebar_actions) }}
 {% endblock %}
 
 {% block main_col_class %}col-12 col-md{% endblock %}
@@ -83,14 +91,6 @@
         <option value="owner_orcid">Owner</option>
         <option value="timestamp">Date</option>
       </select>
-    </div>
-    <div class="d-flex align-items-center gap-1 ms-auto flex-wrap">
-      {% if ds['measurement'] == 'MDNote' %}
-      <a href="/{{project_id}}/datasets/{{ds['unique_id']}}/mdnote-edit" class="cg-action-btn" title="Edit note"><i class="bi bi-pencil"></i></a>
-      {% endif %}
-      {% for cv in custom_views %}
-      <a href="{{ cv.url }}" class="cg-action-btn" title="{{ cv.label }}"><i class="bi bi-journal-text me-1"></i>{{ cv.label }}</a>
-      {% endfor %}
     </div>
   </div>
 
@@ -195,6 +195,10 @@
                 <span class="visually-hidden">Loading…</span>
             </div>
         </div>
+        <div id="cy-error" style="position:absolute;inset:0;display:none;align-items:center;
+                                   justify-content:center;z-index:5;background:var(--bs-body-bg);
+                                   flex-direction:column;text-align:center;
+                                   color:var(--bs-secondary-color);padding:2rem;gap:0.5rem;"></div>
         <div id="cy" data-project-id="{{project_id}}"></div>
         <div id="zoomHint" style="position:absolute; bottom:0.5rem; right:0.75rem;
                                    font-size:0.72rem; color:var(--bs-secondary-color);
@@ -378,28 +382,50 @@
   let entityData  = null;
   let graphLoaded = false;
 
+  function _graphError(msg) {
+    const el = document.getElementById('cy-error');
+    if (!el) return;
+    el.innerHTML = `<i class="bi bi-exclamation-circle mb-2" style="font-size:1.5rem;color:var(--bs-warning);"></i>`
+                 + `<span style="font-size:0.85rem;">${msg}</span>`;
+    el.style.display = 'flex';
+  }
+
   async function renderGraph() {
     const spinner = document.getElementById('cy-spinner');
+    const errorEl = document.getElementById('cy-error');
     if (spinner) spinner.style.display = 'flex';
-
+    if (errorEl) errorEl.style.display = 'none';
     if (cyInstance) { cyInstance.destroy(); cyInstance = null; }
     document.getElementById('toggleLayoutBtn').innerHTML = '<i class="bi bi-arrow-left-right me-1"></i>Vertical';
 
-    if (!entityData) {
-      const r = await fetch('/{{project_id}}/api/entity-graph-data/datasets/{{ds["unique_id"]}}');
-      entityData = await r.json();
+    try {
+      if (!entityData) {
+        const r = await fetch('/{{project_id}}/api/entity-graph-data/dataset/{{ds["unique_id"]}}');
+        if (!r.ok) throw new Error(`Graph API returned ${r.status}`);
+        entityData = await r.json();
+      }
+
+      if (!window.initEntityGraph) throw new Error('Graph library not loaded — try refreshing');
+
+      if (!entityData.nodes || entityData.nodes.length === 0) {
+        _graphError('No graph data for this dataset.');
+        return;
+      }
+
+      cyInstance = window.initEntityGraph('cy', entityData);
+
+      const hint = document.getElementById('zoomHint');
+      if (hint) {
+        hint.style.transition = 'none';
+        hint.style.opacity = '1';
+        setTimeout(() => { hint.style.transition = 'opacity 1.5s'; hint.style.opacity = '0'; }, 2500);
+      }
+    } catch (err) {
+      console.error('Graph render failed:', err);
+      _graphError(err.message || 'Could not load graph');
+    } finally {
+      if (spinner) spinner.style.display = 'none';
     }
-
-    if (window.initEntityGraph) cyInstance = window.initEntityGraph('cy', entityData);
-
-    const hint = document.getElementById('zoomHint');
-    if (hint) {
-      hint.style.transition = 'none';
-      hint.style.opacity = '1';
-      setTimeout(() => { hint.style.transition = 'opacity 1.5s'; hint.style.opacity = '0'; }, 2500);
-    }
-
-    if (spinner) spinner.style.display = 'none';
   }
 
   document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
@@ -476,13 +502,14 @@
     const _PID = {{ project_id | tojson }};
 
     function goBackToProject() {
-        const stored = sessionStorage.getItem('cg_overview_state_' + _PID);
+        const stored = localStorage.getItem('cg_overview_state_' + _PID);
         window.location.href = '/' + _PID + '/' + (stored || '');
     }
 
     function toggleSidebar() {
         const sb = document.getElementById('resourceSidebar');
         const collapsed = sb.classList.toggle('collapsed');
+        document.documentElement.classList.toggle('sidebar-collapsed', collapsed);
         localStorage.setItem(_SIDEBAR_KEY, collapsed ? '1' : '');
     }
 
@@ -570,11 +597,6 @@
         }
     }
 
-    function toggleRelGroup(btn) {
-        const body = btn.nextElementSibling;
-        const open = btn.classList.toggle('open');
-        body.classList.toggle('open', open);
-    }
 </script>
 
 </div>{# end flex-1 content column #}
@@ -600,22 +622,23 @@
 
     <!-- Samples -->
     {% if samples %}
-    <div class="rel-group">
-      <button class="rel-group-header open" onclick="toggleRelGroup(this)">
+    <div class="res-section">
+      <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-eyedropper" style="color:var(--cg-accent-mid); font-size:0.8rem;"></i>
-        <span class="rel-group-label">Samples</span>
-        <span class="rel-group-count">{{ samples|length }}</span>
-        <i class="bi bi-chevron-right rel-group-chevron"></i>
-      </button>
-      <div class="rel-group-body open">
+        <span>Samples</span>
+        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ samples|length }}</span>
+        <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
+      </div>
+      <div class="res-section-body">
         {% for sample in samples %}
-        <a class="rel-item" href="/{{project_id}}/samples/{{sample['unique_id']}}">
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{project_id}}/samples/{{sample['unique_id']}}')">
           <i class="bi bi-eyedropper" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
           <span class="rel-item-name">
             <span class="rel-item-name-text">{{sample['sample_name']}}</span>
+            <span class="rel-item-sub mfid">{{sample['unique_id']}}</span>
             {% if sample.get('sample_type') %}<span class="rel-item-sub">{{sample['sample_type']}}</span>{% endif %}
           </span>
-        </a>
+        </div>
         {% endfor %}
       </div>
     </div>
@@ -623,22 +646,23 @@
 
     <!-- Parent datasets -->
     {% if parent_datasets %}
-    <div class="rel-group">
-      <button class="rel-group-header open" onclick="toggleRelGroup(this)">
+    <div class="res-section">
+      <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-arrow-up-short" style="color:var(--cg-accent-mid);"></i>
-        <span class="rel-group-label">Parents</span>
-        <span class="rel-group-count">{{ parent_datasets|length }}</span>
-        <i class="bi bi-chevron-right rel-group-chevron"></i>
-      </button>
-      <div class="rel-group-body open">
+        <span>Parents</span>
+        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ parent_datasets|length }}</span>
+        <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
+      </div>
+      <div class="res-section-body">
         {% for pd in parent_datasets %}
-        <a class="rel-item" href="/{{project_id}}/datasets/{{pd['unique_id']}}">
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{project_id}}/datasets/{{pd['unique_id']}}')">
           <i class="bi bi-database" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
           <span class="rel-item-name">
             <span class="rel-item-name-text">{{pd['dataset_name']}}</span>
+            <span class="rel-item-sub mfid">{{pd['unique_id']}}</span>
             {% if pd.get('measurement') %}<span class="rel-item-sub">{{pd['measurement']}}</span>{% endif %}
           </span>
-        </a>
+        </div>
         {% endfor %}
       </div>
     </div>
@@ -646,26 +670,28 @@
 
     <!-- Child datasets -->
     {% if child_datasets %}
-    <div class="rel-group">
-      <button class="rel-group-header open" onclick="toggleRelGroup(this)">
+    <div class="res-section">
+      <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-arrow-down-short" style="color:var(--cg-accent-mid);"></i>
-        <span class="rel-group-label">Children</span>
-        <span class="rel-group-count">{{ child_datasets|length }}</span>
-        <i class="bi bi-chevron-right rel-group-chevron"></i>
-      </button>
-      <div class="rel-group-body open">
+        <span>Children</span>
+        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ child_datasets|length }}</span>
+        <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
+      </div>
+      <div class="res-section-body">
         {% for cd in child_datasets %}
-        <a class="rel-item" href="/{{project_id}}/datasets/{{cd['unique_id']}}">
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{project_id}}/datasets/{{cd['unique_id']}}')">
           <i class="bi bi-database" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
           <span class="rel-item-name">
             <span class="rel-item-name-text">{{cd['dataset_name']}}</span>
+            <span class="rel-item-sub mfid">{{cd['unique_id']}}</span>
             {% if cd.get('measurement') %}<span class="rel-item-sub">{{cd['measurement']}}</span>{% endif %}
           </span>
-        </a>
+        </div>
         {% endfor %}
       </div>
     </div>
     {% endif %}
+
 
   </div>
 </div>

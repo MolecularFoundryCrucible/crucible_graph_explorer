@@ -934,7 +934,7 @@
         if (!link) return;
         const href = link.getAttribute('href') || '';
         if (href.includes('/samples/') || href.includes('/datasets/')) {
-            sessionStorage.setItem('cg_overview_state_' + PID, location.hash || '#tab=samples');
+            localStorage.setItem('cg_overview_state_' + PID, location.hash || '#tab=samples');
         }
     });
 
@@ -1012,7 +1012,7 @@
 
         // Restore saved state if returning from a resource page and URL has no hash
         if (!location.hash) {
-            const stored = sessionStorage.getItem('cg_overview_state_' + PID);
+            const stored = localStorage.getItem('cg_overview_state_' + PID);
             if (stored) {
                 history.replaceState(null, '', stored);
             }

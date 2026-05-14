@@ -6,7 +6,7 @@ from flask import Blueprint, abort, render_template, request
 from flask_pyoidc.user_session import UserSession
 
 from utils.auth import get_user_client
-from utils.cache import get_project, get_user_projects, is_user_in_project
+from utils.cache import get_project, get_user_projects
 
 logger = logging.getLogger(__name__)
 
@@ -83,8 +83,6 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/search")
     @auth.oidc_auth('orcid')
     def project_search(project_id):
-        if not is_user_in_project(project_id):
-            abort(403)
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         pc = get_project(project_id, orcid, include_metadata=True)

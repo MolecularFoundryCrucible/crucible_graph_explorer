@@ -14,8 +14,7 @@ expose:
 
 Available helpers
 -----------------
-    get_project(project_id, include_metadata=False)
-    is_user_in_project(project_id)
+    get_project(project_id, orcid, include_metadata=False)
     get_project_graph(project_id)
     get_entity_graph_nx(entity_id)
 """

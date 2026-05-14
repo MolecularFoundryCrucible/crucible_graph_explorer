@@ -366,7 +366,7 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 
 /* ── resource-page collapsible sidebar ──────────────────────────── */
 .cg-sidebar {
-    width: calc(100% / 6); max-width: 320px; flex-shrink: 0;
+    width: 260px; flex-shrink: 0;
     position: sticky; top: 3rem; height: calc(100vh - 3rem); align-self: flex-start;
     transition: width 0.25s cubic-bezier(0.4,0,0.2,1);
     border-right: 1px solid var(--bs-border-color);
@@ -604,7 +604,7 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 
 /* ── relationship panel (right sidebar, xl+ screens) ───────────── */
 .rel-panel {
-    min-width: 320px; flex: 1; max-width: 380px;
+    min-width: 340px; flex: 1; max-width: 500px;
     background: color-mix(in srgb, var(--cg-accent) 5%, var(--bs-body-bg));
     border: 1px solid var(--bs-border-color);
     border-left: 2px solid color-mix(in srgb, var(--cg-accent-mid) 30%, transparent);
@@ -615,48 +615,30 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
     display: flex; align-items: center; gap: 0.5rem;
     padding: 0.6rem 0.75rem;
     border-bottom: 1px solid var(--bs-border-color);
-    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.08em; color: var(--bs-secondary-color);
+}
+.rel-panel-footer {
+    border-top: 1px solid var(--bs-border-color);
+    padding: 0.6rem 0.75rem;
+    background: color-mix(in srgb, var(--cg-accent) 3%, var(--bs-body-bg));
 }
 .rel-panel-title > i { color: var(--cg-accent-mid); }
 .rel-panel-empty {
     text-align: center; padding: 2rem 1rem;
     font-size: 0.8rem; color: var(--bs-secondary-color);
 }
-.rel-group { border-bottom: 1px solid var(--bs-border-color); }
-.rel-group:last-child { border-bottom: none; }
-.rel-group-header {
-    display: flex; align-items: center; gap: 0.5rem;
-    width: 100%; padding: 0.5rem 0.75rem;
-    background: none; border: none; border-left: 3px solid transparent;
-    cursor: pointer; text-align: left; font-family: inherit;
-    transition: background 0.12s, border-left-color 0.15s;
+/* res-section inside the relationship panel — strip box-model, keep visual style */
+.rel-panel .res-section {
+    max-width: none; border-radius: 0; border: none;
+    border-bottom: 1px solid var(--bs-border-color);
+    box-shadow: none; margin-bottom: 0; scroll-margin-top: 0;
 }
-.rel-group-header:hover { background: var(--cg-hover-bg); }
-.rel-group-header.open { border-left-color: var(--cg-accent-mid); }
-.rel-group-label {
-    flex: 1; font-size: 0.65rem; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--bs-secondary-color);
-}
-.rel-group-count {
-    font-size: 0.72rem; color: var(--bs-secondary-color);
-    font-family: 'IBM Plex Mono', monospace;
-}
-.rel-group-chevron {
-    font-size: 0.65rem; color: var(--bs-secondary-color);
-    transition: transform 0.2s;
-}
-.rel-group-header.open .rel-group-chevron { transform: rotate(90deg); }
-.rel-group-body {
-    overflow: hidden; max-height: 0;
-    transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.rel-group-body.open { max-height: 800px; }
+.rel-panel .res-section:last-of-type { border-bottom: none; }
 .rel-item {
     display: flex; align-items: center; gap: 0.5rem;
-    padding: 0.38rem 0.75rem 0.38rem 1rem;
-    font-size: 0.8rem; text-decoration: none;
+    padding: 0.4rem 0.75rem 0.4rem 1rem;
+    font-size: 0.875rem; cursor: pointer;
     color: var(--bs-body-color);
     border-bottom: 1px solid var(--bs-border-color);
     box-shadow: inset 3px 0 0 transparent;
@@ -673,5 +655,13 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
     text-overflow: ellipsis; white-space: nowrap;
 }
 .rel-item-sub {
-    font-size: 0.7rem; color: var(--bs-secondary-color); white-space: nowrap;
+    font-size: 0.72rem; color: var(--bs-secondary-color);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.rel-copy-btn {
+    background: none; border: none; padding: 0; cursor: pointer; flex-shrink: 0;
+    color: var(--bs-secondary-color); font-size: 0.72rem; line-height: 1;
+    opacity: 0; transition: opacity 0.15s, color 0.12s;
+}
+.rel-item:hover .rel-copy-btn { opacity: 0.5; }
+.rel-copy-btn:hover { opacity: 1 !important; color: var(--cg-accent-mid); }

@@ -1,7 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script>(function(){var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-bs-theme',t);})();</script>
+    <script>(function(){
+        var t=localStorage.getItem('theme')||'light';
+        document.documentElement.setAttribute('data-bs-theme',t);
+        if(localStorage.getItem('cg_sidebar_collapsed'))
+            document.documentElement.classList.add('sidebar-collapsed');
+    })();</script>
+    <style>
+        /* critical: set sidebar width before styles.css loads — transition never fires on init */
+        .cg-sidebar { width: 260px; }
+        html.sidebar-collapsed .cg-sidebar { width: 40px; }
+    </style>
     {% block head %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -402,12 +412,17 @@
         let _paletteItems = [];
         let _searchTimer = null;
 
-        // Detect current project from breadcrumb
+        // Detect current project from breadcrumb, fall back to most recently visited
         function _currentProject() {
             const crumb = document.querySelector('.cg-breadcrumb .breadcrumb-item a[href]');
-            if (!crumb) return null;
-            const m = crumb.getAttribute('href').match(/^\/([^/]+)\/?$/);
-            return m ? m[1] : null;
+            if (crumb) {
+                const m = crumb.getAttribute('href').match(/^\/([^/]+)\/?$/);
+                if (m) return m[1];
+            }
+            try {
+                const recent = JSON.parse(localStorage.getItem('cg_recent_projects') || '[]');
+                return recent.length ? recent[0].pid : null;
+            } catch { return null; }
         }
 
         window.cgPaletteOpen = function cgPaletteOpen() {
@@ -644,9 +659,13 @@
                 empty.textContent = 'No recent projects yet';
                 dropdown.appendChild(empty);
             } else {
+                const activePid = _currentProject();
                 recents.forEach(r => {
                     const a = document.createElement('a');
                     a.className = 'cg-recent-item';
+                    if (r.pid === activePid) {
+                        a.style.cssText = 'font-weight:600; color:#fff; border-left:3px solid var(--cg-accent-mid);';
+                    }
                     a.href = '/' + r.pid + '/';
                     a.textContent = r.pid;
                     dropdown.appendChild(a);
@@ -700,6 +719,29 @@
         // ── initialize animated section bodies ────────────────────────────
         document.querySelectorAll('.res-section-body').forEach(body => {
             _initSectionBody(body, body.previousElementSibling);
+        });
+
+        // ── correct keyboard shortcut label for OS ────────────────────────
+        const _isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+        const _kbdEl = document.querySelector('.cg-nav-kbd');
+        if (_kbdEl) {
+            _kbdEl.textContent = _isMac ? '⌘K' : 'Ctrl K';
+            const _searchBtn = _kbdEl.closest('button');
+            if (_searchBtn) _searchBtn.title = `Quick search (${_isMac ? '⌘K' : 'Ctrl+K'})`;
+        }
+
+        // ── breadcrumb project link: restore overview tab/scroll state ────
+        document.querySelectorAll('.cg-breadcrumb .breadcrumb-item a[href]').forEach(link => {
+            const m = link.getAttribute('href').match(/^\/([^/]+)\/?$/);
+            if (!m) return;
+            const pid = m[1];
+            link.addEventListener('click', e => {
+                const stored = localStorage.getItem('cg_overview_state_' + pid);
+                if (stored) {
+                    e.preventDefault();
+                    window.location.href = '/' + pid + '/' + stored;
+                }
+            });
         });
     });
     </script>

@@ -10,7 +10,7 @@ from flask import Blueprint, abort, jsonify, render_template, request
 from flask_pyoidc.user_session import UserSession
 
 from utils.auth import get_user_client
-from utils.cache import get_project, get_user_projects, is_user_in_project
+from utils.cache import get_project, get_user_projects
 from utils.helpers import render_markdown
 
 logger = logging.getLogger(__name__)
@@ -26,8 +26,6 @@ def create_blueprint(auth):
         client = get_user_client()
         t0 = time.perf_counter()
 
-        if not is_user_in_project(project_id):
-            abort(403)
 
         orcid = UserSession(flask.session).userinfo['sub']
 
@@ -109,8 +107,6 @@ def create_blueprint(auth):
     @auth.oidc_auth('orcid')
     def mdnote_edit(project_id, dsid):
         client = get_user_client()
-        if not is_user_in_project(project_id):
-            abort(403)
         ds = client.datasets.get(dsid, include_metadata=True)
 
         if request.method == 'POST':
@@ -155,8 +151,6 @@ def create_blueprint(auth):
     @auth.oidc_auth('orcid')
     def file_download_link(project_id, dsid, file_id):
         client = get_user_client()
-        if not is_user_in_project(project_id):
-            abort(403)
         try:
             url = client.files.get_download_link(file_id)
             return jsonify({'url': url})

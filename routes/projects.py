@@ -9,7 +9,7 @@ from flask_pyoidc.user_session import UserSession
 from utils.auth import get_user_client
 from utils.cache import (
     _project_cache, _PROJECT_CACHE_TTL,
-    get_project, get_user_projects, is_user_in_project, warm_project_caches,
+    get_project, get_user_projects, warm_project_caches,
 )
 from utils.helpers import abbrev_name
 
@@ -141,8 +141,6 @@ def create_blueprint(auth):
     @auth.oidc_auth('orcid')
     def project_api_overview_data(project_id):
         """Return slim samples + datasets JSON for async project overview loading."""
-        if not is_user_in_project(project_id):
-            abort(403)
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         client = get_user_client()
@@ -155,8 +153,6 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/api/sample-types")
     @auth.oidc_auth('orcid')
     def project_api_sample_types(project_id):
-        if not is_user_in_project(project_id):
-            abort(403)
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         q = request.args.get('q', '').lower()
@@ -169,8 +165,6 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/api/samples")
     @auth.oidc_auth('orcid')
     def api_samples(project_id):
-        if not is_user_in_project(project_id):
-            abort(403)
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         q = request.args.get('q', '').lower()
@@ -188,8 +182,6 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/api/datasets")
     @auth.oidc_auth('orcid')
     def api_datasets(project_id):
-        if not is_user_in_project(project_id):
-            abort(403)
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         q = request.args.get('q', '').lower()
