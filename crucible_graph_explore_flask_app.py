@@ -94,24 +94,22 @@ _ACCOUNT_SETUP_PATHS = {'/account/setup', '/account/profile'}
 def _fetch_user_api_key() -> None:
     """Fetch the user's personal Crucible API key and store it in the session.
 
-    Calls GET /user_apikey forwarding the browser's cookies (the Crucible
-    platform sets crucible_user_token which the API uses for identification).
-    Silently logs and returns on any failure so login is never blocked.
+    Calls GET /users/{orcid}/apikey via the admin client. Returns 404 if the
+    user has no token yet. Silently logs and returns on any failure so login
+    is never blocked.
     """
     if flask.session.get('crucible_apikey'):
         return
     try:
-        resp = requests.get(
-            f"{crucible_api_url}/user_apikey",
-            cookies=request.cookies,
-            timeout=5,
-        )
-        if resp.ok:
-            key = resp.json().get('crucible_apikey')
-            if key:
-                flask.session['crucible_apikey'] = key
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        result = app.admin_client._request("GET", f"/users/{orcid}/apikey")
+        key = result.get('api_key')
+        if key:
+            flask.session['crucible_apikey'] = key
     except Exception as e:
-        app.logger.warning("Could not fetch user API key: %s", e)
+        app.logger.warning("Could not fetch user API key for %s: %s",
+                           getattr(e, 'status_code', ''), e)
 
 
 def _crucible_user_exists(orcid):

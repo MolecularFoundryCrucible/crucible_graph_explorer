@@ -35,29 +35,31 @@ def test_get_user_client_aborts_401_when_no_key(app):
 
 
 def test_fetch_user_api_key_stores_in_session(app):
-    mock_resp = MagicMock()
-    mock_resp.ok = True
-    mock_resp.json.return_value = {'crucible_apikey': 'user-key-xyz'}
-
-    with app.test_request_context('/', headers={'Cookie': 'crucible_user_token=tok'}):
-        with patch('crucible_graph_explore_flask_app.requests.get', return_value=mock_resp):
-            from crucible_graph_explore_flask_app import _fetch_user_api_key
-            _fetch_user_api_key()
-            assert flask.session.get('crucible_apikey') == 'user-key-xyz'
+    mock_us = MagicMock()
+    mock_us.userinfo = {'sub': '0000-0001-2345-6789'}
+    with app.test_request_context('/'):
+        with patch('crucible_graph_explore_flask_app.UserSession', return_value=mock_us):
+            with patch.object(app.admin_client, '_request', return_value={'api_key': 'user-key-xyz'}):
+                from crucible_graph_explore_flask_app import _fetch_user_api_key
+                _fetch_user_api_key()
+                assert flask.session.get('crucible_apikey') == 'user-key-xyz'
 
 
 def test_fetch_user_api_key_skips_if_already_set(app):
     with app.test_request_context('/'):
         flask.session['crucible_apikey'] = 'existing-key'
-        with patch('crucible_graph_explore_flask_app.requests.get') as mock_get:
+        with patch.object(app.admin_client, '_request') as mock_req:
             from crucible_graph_explore_flask_app import _fetch_user_api_key
             _fetch_user_api_key()
-            mock_get.assert_not_called()
+            mock_req.assert_not_called()
 
 
 def test_fetch_user_api_key_tolerates_failure(app):
+    mock_us = MagicMock()
+    mock_us.userinfo = {'sub': '0000-0001-2345-6789'}
     with app.test_request_context('/'):
-        with patch('crucible_graph_explore_flask_app.requests.get', side_effect=Exception('timeout')):
-            from crucible_graph_explore_flask_app import _fetch_user_api_key
-            _fetch_user_api_key()  # must not raise
-            assert flask.session.get('crucible_apikey') is None
+        with patch('crucible_graph_explore_flask_app.UserSession', return_value=mock_us):
+            with patch.object(app.admin_client, '_request', side_effect=Exception('timeout')):
+                from crucible_graph_explore_flask_app import _fetch_user_api_key
+                _fetch_user_api_key()  # must not raise
+                assert flask.session.get('crucible_apikey') is None
