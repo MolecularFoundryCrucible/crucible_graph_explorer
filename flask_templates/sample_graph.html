@@ -45,10 +45,10 @@
 {{ deletion_banner(s) }}
 
 <div class="d-flex gap-3 align-items-start">
-<div style="flex: 1; min-width: 0; max-width: 860px;">
+<div style="flex: 1; min-width: 0; max-width: 680px;">
 
 <!-- ── compact resource card ────────────────────────────────────────────── -->
-<div class="cg-resource-card mb-3" id="sampleCard" style="max-width:860px;">
+<div class="cg-resource-card mb-3" id="sampleCard" style="max-width:680px;">
 
   <!-- Identity strip -->
   {{ resource_card_identity('sampleAvatar', s['sample_name'], s['unique_id'],
@@ -92,7 +92,7 @@
 </div>
 
 <!-- ── section controls ─────────────────────────────────────────────── -->
-<div class="d-flex align-items-center gap-1 mb-2" style="max-width:860px;">
+<div class="d-flex align-items-center gap-1 mb-2" style="max-width:680px;">
   <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
           style="font-size:0.75rem; text-decoration:none;" onclick="setAllSections(true)">
     <i class="bi bi-chevron-expand"></i><span>Expand all</span>
@@ -224,7 +224,7 @@
 {% endif %}
 
 {% if s['datasets'] %}
-<div class="res-section" id="section-datasets">
+<div class="res-section d-xl-none" id="section-datasets">
     <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-database text-muted"></i>
         <span>Linked Datasets</span>
@@ -250,7 +250,7 @@
 
 <!-- ── ancestors ────────────────────────────────────────────────────────── -->
 {% if ancestors_info %}
-<div class="res-section" id="section-ancestors">
+<div class="res-section d-xl-none" id="section-ancestors">
     <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-arrow-up-short text-muted"></i>
         <span>Ancestors</span>
@@ -286,7 +286,7 @@
 
 <!-- ── descendants ──────────────────────────────────────────────────────── -->
 {% if descendants_info %}
-<div class="res-section" id="section-descendants">
+<div class="res-section d-xl-none" id="section-descendants">
     <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-arrow-down-short text-muted"></i>
         <span>Descendants</span>
@@ -495,84 +495,98 @@
         const sel = document.querySelector('.cg-sib-groupby');
         if (sel) sel.value = gbParam;
     })();
+
+    function toggleRelGroup(btn) {
+        const body = btn.nextElementSibling;
+        const open = btn.classList.toggle('open');
+        body.classList.toggle('open', open);
+    }
 </script>
 
 </div>{# end flex-1 content column #}
 
 <!-- ── right panel: relationships (xl+ only) ─────────────────────────── -->
-<div class="d-none d-xl-block flex-shrink-0" style="width: 280px;">
+<div class="rel-panel d-none d-xl-flex flex-column flex-shrink-0">
   <div style="position: sticky; top: 3.25rem; max-height: calc(100vh - 3.5rem); overflow-y: auto;">
-    <div class="rounded border overflow-hidden">
 
-      {% if not direct_ancestors and not direct_descendants and not s['datasets'] %}
-      <div class="text-center text-muted py-4 px-2" style="font-size:0.8rem;">
-        <i class="bi bi-diagram-3 d-block mb-2 opacity-40"></i>No relationships
-      </div>
-      {% endif %}
-
-      {% if direct_ancestors %}
-      <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
-           style="background:var(--bs-tertiary-bg);">
-        <span style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--bs-secondary-color);">
-          <i class="bi bi-arrow-up-short"></i> Parents
-        </span>
-        <span class="badge fw-normal border text-muted"
-              style="background:var(--bs-body-bg); font-size:0.7rem;">{{direct_ancestors|length}}</span>
-      </div>
-      {% for anc in direct_ancestors %}
-      <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
-         style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
-         href="/{{pid}}/samples/{{anc['unique_id']}}">
-        <span class="text-truncate">{{anc['sample_name']}}</span>
-      </a>
-      {% endfor %}
-      {% endif %}
-
-      {% if direct_ancestors and (direct_descendants or s['datasets']) %}
-      <div class="border-bottom"></div>
-      {% endif %}
-
-      {% if direct_descendants %}
-      <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
-           style="background:var(--bs-tertiary-bg);">
-        <span style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--bs-secondary-color);">
-          <i class="bi bi-arrow-down-short"></i> Children
-        </span>
-        <span class="badge fw-normal border text-muted"
-              style="background:var(--bs-body-bg); font-size:0.7rem;">{{direct_descendants|length}}</span>
-      </div>
-      {% for desc in direct_descendants %}
-      <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
-         style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
-         href="/{{pid}}/samples/{{desc['unique_id']}}">
-        <span class="text-truncate">{{desc['sample_name']}}</span>
-      </a>
-      {% endfor %}
-      {% endif %}
-
-      {% if direct_descendants and s['datasets'] %}
-      <div class="border-bottom"></div>
-      {% endif %}
-
-      {% if s['datasets'] %}
-      <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
-           style="background:var(--bs-tertiary-bg);">
-        <span style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--bs-secondary-color);">
-          <i class="bi bi-database"></i> Datasets
-        </span>
-        <span class="badge fw-normal border text-muted"
-              style="background:var(--bs-body-bg); font-size:0.7rem;">{{s['datasets']|length}}</span>
-      </div>
-      {% for ds in s['datasets'] %}
-      <a class="cg-panel-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
-         style="font-size:0.8rem;{% if loop.last %} border-bottom: none;{% endif %}"
-         href="/{{pid}}/datasets/{{ds['unique_id']}}">
-        <span class="text-truncate">{{ds['dataset_name']}}</span>
-      </a>
-      {% endfor %}
-      {% endif %}
-
+    <!-- panel title -->
+    <div class="rel-panel-title">
+      <i class="bi bi-diagram-3"></i>
+      Relationships
+      {% set total = (direct_ancestors|length) + (direct_descendants|length) + (s['datasets']|length) %}
+      {% if total %}<span class="ms-auto" style="font-family:'IBM Plex Mono',monospace; font-size:0.72rem;">{{ total }}</span>{% endif %}
     </div>
+
+    {% if not direct_ancestors and not direct_descendants and not s['datasets'] %}
+    <div class="rel-panel-empty">
+      <i class="bi bi-diagram-3 d-block mb-2 opacity-40" style="font-size:1.5rem;"></i>
+      No relationships
+    </div>
+    {% endif %}
+
+    <!-- Parents -->
+    {% if direct_ancestors %}
+    <div class="rel-group">
+      <button class="rel-group-header open" onclick="toggleRelGroup(this)">
+        <i class="bi bi-arrow-up-short" style="color:var(--cg-accent-mid);"></i>
+        <span class="rel-group-label">Parents</span>
+        <span class="rel-group-count">{{ direct_ancestors|length }}</span>
+        <i class="bi bi-chevron-right rel-group-chevron"></i>
+      </button>
+      <div class="rel-group-body open">
+        {% for anc in direct_ancestors %}
+        <a class="rel-item" href="/{{pid}}/samples/{{anc['unique_id']}}">
+          <i class="bi bi-eyedropper" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
+          <span class="rel-item-name"><span class="rel-item-name-text">{{anc['sample_name']}}</span></span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Children -->
+    {% if direct_descendants %}
+    <div class="rel-group">
+      <button class="rel-group-header open" onclick="toggleRelGroup(this)">
+        <i class="bi bi-arrow-down-short" style="color:var(--cg-accent-mid);"></i>
+        <span class="rel-group-label">Children</span>
+        <span class="rel-group-count">{{ direct_descendants|length }}</span>
+        <i class="bi bi-chevron-right rel-group-chevron"></i>
+      </button>
+      <div class="rel-group-body open">
+        {% for desc in direct_descendants %}
+        <a class="rel-item" href="/{{pid}}/samples/{{desc['unique_id']}}">
+          <i class="bi bi-eyedropper" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
+          <span class="rel-item-name"><span class="rel-item-name-text">{{desc['sample_name']}}</span></span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Datasets -->
+    {% if s['datasets'] %}
+    <div class="rel-group">
+      <button class="rel-group-header open" onclick="toggleRelGroup(this)">
+        <i class="bi bi-database" style="color:var(--cg-accent-mid); font-size:0.8rem;"></i>
+        <span class="rel-group-label">Datasets</span>
+        <span class="rel-group-count">{{ s['datasets']|length }}</span>
+        <i class="bi bi-chevron-right rel-group-chevron"></i>
+      </button>
+      <div class="rel-group-body open">
+        {% for ds in s['datasets'] %}
+        <a class="rel-item" href="/{{pid}}/datasets/{{ds['unique_id']}}">
+          <i class="bi bi-database" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
+          <span class="rel-item-name">
+            <span class="rel-item-name-text">{{ds['dataset_name']}}</span>
+            {% if ds.get('measurement') %}<span class="rel-item-sub">{{ds['measurement']}}</span>{% endif %}
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 </div>
 
