@@ -25,7 +25,7 @@ def create_blueprint(auth, helpers):
             if name_fragment in basename and basename.endswith('.txt'):
                 if exclude_fragment and exclude_fragment in basename:
                     continue
-                url = download_links.get(f"{ds['unique_id']}/{basename}")
+                url = download_links.get(f['mfid']) # download_links now is keyed by file MFID
                 if url:
                     return url
         return None

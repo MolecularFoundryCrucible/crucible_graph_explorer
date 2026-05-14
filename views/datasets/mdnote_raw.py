@@ -23,29 +23,21 @@ def create_blueprint(auth, helpers):
 
         ds = get_user_client().datasets.get(dsid)
         associated_files = get_user_client().datasets.get_associated_files(dsid)
-        try:
-            download_links = get_user_client().datasets.get_download_links(dsid)
-        except Exception:
-            download_links = {}
 
         raw_content = None
         error = None
 
         md_file = next((f for f in associated_files if f['filename'].endswith('.md')), None)
         if md_file:
-            md_basename = os.path.basename(md_file['filename'])
-            download_key = f"{ds['unique_id']}/{md_basename}"
-            if download_key in download_links:
-                try:
-                    response = requests.get(download_links[download_key])
-                    if response.status_code == 200:
-                        raw_content = response.text
-                    else:
-                        error = f'Failed to fetch note (HTTP {response.status_code})'
-                except Exception as err:
-                    error = str(err)
-            else:
-                error = 'Download link not available for this note.'
+            try:
+                url = get_user_client().datasets.get_download_link(md_file['mfid'])
+                response = requests.get(url)
+                if response.status_code == 200:
+                    raw_content = response.text
+                else:
+                    error = f'Failed to fetch note (HTTP {response.status_code})'
+            except Exception as err:
+                error = str(err)
         else:
             error = 'No markdown file found for this dataset.'
 

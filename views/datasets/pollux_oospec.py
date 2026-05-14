@@ -138,8 +138,7 @@ def _fetch_h5_bytes(dsid):
     if not h5_file:
         return None, 'No .h5 file found for this dataset.'
 
-    basename = os.path.basename(h5_file['filename'])
-    url = download_links.get(f"{ds['unique_id']}/{basename}")
+    url = download_links.get(h5_file['mfid'])
     if not url:
         return None, 'Download link not available for the .h5 file.'
 

@@ -74,17 +74,13 @@ def _put_cached_frame(dsid: str, fi: int, raw: bytes) -> None:
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-def _find_h5_filename(crucible_client, dsid: str) -> str:
+def _find_h5_url(crucible_client, dsid: str) -> str:
     associated_files = crucible_client.datasets.get_associated_files(dsid)
     match = next((f for f in associated_files if f['filename'].endswith('.h5')), None)
     if not match:
         abort(404)
-    return os.path.basename(match['filename'])
-
-
-def _get_url(crucible_client, dsid: str, filename: str) -> str:
     download_links = crucible_client.datasets.get_download_links(dsid)
-    url = download_links.get(f'{dsid}/{filename}')
+    url = download_links.get(match['mfid'])
     if not url:
         abort(404)
     return url
@@ -100,8 +96,7 @@ def _ensure_meta(dsid: str, crucible_client) -> dict:
 
     if entry is None:
         # First time: read everything from the HDF5 file.
-        filename = _find_h5_filename(crucible_client, dsid)
-        url = _get_url(crucible_client, dsid, filename)
+        url = _find_h5_url(crucible_client, dsid)
 
         fo = fsspec.open(url, 'rb').open()
         with h5py.File(fo, 'r') as h5:
@@ -115,7 +110,6 @@ def _ensure_meta(dsid: str, crucible_client) -> dict:
 
         frame_bytes = int(shape[1]) * int(shape[2]) * dtype.itemsize
         entry = {
-            'filename':    filename,
             'url':         url,
             'url_at':      now,
             'sv_array':    sv_array,
@@ -130,7 +124,7 @@ def _ensure_meta(dsid: str, crucible_client) -> dict:
 
     elif (now - entry['url_at']) >= _URL_TTL:
         # Refresh the signed URL only.
-        entry['url']    = _get_url(crucible_client, dsid, entry['filename'])
+        entry['url']    = _find_h5_url(crucible_client, dsid)
         entry['url_at'] = now
 
     return entry
