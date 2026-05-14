@@ -6,7 +6,26 @@ from flask_pyoidc.user_session import UserSession
 
 _project_cache: dict = {}             # {(orcid, project_id, include_metadata): (data, timestamp)}
 _project_membership_cache: dict = {}  # {orcid: (frozenset[project_id], timestamp)}
+_user_projects_cache: dict = {}       # {orcid: ([project list], timestamp)}
 _PROJECT_CACHE_TTL = 1200             # seconds (20 min)
+
+
+def get_user_projects(orcid: str, client=None) -> list:
+    """Return the cached project list for this user, fetching if stale."""
+    cached = _user_projects_cache.get(orcid)
+    if cached and time.time() - cached[1] < _PROJECT_CACHE_TTL:
+        return cached[0]
+    if client is None:
+        from utils.auth import get_user_client
+        client = get_user_client()
+    projects = client.projects.list(orcid=orcid)
+    _user_projects_cache[orcid] = (projects, time.time())
+    # Keep membership cache in sync so is_user_in_project never needs its own call
+    _project_membership_cache[orcid] = (
+        frozenset(p['project_id'] for p in projects),
+        time.time(),
+    )
+    return projects
 
 
 def get_project(project_id: str, orcid: str, include_metadata: bool = False, client=None) -> dict:
@@ -65,8 +84,14 @@ def clear_project_cache(project_id: str, orcid: str = None) -> None:
             del _project_cache[key]
 
 
+def clear_user_projects_cache(orcid: str) -> None:
+    """Invalidate the project list cache for a user (e.g. after membership change)."""
+    _user_projects_cache.pop(orcid, None)
+    _project_membership_cache.pop(orcid, None)
+
+
 def is_user_in_project(project_id: str, orcid: str | None = None) -> bool:
-    """Check project membership, caching the project list per ORCID for 20 min."""
+    """Check project membership using the shared user-projects cache."""
     if not orcid:
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
@@ -74,8 +99,7 @@ def is_user_in_project(project_id: str, orcid: str | None = None) -> bool:
     cached = _project_membership_cache.get(orcid)
     if cached and now - cached[1] < _PROJECT_CACHE_TTL:
         return project_id in cached[0]
-    from utils.auth import get_user_client
-    projects = get_user_client().projects.list(orcid=orcid)
-    project_ids = frozenset(p['project_id'] for p in projects)
-    _project_membership_cache[orcid] = (project_ids, now)
-    return project_id in project_ids
+    # Warm via get_user_projects so the full list is cached too
+    get_user_projects(orcid)
+    cached = _project_membership_cache.get(orcid)
+    return project_id in (cached[0] if cached else frozenset())

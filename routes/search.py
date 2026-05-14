@@ -6,7 +6,7 @@ from flask import Blueprint, abort, render_template, request
 from flask_pyoidc.user_session import UserSession
 
 from utils.auth import get_user_client
-from utils.cache import get_project, is_user_in_project
+from utils.cache import get_project, get_user_projects, is_user_in_project
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ def create_blueprint(auth):
         client = get_user_client()
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        user_projects = client.projects.list(orcid=orcid)
+        user_projects = get_user_projects(orcid, client)
         q = request.args.get('q', '').strip()
 
         sample_results  = []

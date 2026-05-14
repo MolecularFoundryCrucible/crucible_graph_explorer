@@ -37,10 +37,14 @@
     .proj-list-row {
         padding: 0.55rem 1rem;
         border-bottom: 1px solid var(--bs-border-color);
-        cursor: pointer; transition: background 0.1s;
+        cursor: pointer; transition: background 0.1s, box-shadow 0.15s;
     }
     .proj-list-row:last-child { border-bottom: none; }
-    .proj-list-row:hover { background: var(--bs-tertiary-bg); }
+    .proj-list-row:hover { background: var(--cg-hover-bg); }
+
+    /* ── card hover ─────────────────────────────────────────────────────── */
+    #projectList .card { transition: background 0.12s, box-shadow 0.15s; }
+    #projectList .card:hover { background: var(--cg-hover-bg) !important; }
 
     /* ── stats loading shimmer ──────────────────────────────────────────── */
     .stat-placeholder {
@@ -72,14 +76,9 @@
 
     <!-- ── welcome ──────────────────────────────────────────────────────── -->
     <div class="mb-4" style="border-left: 3px solid var(--cg-accent); padding-left: 1.1rem;">
-        <div style="font-size:0.68rem; font-weight:600; text-transform:uppercase;
-                    letter-spacing:0.1em; color:var(--cg-accent-mid);
-                    font-family:'IBM Plex Mono',monospace; margin-bottom:0.35rem;">
-            Crucible Explorer
-        </div>
         <h1 class="fw-bold mb-0" style="font-size:2.2rem; letter-spacing:-0.02em; line-height:1.15;">
             {% if user_name %}
-                Hello, <span style="color:var(--cg-link);">{{ user_name }}</span>
+                Welcome to Crucible, <span style="color:var(--cg-link);">{{ user_name }}</span>
             {% else %}
                 Welcome to Crucible
             {% endif %}
@@ -97,7 +96,7 @@
         <div class="col-12 col-sm-4">
             <a href="{{ href }}" class="d-flex align-items-center gap-3 p-3 rounded border text-decoration-none"
                style="transition: background 0.12s, border-color 0.12s; color: inherit;"
-               onmouseover="this.style.background='var(--bs-tertiary-bg)'; this.style.borderColor='var(--cg-accent-mid)';"
+               onmouseover="this.style.background='var(--cg-hover-bg)'; this.style.borderColor='var(--cg-accent-mid)';"
                onmouseout="this.style.background=''; this.style.borderColor='';">
                 <i class="bi {{ icon }} fs-4 flex-shrink-0" style="color: var(--cg-accent-mid);"></i>
                 <div>
@@ -250,13 +249,13 @@
             const ph  = `<span class="stat-placeholder"></span>`;
             const sp  = s ? (s.samples  ?? '—') : ph;
             const ds  = s ? (s.datasets ?? '—') : ph;
-            return `<div style="font-size:0.78rem; color:var(--bs-secondary-color); line-height:1.6;">
-                <div style="display:flex;align-items:center;gap:0.3rem;">
+            return `<div style="display:flex; align-items:center; gap:0.75rem; font-size:0.78rem; color:var(--bs-secondary-color);">
+                <span style="display:flex;align-items:center;gap:0.3rem;">
                     <i class="bi bi-eyedropper" style="font-size:0.7rem; opacity:0.7;"></i>${sp}
-                </div>
-                <div style="display:flex;align-items:center;gap:0.3rem;">
+                </span>
+                <span style="display:flex;align-items:center;gap:0.3rem;">
                     <i class="bi bi-database" style="font-size:0.7rem; opacity:0.7;"></i>${ds}
-                </div>
+                </span>
             </div>`;
         }
 
@@ -284,7 +283,7 @@
                       <div class="fw-semibold text-truncate" style="font-family:'IBM Plex Mono',monospace; font-size:0.9rem;">
                         ${esc(p.project_id)}
                       </div>
-                      <div class="text-truncate text-muted" style="font-size:0.8rem;" title="${esc(p.title)}">${esc(p.title) || DASH}</div>
+                      <div class="text-truncate text-muted" style="font-size:0.78rem;" title="${esc(p.title)}">${esc(p.title) || DASH}</div>
                     </div>
                   </div>
                   ${org || lead ? `<div class="d-flex flex-wrap gap-1">${org}${lead}</div>` : ''}
@@ -309,10 +308,17 @@
         function listRowHTML(p) {
             const starred = getStarred().has(p.project_id);
             const url     = `/${esc(p.project_id)}/`;
+            const color   = starred ? '#ffc107' : hashColor(p.project_id);
             const title   = p.title && p.title !== p.project_id
-                ? `<div class="text-muted text-truncate" style="font-size:0.75rem;">${esc(p.title)}</div>` : '';
+                ? `<div class="text-muted text-truncate" style="font-size:0.78rem;">${esc(p.title)}</div>` : '';
+            const orgText  = p.organization
+                ? `<span class="text-truncate" style="font-size:0.78rem; color:var(--bs-secondary-color);"><i class="bi bi-building me-1" style="font-size:0.7rem; opacity:0.7;"></i>${esc(p.organization)}</span>`
+                : DASH;
+            const leadText = (p.project_lead_name || p.project_lead_email)
+                ? `<span class="text-truncate" style="font-size:0.78rem; color:var(--bs-secondary-color);"><i class="bi bi-person me-1" style="font-size:0.7rem; opacity:0.7;"></i>${esc(p.project_lead_name || p.project_lead_email)}</span>`
+                : DASH;
             return `
-            <div class="proj-grid proj-list-row" style="${starred ? 'border-left:3px solid #ffc107;' : ''}"
+            <div class="proj-grid proj-list-row" style="box-shadow: inset 4px 0 0 ${color};"
                  onmouseup="navIfNoSelection(event, '${url}')">
               <div>${starBtn(p.project_id, starred)}</div>
               <div style="min-width:0;">
@@ -320,8 +326,8 @@
                    style="font-family:'IBM Plex Mono',monospace; font-size:0.9rem; color:var(--cg-link);">${esc(p.project_id)}</a>
                 ${title}
               </div>
-              <div class="text-muted small text-truncate col-org">${esc(p.organization) || DASH}</div>
-              <div class="text-muted small text-truncate col-lead">${esc(p.project_lead_name || p.project_lead_email) || DASH}</div>
+              <div class="col-org" style="min-width:0; overflow:hidden;">${orgText}</div>
+              <div class="col-lead" style="min-width:0; overflow:hidden;">${leadText}</div>
               <div>${statsHTML(p.project_id)}</div>
               <div class="d-flex align-items-center justify-content-end gap-1">
                 <a href="${url}search" class="btn btn-sm btn-outline-secondary px-2" onclick="event.stopPropagation()" title="Search">
@@ -338,17 +344,25 @@
         // ── hidden project rows ───────────────────────────────────────────────
 
         function hiddenRowHTML(p) {
-            const url = `/${esc(p.project_id)}/`;
+            const url   = `/${esc(p.project_id)}/`;
+            const color = hashColor(p.project_id);
+            const orgText  = p.organization
+                ? `<span class="text-truncate" style="font-size:0.78rem; color:var(--bs-secondary-color);"><i class="bi bi-building me-1" style="font-size:0.7rem; opacity:0.7;"></i>${esc(p.organization)}</span>`
+                : DASH;
+            const leadText = (p.project_lead_name || p.project_lead_email)
+                ? `<span class="text-truncate" style="font-size:0.78rem; color:var(--bs-secondary-color);"><i class="bi bi-person me-1" style="font-size:0.7rem; opacity:0.7;"></i>${esc(p.project_lead_name || p.project_lead_email)}</span>`
+                : DASH;
             return `
-            <div class="proj-grid proj-list-row opacity-50" onmouseup="navIfNoSelection(event, '${url}')">
+            <div class="proj-grid proj-list-row opacity-50" style="box-shadow: inset 4px 0 0 ${color};"
+                 onmouseup="navIfNoSelection(event, '${url}')">
               <div></div>
-              <div>
+              <div style="min-width:0;">
                 <a href="${url}" class="fw-semibold text-decoration-none"
                    style="font-family:'IBM Plex Mono',monospace; font-size:0.9rem; color:var(--cg-link);">${esc(p.project_id)}</a>
-                ${p.title && p.title !== p.project_id ? `<div class="text-muted" style="font-size:0.75rem;">${esc(p.title)}</div>` : ''}
+                ${p.title && p.title !== p.project_id ? `<div class="text-muted text-truncate" style="font-size:0.78rem;">${esc(p.title)}</div>` : ''}
               </div>
-              <div class="text-muted small text-truncate col-org">${esc(p.organization) || DASH}</div>
-              <div class="text-muted small text-truncate col-lead">${esc(p.project_lead_name || p.project_lead_email) || DASH}</div>
+              <div class="col-org" style="min-width:0; overflow:hidden;">${orgText}</div>
+              <div class="col-lead" style="min-width:0; overflow:hidden;">${leadText}</div>
               <div>${statsHTML(p.project_id)}</div>
               <div class="d-flex align-items-center justify-content-end">
                 <button class="btn btn-sm btn-outline-secondary px-2"

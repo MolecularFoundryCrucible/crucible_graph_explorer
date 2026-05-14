@@ -104,7 +104,7 @@ export function initEntityGraph(containerId, graphData) {
 
   const sampleColor  = getCSSVar('--cy-sample-color')  || '#4a7ba7';
   const datasetColor = getCSSVar('--cy-dataset-color') || '#5a9e6f';
-  const accentMid    = getCSSVar('--cg-accent-mid')    || '#6fa4b0';
+  const accentMid    = getCSSVar('--cg-accent-mid')    || '#3a7a87';
   const accent       = getCSSVar('--cg-accent')        || '#a8c4cd';
 
   const cyNodes = nodes.map(node => ({

@@ -7,6 +7,7 @@ from flask import Blueprint, abort, jsonify, render_template
 from flask_pyoidc.user_session import UserSession
 
 from utils.auth import get_user_client
+from utils.cache import get_user_projects
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ def create_blueprint(auth):
         client = get_user_client()
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        user_projects = client.projects.list(orcid=orcid)
+        user_projects = get_user_projects(orcid, client)
 
         def fetch_members(p):
             try:
@@ -44,7 +45,7 @@ def create_blueprint(auth):
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         is_own_profile = (target_orcid == orcid)
-        user_projects = client.projects.list(orcid=orcid)
+        user_projects = get_user_projects(orcid, client)
 
         def fetch_members(p):
             try:

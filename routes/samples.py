@@ -10,7 +10,7 @@ from flask_pyoidc.user_session import UserSession
 from PIL import Image
 
 from utils.auth import get_user_client
-from utils.cache import clear_project_cache, get_project, is_user_in_project
+from utils.cache import clear_project_cache, get_project, get_user_projects, is_user_in_project
 from utils.graph import get_entity_graph_nx
 
 logger = logging.getLogger(__name__)
@@ -268,7 +268,7 @@ def create_blueprint(auth):
         prev_sibling = siblings[sibling_idx - 1] if sibling_idx > 0 else None
         next_sibling = siblings[sibling_idx + 1] if sibling_idx < len(siblings) - 1 else None
 
-        all_projects = client.projects.list(orcid=orcid)
+        all_projects = get_user_projects(orcid, client)
 
         return render_template('sample_graph.html',
                                pc=pc,

@@ -16,6 +16,7 @@ from flask_pyoidc.user_session import UserSession
 from crucible.models import Dataset
 
 from utils.auth import get_user_client
+from utils.cache import get_user_projects
 
 INSTRUMENT_TYPES = ['als-bl12012']
 URL_PREFIX = '/instrument-view/als-bl12012'
@@ -176,7 +177,7 @@ def create_blueprint(auth, helpers):
     def upload():
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        projects = get_user_client().projects.list(orcid=orcid)
+        projects = get_user_projects(orcid, get_user_client())
         return render_template('instrument_views/als_bl12012_upload.html', projects=projects)
 
     @bp.route('/upload', methods=['POST'])

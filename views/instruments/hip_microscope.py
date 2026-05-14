@@ -13,6 +13,7 @@ from flask_pyoidc.user_session import UserSession
 from crucible.models import Dataset
 
 from utils.auth import get_user_client
+from utils.cache import get_user_projects
 
 INSTRUMENT_TYPES = ['hip_microscope']
 URL_PREFIX = '/instrument-view/hip-microscope'
@@ -243,7 +244,7 @@ def create_blueprint(auth, helpers):
     def upload():
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        projects = get_user_client().projects.list(orcid=orcid)
+        projects = get_user_projects(orcid, get_user_client())
         return render_template('instrument_views/hip_microscope_upload.html', projects=projects)
 
     @bp.route('/upload/parse', methods=['POST'])
@@ -340,7 +341,7 @@ def create_blueprint(auth, helpers):
     def upload_session():
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        projects = get_user_client().projects.list(orcid=orcid)
+        projects = get_user_projects(orcid, get_user_client())
         return render_template('instrument_views/hip_microscope_session_upload.html', projects=projects)
 
     @bp.route('/upload/session/parse', methods=['POST'])

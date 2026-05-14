@@ -9,7 +9,7 @@ from flask_pyoidc.user_session import UserSession
 from utils.auth import get_user_client
 from utils.cache import (
     _project_cache, _PROJECT_CACHE_TTL,
-    get_project, is_user_in_project, warm_project_caches,
+    get_project, get_user_projects, is_user_in_project, warm_project_caches,
 )
 from utils.helpers import abbrev_name
 
@@ -50,7 +50,7 @@ def create_blueprint(auth):
         orcid = user_session.userinfo['sub']
         info = user_session.userinfo
         user_name = info.get('given_name') or info.get('name') or orcid
-        user_projects = client.projects.list(orcid=orcid)
+        user_projects = get_user_projects(orcid, client)
 
         for p in user_projects:
             lead = p.get('lead') or {}
@@ -99,7 +99,7 @@ def create_blueprint(auth):
         client = get_user_client()
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        user_projects = client.projects.list(orcid=orcid)
+        user_projects = get_user_projects(orcid, client)
         project_meta = next((p for p in user_projects if p['project_id'] == project_id), None)
         if project_meta is None:
             abort(403)

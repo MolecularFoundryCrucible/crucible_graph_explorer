@@ -29,179 +29,265 @@
         border-left: 3px solid transparent;
     }
     .proj-row:last-child { border-bottom: none; }
-    .proj-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
+    .proj-row:hover { background: var(--cg-hover-bg); color: inherit; }
+
+    /* ── two-column profile layout ───────────────────────────────────────── */
+    .profile-wrap {
+        max-width: 980px; margin: 0 auto;
+        display: flex; gap: 2.5rem; align-items: flex-start;
+    }
+    .profile-left {
+        width: 260px; flex-shrink: 0;
+        position: sticky; top: calc(3rem + 1.25rem);
+    }
+    .profile-right { flex: 1; min-width: 0; }
+    @media (max-width: 768px) {
+        .profile-wrap { flex-direction: column; }
+        .profile-left { width: 100%; position: static; }
+    }
+
+    /* ── left panel components ───────────────────────────────────────────── */
+    .profile-card {
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.6rem;
+        overflow: hidden;
+        box-shadow: var(--cg-shadow-sm);
+    }
+    .profile-stat-grid {
+        display: grid; grid-template-columns: repeat(3, 1fr);
+        border-top: 1px solid var(--bs-border-color);
+        background: var(--bs-tertiary-bg);
+    }
+    .profile-stat {
+        padding: 0.6rem 0.5rem; text-align: center;
+        border-right: 1px solid var(--bs-border-color);
+    }
+    .profile-stat:last-child { border-right: none; }
+    .profile-stat-num {
+        font-size: 1.15rem; font-weight: 700; line-height: 1;
+        color: var(--cg-accent-mid);
+    }
+    .profile-stat-label {
+        font-size: 0.6rem; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--bs-secondary-color);
+        margin-top: 0.2rem;
+    }
+    .profile-action-btn {
+        display: flex; align-items: center; gap: 0.5rem;
+        width: 100%; padding: 0.5rem 0.85rem;
+        background: none; border: 1px solid var(--bs-border-color);
+        border-radius: 0.35rem; cursor: pointer; font-family: inherit;
+        font-size: 0.82rem; color: var(--bs-body-color);
+        transition: background 0.12s, border-color 0.12s;
+        text-align: left;
+    }
+    .profile-action-btn:hover {
+        background: var(--cg-hover-bg);
+        border-color: var(--cg-accent-mid);
+        color: var(--bs-body-color);
+    }
+    .profile-action-btn i { color: var(--cg-accent-mid); font-size: 0.85rem; }
+
+    /* ── right panel section headings ────────────────────────────────────── */
+    .profile-section-hd {
+        display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;
+    }
+    .profile-section-hd span:first-child {
+        font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.09em; color: var(--bs-secondary-color); white-space: nowrap;
+    }
+    .profile-section-hd .hd-rule {
+        flex: 1; height: 1px; background: var(--bs-border-color);
+    }
+
+    /* ── inline form + api key panels ────────────────────────────────────── */
+    .profile-panel {
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.5rem;
+        background: var(--bs-body-bg);
+        overflow: hidden;
+        margin-top: 0.5rem;
+        box-shadow: var(--cg-shadow-sm);
+    }
 </style>
 
 {% if is_own_profile %}
 {# ════════════════════════════════════════════════════════════════════════════
-   OWN PROFILE — personal dashboard layout
+   OWN PROFILE — two-column researcher dashboard
    ════════════════════════════════════════════════════════════════════════════ #}
-<div style="max-width:720px; margin:0 auto;">
 
-    <!-- header card -->
-    <div class="rounded border overflow-hidden mb-4" id="userCard"
-         style="border-left-width:5px !important;">
-        <div class="d-flex align-items-center gap-4 p-4">
-            <div id="userAvatar"
-                 style="width:4.5rem; height:4.5rem; min-width:4.5rem; border-radius:50%;
-                        color:#fff; display:flex; align-items:center; justify-content:center;
-                        font-size:1.5rem; font-weight:700; flex-shrink:0;"
-                 data-avatar-for="{{ display }}">
-                {{ initials }}
-            </div>
-            <div style="min-width:0; flex:1;">
-                <h1 class="fs-3 fw-semibold mb-1 lh-sm">{{ full_name or '—' }}</h1>
+{# ── build activity feed ─────────────────────────────────────────────────── #}
+{% set activity = [] %}
+{% for ds in recent_datasets %}
+    {% if ds.get('timestamp') and ds.get('project_id') and ds.get('unique_id') %}
+        {% set _ = activity.append({'type':'dataset','name':ds.get('dataset_name') or ds['unique_id'],'pid':ds['project_id'],'uid':ds['unique_id'],'ts':ds['timestamp'],'sub':ds.get('measurement') or ''}) %}
+    {% endif %}
+{% endfor %}
+{% for s in recent_samples %}
+    {% if s.get('timestamp') and s.get('unique_id') %}
+        {% set _ = activity.append({'type':'sample','name':s.get('sample_name') or s['unique_id'],'pid':s.get('project_id') or '','uid':s['unique_id'],'ts':s['timestamp'],'sub':s.get('sample_type') or ''}) %}
+    {% endif %}
+{% endfor %}
+{% set activity = activity | sort(attribute='ts', reverse=True) %}
+
+<div class="profile-wrap">
+
+    <!-- ══ LEFT COLUMN ══════════════════════════════════════════════════════ -->
+    <div class="profile-left">
+
+        <!-- identity card -->
+        <div class="profile-card mb-3" id="userCard">
+            <div class="p-3 text-center" id="profileCardTop">
+                <div id="userAvatar"
+                     style="width:4rem; height:4rem; min-width:4rem; border-radius:50%;
+                            color:#fff; display:flex; align-items:center; justify-content:center;
+                            font-size:1.5rem; font-weight:700; margin:0 auto 0.75rem;
+                            border:3px solid transparent;"
+                     data-avatar-for="{{ display }}">{{ initials }}</div>
+                <h1 class="fw-semibold mb-0" style="font-size:1.05rem; letter-spacing:-0.01em; line-height:1.3;">
+                    {{ full_name or '—' }}
+                </h1>
                 {% if email %}
-                <div class="text-muted mb-1">{{ email }}</div>
+                <div class="text-muted mt-1" style="font-size:0.78rem;">{{ email }}</div>
                 {% endif %}
-                <div class="mfid" style="font-size:0.82rem;">{{ target_orcid }}</div>
+                <div class="mfid mt-1" style="font-size:0.72rem;">{{ target_orcid }}</div>
             </div>
-        </div>
-        <!-- stats bar -->
-        <div class="d-flex border-top text-center" style="background:var(--bs-tertiary-bg);">
-            <div class="flex-fill py-2 border-end">
-                <div class="fw-semibold fs-5">{{ shared_projects | length }}</div>
-                <div class="text-muted small">project{{ '' if shared_projects | length == 1 else 's' }}</div>
-            </div>
-            <div class="flex-fill py-2 border-end">
-                <div class="fw-semibold fs-5">{{ recent_datasets | length }}</div>
-                <div class="text-muted small">dataset{{ '' if recent_datasets | length == 1 else 's' }}</div>
-            </div>
-            <div class="flex-fill py-2">
-                <div class="fw-semibold fs-5">{{ recent_samples | length }}</div>
-                <div class="text-muted small">sample{{ '' if recent_samples | length == 1 else 's' }}</div>
-            </div>
-        </div>
-    </div>
 
-    <!-- projects — expanded -->
-    {% if shared_projects %}
-    <div class="res-section">
-        <div class="res-section-header" onclick="toggleSection(this)">
-            <i class="bi bi-folder2 text-muted"></i>
-            <span>My Projects</span>
-            <span class="badge fw-normal border text-muted ms-1"
-                  style="background:var(--bs-body-bg); font-size:0.75rem;">
-                {{ shared_projects | length }}
-            </span>
-            <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
-        </div>
-        <div class="res-section-body">
-            {% for p in shared_projects %}
-            {% set ds_count = dataset_counts.get(p['project_id'], 0) %}
-            {% set s_count  = sample_counts.get(p['project_id'], 0) %}
-            <a class="proj-row" href="/{{ p['project_id'] }}/" data-proj-color="{{ p['project_id'] }}">
-                <div style="min-width:0; flex:1;">
-                    <div class="fw-medium">{{ p.get('title') or p['project_id'] }}</div>
-                    <div class="small text-muted d-flex gap-2 flex-wrap">
-                        <span class="mfid">{{ p['project_id'] }}</span>
-                        {% if p.get('organization') %}<span>{{ p['organization'] }}</span>{% endif %}
-                    </div>
+            <!-- stats -->
+            <div class="profile-stat-grid">
+                <div class="profile-stat">
+                    <div class="profile-stat-num">{{ shared_projects | length }}</div>
+                    <div class="profile-stat-label">Projects</div>
                 </div>
-                <div class="d-flex gap-2 flex-shrink-0 align-items-center">
-                    {% if ds_count %}
-                    <span class="text-muted small text-nowrap">
-                        <i class="bi bi-database me-1" style="font-size:0.75rem;"></i>{{ ds_count }}
-                    </span>
-                    {% endif %}
-                    {% if s_count %}
-                    <span class="text-muted small text-nowrap">
-                        <i class="bi bi-eyedropper me-1" style="font-size:0.75rem;"></i>{{ s_count }}
-                    </span>
-                    {% endif %}
-                    {% if p.get('status') and p['status'] != 'active' %}
-                    <span class="badge fw-normal border text-muted"
-                          style="background:var(--bs-tertiary-bg); font-size:0.72rem;">{{ p['status'] }}</span>
-                    {% endif %}
+                <div class="profile-stat">
+                    <div class="profile-stat-num">{{ recent_datasets | length }}</div>
+                    <div class="profile-stat-label">Datasets</div>
                 </div>
-            </a>
-            {% endfor %}
+                <div class="profile-stat">
+                    <div class="profile-stat-num">{{ recent_samples | length }}</div>
+                    <div class="profile-stat-label">Samples</div>
+                </div>
+            </div>
         </div>
-    </div>
-    {% endif %}
 
-    <!-- recent datasets — expanded, capped at 10 -->
-    {% if recent_datasets %}
-    <div class="res-section">
-        <div class="res-section-header" onclick="toggleSection(this)">
-            <i class="bi bi-database text-muted"></i>
-            <span>Recent Datasets <span class="text-muted fw-normal" style="font-size:0.75em;">(by creation date)</span></span>
-            <span class="badge fw-normal border text-muted ms-1"
-                  style="background:var(--bs-body-bg); font-size:0.75rem;">
-                {{ recent_datasets | length }}
-            </span>
-            <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
+        <!-- action buttons -->
+        <div class="d-flex flex-column gap-2 mb-2">
+            <button class="profile-action-btn" id="editToggleBtn" onclick="toggleEditForm()">
+                <i class="bi bi-pencil"></i>Edit profile
+            </button>
+            <button class="profile-action-btn" id="apiKeyShowBtn" onclick="fetchApiKey()">
+                <i class="bi bi-key"></i>Show API key
+            </button>
         </div>
-        <div class="res-section-body">
-            {% for ds in recent_datasets[:10] %}
-            {% if ds.get('project_id') and ds.get('unique_id') %}
-            <a class="list-row" href="/{{ ds['project_id'] }}/datasets/{{ ds['unique_id'] }}">
+
+        <!-- edit profile form (hidden) -->
+        <div id="profileEditForm" class="profile-panel" style="display:none;">
+            <div class="px-3 pt-3 pb-1"
+                 style="font-size:0.7rem; font-weight:700; text-transform:uppercase;
+                        letter-spacing:0.07em; color:var(--bs-secondary-color);">
+                Edit profile
+            </div>
+            <form method="POST" action="{{ url_for('update_profile') }}" class="p-3 pt-2">
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold mb-1" for="edit_first">First name</label>
+                    <input type="text" class="form-control form-control-sm" id="edit_first"
+                           name="first_name" value="{{ first }}" required>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold mb-1" for="edit_last">Last name</label>
+                    <input type="text" class="form-control form-control-sm" id="edit_last"
+                           name="last_name" value="{{ last }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold mb-1" for="edit_email">Email</label>
+                    <input type="email" class="form-control form-control-sm" id="edit_email"
+                           name="email" value="{{ email }}">
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check2 me-1"></i>Save
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                            onclick="toggleEditForm()">Cancel</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- API key panel (hidden) -->
+        <div id="apiKeyPanel" class="profile-panel" style="display:none;">
+            <div class="p-3">
+                <div class="mb-2" style="font-size:0.7rem; font-weight:700; text-transform:uppercase;
+                                         letter-spacing:0.07em; color:var(--bs-secondary-color);">
+                    API key
+                </div>
+                <code id="apiKeyValue"
+                      style="display:block; font-size:0.72rem; word-break:break-all;
+                             padding:0.5rem; border-radius:0.35rem; line-height:1.5;
+                             background:var(--bs-tertiary-bg); border:1px solid var(--bs-border-color);">
+                    Loading…
+                </code>
+                <div class="d-flex gap-2 mt-2">
+                    <button class="cg-action-btn" onclick="copyApiKey()">
+                        <i class="bi bi-clipboard me-1"></i>Copy
+                    </button>
+                    <button class="cg-action-btn" onclick="hideApiKey()">Dismiss</button>
+                </div>
+                <div class="text-muted mt-2" style="font-size:0.72rem;">
+                    Keep this key private. Use it to authenticate direct API calls.
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /profile-left -->
+
+    <!-- ══ RIGHT COLUMN ═════════════════════════════════════════════════════ -->
+    <div class="profile-right">
+
+        <!-- recent activity -->
+        {% if activity %}
+        <div class="profile-section-hd">
+            <span>Recent Activity</span>
+            <div class="hd-rule"></div>
+            <span class="badge fw-normal border text-muted"
+                  style="background:var(--bs-tertiary-bg); font-size:0.68rem;">{{ activity | length }}</span>
+        </div>
+        <div class="rounded border overflow-hidden mb-4">
+            {% for item in activity[:20] %}
+            {% if item.pid %}
+            <a class="list-row" href="/{{ item.pid }}/{{ 'datasets' if item.type == 'dataset' else 'samples' }}/{{ item.uid }}">
+            {% else %}
+            <div class="list-row" style="pointer-events:none; opacity:0.6;">
+            {% endif %}
+                <i class="bi {{ 'bi-database' if item.type == 'dataset' else 'bi-eyedropper' }}"
+                   style="font-size:0.85rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
                 <div style="flex:1; min-width:0;">
-                    <div class="fw-medium text-truncate">{{ ds.get('dataset_name') or ds['unique_id'] }}</div>
-                    <div class="small text-muted">
-                        {% if ds.get('measurement') %}<span>{{ ds['measurement'] }}</span>{% endif %}
-                        {% if ds.get('measurement') %}<span class="mx-1">·</span>{% endif %}
-                        <span class="mfid">{{ ds['project_id'] }}</span>
+                    <div class="fw-medium text-truncate" style="font-size:0.875rem;">{{ item.name }}</div>
+                    <div class="d-flex gap-2 text-muted" style="font-size:0.75rem;">
+                        {% if item.sub %}<span>{{ item.sub }}</span><span class="opacity-50">·</span>{% endif %}
+                        <span class="mfid">{{ item.pid }}</span>
                     </div>
                 </div>
-                {% if ds.get('timestamp') %}
-                <span class="text-muted small text-nowrap flex-shrink-0">{{ ds['timestamp'] | humanize_date }}</span>
-                {% endif %}
-                <span class="mfid small text-nowrap flex-shrink-0">{{ ds['unique_id'] }}</span>
-            </a>
-            {% endif %}
+                <span class="text-muted small text-nowrap flex-shrink-0">{{ item.ts | humanize_date }}</span>
+            {% if item.pid %}</a>{% else %}</div>{% endif %}
             {% endfor %}
-            {% if recent_datasets | length > 10 %}
+            {% if activity | length > 20 %}
             <div class="px-3 py-2 text-muted small border-top" style="background:var(--bs-tertiary-bg);">
-                <i class="bi bi-info-circle me-1"></i>Showing 10 most recent of {{ recent_datasets | length }} total — use project pages to browse all
+                <i class="bi bi-info-circle me-1"></i>Showing 20 most recent
             </div>
             {% endif %}
         </div>
-    </div>
-    {% endif %}
+        {% endif %}
 
-    <!-- recent samples — collapsed, capped at 10 -->
-    {% if recent_samples %}
-    <div class="res-section">
-        <div class="res-section-header" onclick="toggleSection(this)">
-            <i class="bi bi-eyedropper text-muted"></i>
-            <span>Recent Samples <span class="text-muted fw-normal" style="font-size:0.75em;">(by creation date)</span></span>
-            <span class="badge fw-normal border text-muted ms-1"
-                  style="background:var(--bs-body-bg); font-size:0.75rem;">
-                {{ recent_samples | length }}
-            </span>
-            <i class="bi bi-chevron-right res-section-chevron"></i>
+        {% if not activity %}
+        <div class="text-center text-muted py-5">
+            <i class="bi bi-inbox d-block fs-2 mb-2 opacity-50"></i>
+            No activity yet. Contact your project administrator to be added to projects.
         </div>
-        <div class="res-section-body" style="display:none;">
-            {% for s in recent_samples[:10] %}
-            {% if s.get('unique_id') %}
-            <a class="list-row"
-               {% if s.get('project_id') %}href="/{{ s['project_id'] }}/samples/{{ s['unique_id'] }}"{% else %}style="pointer-events:none;"{% endif %}>
-                <div style="flex:1; min-width:0;">
-                    <div class="fw-medium text-truncate">{{ s.get('sample_name') or s['unique_id'] }}</div>
-                    <div class="small text-muted">
-                        {% if s.get('sample_type') %}<span>{{ s['sample_type'] }}</span>{% endif %}
-                        {% if s.get('sample_type') and s.get('project_id') %}<span class="mx-1">·</span>{% endif %}
-                        {% if s.get('project_id') %}<span class="mfid">{{ s['project_id'] }}</span>{% endif %}
-                    </div>
-                </div>
-                {% if s.get('timestamp') %}
-                <span class="text-muted small text-nowrap flex-shrink-0">{{ s['timestamp'] | humanize_date }}</span>
-                {% endif %}
-                <span class="mfid small text-nowrap flex-shrink-0">{{ s['unique_id'] }}</span>
-            </a>
-            {% endif %}
-            {% endfor %}
-            {% if recent_samples | length > 10 %}
-            <div class="px-3 py-2 text-muted small border-top" style="background:var(--bs-tertiary-bg);">
-                <i class="bi bi-info-circle me-1"></i>Showing 10 most recent of {{ recent_samples | length }} total
-            </div>
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
+        {% endif %}
 
-</div>
+    </div><!-- /profile-right -->
+
+</div><!-- /profile-wrap -->
 
 {% else %}
 {# ════════════════════════════════════════════════════════════════════════════
@@ -359,13 +445,71 @@
     const avatarEl = document.getElementById('userAvatar');
     const cardEl   = document.getElementById('userCard');
     const color    = hashColor(avatarEl.dataset.avatarFor || '?');
-    avatarEl.style.background    = color;
-    cardEl.style.borderLeftColor = color;
+    avatarEl.style.background = color;
+    avatarEl.style.borderColor = color + '66';
+    // Subtle avatar-color tint on the card top area
+    const cardTop = document.getElementById('profileCardTop');
+    if (cardTop) cardTop.style.background = color + '0d';
+    // For other-user view, color the card border
+    if (cardEl) cardEl.style.borderLeftColor = color;
 
-    // Color project row left borders
+    // Color project cards by project ID
+    document.querySelectorAll('[data-proj-card]').forEach(el => {
+        el.style.borderLeftColor = hashColor(el.dataset.projCard);
+    });
+    // Color project row left borders (other-user view)
     document.querySelectorAll('[data-proj-color]').forEach(el => {
         el.style.borderLeftColor = hashColor(el.dataset.projColor);
     });
+
+    // Edit form toggle
+    function toggleEditForm() {
+        const form = document.getElementById('profileEditForm');
+        const btn  = document.getElementById('editToggleBtn');
+        if (!form) return;
+        const open = form.style.display !== 'none';
+        form.style.display = open ? 'none' : '';
+        btn.innerHTML = open
+            ? '<i class="bi bi-pencil"></i>Edit profile'
+            : '<i class="bi bi-x"></i>Cancel editing';
+        // Hide API panel if opening edit form
+        if (!open) { document.getElementById('apiKeyPanel').style.display = 'none'; }
+    }
+
+    // API key reveal
+    function fetchApiKey() {
+        const panel = document.getElementById('apiKeyPanel');
+        const btn   = document.getElementById('apiKeyShowBtn');
+        const val   = document.getElementById('apiKeyValue');
+        // Close edit form if open
+        document.getElementById('profileEditForm').style.display = 'none';
+        document.getElementById('editToggleBtn').innerHTML = '<i class="bi bi-pencil"></i>Edit profile';
+        panel.style.display = '';
+        val.textContent = 'Loading…';
+        btn.innerHTML = '<i class="bi bi-x"></i>Hide key';
+        btn.onclick = hideApiKey;
+        fetch('/account/apikey')
+            .then(r => r.json())
+            .then(data => {
+                val.textContent = data.api_key || 'No key available.';
+            })
+            .catch(() => { val.textContent = 'Could not retrieve key.'; });
+    }
+    function hideApiKey() {
+        document.getElementById('apiKeyPanel').style.display = 'none';
+        const btn = document.getElementById('apiKeyShowBtn');
+        btn.innerHTML = '<i class="bi bi-key"></i>Show API key';
+        btn.onclick = fetchApiKey;
+    }
+    function copyApiKey() {
+        const key = document.getElementById('apiKeyValue').textContent;
+        navigator.clipboard.writeText(key).then(() => cgToast('API key copied', 'bi-clipboard-check'));
+    }
+
+    // Toast feedback after profile update
+    const params = new URLSearchParams(location.search);
+    if (params.get('updated'))      cgToast('Profile updated', 'bi-check-circle');
+    if (params.get('update_error')) cgToast('Update failed — please try again', 'bi-exclamation-circle');
 </script>
 
 {% endblock %}

@@ -262,6 +262,24 @@ def update_profile():
         return redirect(f'/user/{orcid}?update_error=1')
 
 
+@app.route('/profile')
+def my_profile():
+    try:
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+    except Exception:
+        return redirect(url_for('login'))
+    return redirect(f'/user/{orcid}')
+
+
+@app.route('/account/apikey')
+def get_my_api_key():
+    key = flask.session.get('crucible_apikey')
+    if not key:
+        return jsonify({'error': 'No API key in session'}), 404
+    return jsonify({'api_key': key})
+
+
 @auth.error_view
 def error(error=None, error_description=None):
     if error == 'login_required':

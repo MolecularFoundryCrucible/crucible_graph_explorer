@@ -10,7 +10,7 @@ from flask import Blueprint, abort, jsonify, render_template, request
 from flask_pyoidc.user_session import UserSession
 
 from utils.auth import get_user_client
-from utils.cache import get_project, is_user_in_project
+from utils.cache import get_project, get_user_projects, is_user_in_project
 from utils.helpers import render_markdown
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,8 @@ def create_blueprint(auth):
                 logger.warning("dataset %s: %s failed: %s", dsid, name, err)
                 return default
 
+        # Project list is served from cache — no need to put it in the thread pool
+        all_projects = get_user_projects(orcid, client)
         with ThreadPoolExecutor() as ex:
             f_pc       = ex.submit(get_project, project_id, orcid, client=client)
             f_ds       = ex.submit(client.datasets.get, dsid, include_metadata=True)
@@ -46,7 +48,6 @@ def create_blueprint(auth):
             f_files    = ex.submit(client.datasets.get_associated_files, dsid)
             f_children = ex.submit(client.datasets.list_children, dsid)
             f_parents  = ex.submit(client.datasets.list_parents, dsid)
-            f_projects = ex.submit(client.projects.list, orcid=orcid)
 
         # Critical: let HTTPError propagate so Flask returns a proper error page.
         # Other exceptions are logged and re-raised as 500.
@@ -59,7 +60,7 @@ def create_blueprint(auth):
         associated_files = _safe(f_files,    'files',            [])
         child_datasets   = _safe(f_children, 'list_children',    [])
         parent_datasets  = _safe(f_parents,  'list_parents',     [])
-        all_projects     = _safe(f_projects, 'projects',         [])
+        # all_projects already fetched from cache above
         logger.debug("dataset parallel fetch=%.3fs", time.perf_counter() - t0)
 
         markdown_html = None
