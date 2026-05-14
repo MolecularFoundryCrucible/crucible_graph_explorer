@@ -35,7 +35,7 @@
 {% endblock %}
 
 {% block sidebar %}
-{{ resource_sidebar(pid, 'sample', 'bi-eyedropper', s['sample_name'], all_projects) }}
+{{ resource_sidebar(pid, 'sample', 'bi-eyedropper', s['sample_name'], all_projects, s['unique_id']) }}
 {% endblock %}
 
 {% block main_col_class %}col-12 col-md{% endblock %}
@@ -45,7 +45,7 @@
 {{ deletion_banner(s) }}
 
 <div class="d-flex gap-3 align-items-start">
-<div style="flex: 1; min-width: 0;">
+<div style="flex: 1; min-width: 0; max-width: 860px;">
 
 <!-- ── compact resource card ────────────────────────────────────────────── -->
 <div class="cg-resource-card mb-3" id="sampleCard" style="max-width:860px;">
@@ -455,13 +455,8 @@
         localStorage.setItem(_SIDEBAR_KEY, collapsed ? '1' : '');
     }
 
-    // Restore collapse state and render avatars
+    // Render small project avatar in icon rail
     (function() {
-        if (localStorage.getItem(_SIDEBAR_KEY)) {
-            const sb = document.getElementById('resourceSidebar');
-            if (sb) sb.classList.add('collapsed');
-        }
-        // Render small project avatar in icon rail
         const railAv = document.getElementById('projectAvatarRail');
         if (railAv) makeAvatar(railAv, _PID, '24px', '0.65rem');
     })();

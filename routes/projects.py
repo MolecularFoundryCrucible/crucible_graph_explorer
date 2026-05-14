@@ -81,9 +81,10 @@ def create_blueprint(auth):
                 pc = cached[0]
                 return pid, len(pc.get('datasets', [])), len(pc.get('samples', []))
             try:
-                n_datasets = client.datasets.count(project_id=pid)
-                n_samples  = client.samples.count(project_id=pid)
-                return pid, n_datasets, n_samples
+                with ThreadPoolExecutor(max_workers=2) as inner:
+                    f_ds = inner.submit(client.datasets.count, project_id=pid)
+                    f_s  = inner.submit(client.samples.count,  project_id=pid)
+                return pid, f_ds.result(), f_s.result()
             except Exception:
                 return pid, None, None
 

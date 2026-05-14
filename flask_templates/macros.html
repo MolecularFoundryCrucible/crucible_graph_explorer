@@ -1,48 +1,144 @@
 {# Shared Jinja2 macros for resource detail pages (dataset.html, sample_graph.html). #}
 
 {# ── resource_sidebar: left nav sidebar for sample/dataset pages ─────────────── #}
-{%- macro resource_sidebar(pid, resource_label, resource_icon, resource_title, all_projects) -%}
+{%- macro resource_sidebar(pid, resource_label, resource_icon, resource_title, all_projects, resource_id=None) -%}
 <div id="resourceSidebar" class="cg-sidebar d-none d-md-block">
+<script>if(localStorage.getItem('cg_sidebar_collapsed'))document.getElementById('resourceSidebar').classList.add('collapsed');</script>
   <button class="cg-sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
     <i class="bi bi-chevron-left" id="sidebarToggleIcon"></i>
   </button>
   <div class="cg-sidebar-content" id="sidebarContent">
-    <div class="mb-1 px-2">
-      <div class="cg-sidebar-back d-flex align-items-center gap-2 mb-1" onclick="goBackToProject()"
-           title="Back to project">
+
+    <!-- ── project back strip ──────────────────────────────────────── -->
+    <div class="cg-sidebar-back px-2 py-2 mb-1" onclick="goBackToProject()" title="Back to project"
+         style="cursor:pointer;">
+      <div class="d-flex align-items-center gap-2">
         <div id="projectAvatar" style="flex-shrink:0;"></div>
-        <span class="fw-semibold small text-body text-truncate">{{pid}}</span>
+        <div style="min-width:0; flex:1;">
+          <div style="font-size:0.58rem; text-transform:uppercase; letter-spacing:0.07em;
+                      color:var(--bs-secondary-color); font-weight:600;">Project</div>
+          <div class="fw-semibold text-truncate mfid" style="font-size:0.8rem;">{{pid}}</div>
+        </div>
+        <i class="bi bi-arrow-right flex-shrink-0" style="font-size:0.7rem; color:var(--bs-secondary-color);"></i>
       </div>
-      <a href="javascript:void(0)" onclick="goBackToProject()" class="cg-sidebar-link">
-        <i class="bi bi-arrow-left"></i>Back to project
-      </a>
     </div>
+
     <hr class="my-1 mx-2">
-    <div class="px-2 mb-1" style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--cg-link);">
-      <i class="{{ resource_icon }} me-1"></i>This {{ resource_label }}
+
+    <!-- ── page contents TOC (built by JS) ─────────────────────────── -->
+    <div class="px-2 mb-1" style="font-size:0.58rem; font-weight:700; text-transform:uppercase;
+                                   letter-spacing:0.08em; color:var(--bs-secondary-color);">
+      Contents
     </div>
-    <div class="px-2 mb-2 small fw-semibold text-body" style="font-size:0.8rem; word-break:break-word;">{{ resource_title }}</div>
-    <hr class="mt-3 mb-2 mx-2">
-    {% if all_projects %}
-    <div class="px-2 mb-1" style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--bs-secondary-color);">
-      <i class="bi bi-grid me-1"></i>Projects
-    </div>
-    <div style="overflow-y:auto; flex:1;">
-      {% for proj in all_projects %}
-      <a class="cg-sidebar-link {% if proj['project_id'] == pid %}active{% endif %}"
-         href="/{{proj['project_id']}}/">
-        <span class="text-truncate">{{proj['project_id']}}</span>
-        {% if proj['project_id'] == pid %}<i class="bi bi-dot ms-auto flex-shrink-0"></i>{% endif %}
+    <div id="sidebarTOC" style="flex:1; overflow-y:auto;"></div>
+
+    <!-- ── pinned actions ──────────────────────────────────────────── -->
+    {% if resource_id %}
+    <div style="flex-shrink:0; border-top:1px solid var(--bs-border-color); padding:0.5rem 0.5rem 0.6rem;">
+      {% if resource_label == 'sample' %}
+      <a href="/{{pid}}/samples/{{resource_id}}/edit"
+         class="d-flex align-items-center gap-2 px-2 py-2 rounded text-decoration-none"
+         style="font-size:0.82rem; color:var(--bs-body-color); transition:background 0.12s;"
+         onmouseover="this.style.background='var(--cg-hover-bg)'"
+         onmouseout="this.style.background=''">
+        <i class="bi bi-pencil" style="color:var(--cg-accent-mid); font-size:0.85rem;"></i>
+        Edit sample
       </a>
-      {% endfor %}
+      {% elif resource_label == 'dataset' %}
+      <a href="javascript:void(0)"
+         onclick="document.getElementById('section-files')?.scrollIntoView({behavior:'smooth',block:'start'})"
+         class="d-flex align-items-center gap-2 px-2 py-2 rounded text-decoration-none"
+         style="font-size:0.82rem; color:var(--bs-body-color); transition:background 0.12s;"
+         onmouseover="this.style.background='var(--cg-hover-bg)'"
+         onmouseout="this.style.background=''">
+        <i class="bi bi-download" style="color:var(--cg-accent-mid); font-size:0.85rem;"></i>
+        Files &amp; downloads
+      </a>
+      {% endif %}
     </div>
     {% endif %}
+
   </div>
+
+  <!-- collapsed icon rail -->
   <div class="cg-sidebar-icon-rail" id="sidebarIconRail">
     <div id="projectAvatarRail" style="width:24px;height:24px;border-radius:50%;"></div>
-    <button class="cg-rail-btn" onclick="goBackToProject()" title="Back to project"><i class="bi bi-house"></i></button>
+    <button class="cg-rail-btn" onclick="goBackToProject()" title="Back to project">
+      <i class="bi bi-house"></i>
+    </button>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function buildSidebarTOC() {
+  const toc = document.getElementById('sidebarTOC');
+  if (!toc) return;
+
+  // Wait for DOM to be ready — sections may be conditionally rendered
+  const sections = Array.from(document.querySelectorAll('.res-section[id]'));
+  if (!sections.length) return;
+
+  sections.forEach(section => {
+    const hdr = section.querySelector('.res-section-header');
+    if (!hdr) return;
+
+    // Icon: first <i> in the header
+    const iconEl = hdr.querySelector('i');
+    const iconClass = iconEl
+      ? Array.from(iconEl.classList).filter(c => c.startsWith('bi')).join(' ')
+      : 'bi bi-circle';
+
+    // Label: first <span> that isn't a badge or chevron
+    let label = '';
+    hdr.querySelectorAll('span').forEach(sp => {
+      if (!label && !sp.classList.contains('badge') && !sp.classList.contains('res-section-chevron')
+          && !sp.classList.contains('lsort-icon')) {
+        label = sp.textContent.trim();
+      }
+    });
+    if (!label) label = section.id.replace('section-', '');
+
+    const link = document.createElement('a');
+    link.className = 'cg-sidebar-link sidebar-toc-item';
+    link.href = 'javascript:void(0)';
+    link.dataset.sectionId = section.id;
+    link.innerHTML = `<i class="${iconClass}" style="font-size:0.78rem; flex-shrink:0;"></i>`
+                   + `<span class="text-truncate">${label}</span>`;
+
+    link.addEventListener('click', () => {
+      // Expand if collapsed
+      if (hdr.dataset.open === 'false') {
+        if (window.toggleGraphSection && section.id === 'section-graph') {
+          toggleGraphSection(hdr);
+        } else if (window.toggleSection) {
+          toggleSection(hdr);
+        }
+      }
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    toc.appendChild(link);
+  });
+
+  // Scroll-aware highlight via IntersectionObserver
+  const tocMap = {};
+  toc.querySelectorAll('.sidebar-toc-item').forEach(item => {
+    tocMap[item.dataset.sectionId] = item;
+  });
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        Object.values(tocMap).forEach(item => {
+          item.classList.toggle('active', item.dataset.sectionId === entry.target.id);
+        });
+      }
+    });
+  }, { rootMargin: '-5% 0px -80% 0px', threshold: 0 });
+
+  sections.forEach(s => observer.observe(s));
+});
+</script>
 {%- endmacro -%}
 
 {# ── resource_card_identity: avatar + title + uuid + badges + QR ─────────────── #}

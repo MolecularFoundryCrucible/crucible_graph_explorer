@@ -189,6 +189,7 @@ a:hover { color: var(--cg-link-hover); }
     border-radius: 0.5rem; overflow: hidden;
     margin-bottom: 1rem; max-width: 860px;
     box-shadow: var(--cg-shadow-sm);
+    scroll-margin-top: 3.5rem;
 }
 .res-section-header {
     display: flex; align-items: center; gap: 0.5rem;
@@ -350,6 +351,10 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 .cg-sidebar-link.active {
     background: rgba(58,122,135,0.08); color: var(--cg-link); font-weight: 600;
 }
+.sidebar-toc-item.active {
+    background: rgba(58,122,135,0.08); color: var(--cg-link); font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--cg-accent-mid);
+}
 .cg-sidebar-back {
     border-radius: 0.25rem; cursor: pointer; transition: background 0.12s;
 }
@@ -361,7 +366,7 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 
 /* ── resource-page collapsible sidebar ──────────────────────────── */
 .cg-sidebar {
-    width: 200px; flex-shrink: 0;
+    width: calc(100% / 6); max-width: 320px; flex-shrink: 0;
     position: sticky; top: 3rem; height: calc(100vh - 3rem); align-self: flex-start;
     transition: width 0.25s cubic-bezier(0.4,0,0.2,1);
     border-right: 1px solid var(--bs-border-color);
