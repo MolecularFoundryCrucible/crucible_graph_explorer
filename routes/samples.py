@@ -256,7 +256,7 @@ def create_blueprint(auth):
 
         all_projects = get_user_projects(orcid, client)
 
-        return render_template('sample_graph.html',
+        return render_template('sample.html',
                                pc=pc,
                                self_info=self_info,
                                ancestors_info=ancestors_info,
