@@ -1,0 +1,402 @@
+{# _create_panels.html — slide-in creation panels for sample, dataset, MDNote.
+   Include from project_overview.html. Requires `pc` in context. #}
+{% set pid = pc['project_id'] %}
+
+<!-- ── shared backdrop ────────────────────────────────────────────── -->
+<div id="cgPanelBackdrop" class="cg-create-panel-backdrop" onclick="cgCloseAllPanels()"></div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!--  SAMPLE PANEL                                                    -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="cgSamplePanel" class="cg-create-panel" role="dialog" aria-modal="true" aria-label="New Sample">
+  <div class="cg-create-panel-header">
+    <i class="bi bi-flask" style="font-size:var(--fs-xl); color:var(--cg-accent-mid);"></i>
+    <span class="cg-create-panel-title">New Sample</span>
+    <button class="btn-close" onclick="cgCloseAllPanels()" aria-label="Close"></button>
+  </div>
+  <div class="cg-create-panel-body">
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="sp-name">Name <span class="text-danger">*</span></label>
+      <input type="text" id="sp-name" class="form-control" autocomplete="off">
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="sp-type">Type</label>
+      <input type="text" id="sp-type" class="form-control" autocomplete="off"
+             placeholder="Search or enter new…"
+             oninput="cgTypeahead('sp-type','sp-type-results','{{ pid }}','sample-types')">
+      <div id="sp-type-results" class="list-group mt-1" style="display:none;"></div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="sp-desc">Description</label>
+      <textarea id="sp-desc" class="form-control" rows="2"></textarea>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Parent Samples</label>
+      <input type="text" id="sp-parent-search" class="form-control mb-1" autocomplete="off"
+             placeholder="Search by name…"
+             oninput="cgResourceSearch('sp-parent-search','sp-parent-results','{{ pid }}','samples')">
+      <div id="sp-parent-results" class="list-group mb-1" style="display:none;"></div>
+      <div id="sp-parent-chips" class="d-flex flex-wrap gap-1"></div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Child Samples</label>
+      <input type="text" id="sp-child-search" class="form-control mb-1" autocomplete="off"
+             placeholder="Search by name…"
+             oninput="cgResourceSearch('sp-child-search','sp-child-results','{{ pid }}','samples')">
+      <div id="sp-child-results" class="list-group mb-1" style="display:none;"></div>
+      <div id="sp-child-chips" class="d-flex flex-wrap gap-1"></div>
+    </div>
+  </div>
+  <div class="cg-create-panel-footer">
+    <button class="btn btn-primary" onclick="cgSubmitSample('{{ pid }}')" id="sp-submit">
+      <i class="bi bi-plus-circle me-1"></i>Create Sample
+    </button>
+    <button class="btn btn-outline-secondary" onclick="cgCloseAllPanels()">Cancel</button>
+    <span id="sp-error" class="text-danger small ms-auto align-self-center" style="display:none;"></span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!--  DATASET PANEL                                                   -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="cgDatasetPanel" class="cg-create-panel" role="dialog" aria-modal="true" aria-label="New Dataset">
+  <div class="cg-create-panel-header">
+    <i class="bi bi-database" style="font-size:var(--fs-xl); color:var(--cg-accent-mid);"></i>
+    <span class="cg-create-panel-title">New Dataset</span>
+    <button class="btn-close" onclick="cgCloseAllPanels()" aria-label="Close"></button>
+  </div>
+  <div class="cg-create-panel-body">
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="ds-name">Name <span class="text-danger">*</span></label>
+      <input type="text" id="ds-name" class="form-control" autocomplete="off">
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="ds-measurement">Measurement Type</label>
+      <input type="text" id="ds-measurement" class="form-control" autocomplete="off"
+             placeholder="Search or enter new…"
+             oninput="cgTypeahead('ds-measurement','ds-measurement-results','{{ pid }}','measurements')">
+      <div id="ds-measurement-results" class="list-group mt-1" style="display:none;"></div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="ds-instrument">Instrument</label>
+      <select id="ds-instrument" class="form-select">
+        <option value="">— none —</option>
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="ds-session">Session Name</label>
+      <input type="text" id="ds-session" class="form-control" autocomplete="off">
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="ds-datatype">Data Type</label>
+      <input type="text" id="ds-datatype" class="form-control" autocomplete="off">
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Linked Samples</label>
+      <input type="text" id="ds-sample-search" class="form-control mb-1" autocomplete="off"
+             placeholder="Search by name…"
+             oninput="cgResourceSearch('ds-sample-search','ds-sample-results','{{ pid }}','samples')">
+      <div id="ds-sample-results" class="list-group mb-1" style="display:none;"></div>
+      <div id="ds-sample-chips" class="d-flex flex-wrap gap-1"></div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Parent Datasets</label>
+      <input type="text" id="ds-parent-search" class="form-control mb-1" autocomplete="off"
+             placeholder="Search by name…"
+             oninput="cgResourceSearch('ds-parent-search','ds-parent-results','{{ pid }}','datasets')">
+      <div id="ds-parent-results" class="list-group mb-1" style="display:none;"></div>
+      <div id="ds-parent-chips" class="d-flex flex-wrap gap-1"></div>
+    </div>
+  </div>
+  <div class="cg-create-panel-footer">
+    <button class="btn btn-primary" onclick="cgOpenDatasetPanel_submit('{{ pid }}')" id="ds-submit">
+      <i class="bi bi-plus-circle me-1"></i>Create Dataset
+    </button>
+    <button class="btn btn-outline-secondary" onclick="cgCloseAllPanels()">Cancel</button>
+    <span id="ds-error" class="text-danger small ms-auto align-self-center" style="display:none;"></span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!--  NOTE (MDNote) PANEL                                            -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="cgNotePanel" class="cg-create-panel" role="dialog" aria-modal="true" aria-label="New Note">
+  <div class="cg-create-panel-header">
+    <i class="bi bi-file-text" style="font-size:var(--fs-xl); color:var(--cg-accent-mid);"></i>
+    <span class="cg-create-panel-title">New Note</span>
+    <button class="btn-close" onclick="cgCloseAllPanels()" aria-label="Close"></button>
+  </div>
+  <div class="cg-create-panel-body">
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="nt-name">Title <span class="text-danger">*</span></label>
+      <input type="text" id="nt-name" class="form-control" autocomplete="off">
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Linked Samples</label>
+      <input type="text" id="nt-sample-search" class="form-control mb-1" autocomplete="off"
+             placeholder="Search by name…"
+             oninput="cgResourceSearch('nt-sample-search','nt-sample-results','{{ pid }}','samples')">
+      <div id="nt-sample-results" class="list-group mb-1" style="display:none;"></div>
+      <div id="nt-sample-chips" class="d-flex flex-wrap gap-1"></div>
+    </div>
+  </div>
+  <div class="cg-create-panel-footer">
+    <button class="btn btn-primary" onclick="cgSubmitNote('{{ pid }}')" id="nt-submit">
+      <i class="bi bi-plus-circle me-1"></i>Create &amp; Edit Note
+    </button>
+    <button class="btn btn-outline-secondary" onclick="cgCloseAllPanels()">Cancel</button>
+    <span id="nt-error" class="text-danger small ms-auto align-self-center" style="display:none;"></span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!--  PANEL JAVASCRIPT                                               -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<script>
+// ── open / close ─────────────────────────────────────────────────────────────
+function cgOpenPanel(id) {
+    cgCloseAllPanels();
+    document.getElementById(id).classList.add('open');
+    document.getElementById('cgPanelBackdrop').classList.add('open');
+    setTimeout(() => {
+        const el = document.querySelector(`#${id} input, #${id} textarea`);
+        if (el) el.focus();
+    }, 260);
+}
+function cgCloseAllPanels() {
+    document.querySelectorAll('.cg-create-panel').forEach(p => p.classList.remove('open'));
+    document.getElementById('cgPanelBackdrop').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cgCloseAllPanels(); });
+
+// ── typeahead (sample-types, measurements) ────────────────────────────────────
+function cgTypeahead(inputId, resultsId, pid, endpoint) {
+    const input   = document.getElementById(inputId);
+    const results = document.getElementById(resultsId);
+    const q = input.value.trim();
+    if (!q) { results.style.display = 'none'; return; }
+    fetch(`/${pid}/api/${endpoint}?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(items => {
+            if (!items.length) { results.style.display = 'none'; return; }
+            results.innerHTML = items.map(t =>
+                `<button type="button" class="list-group-item list-group-item-action py-1"
+                         style="font-size:var(--fs-sm);"
+                         onclick="document.getElementById('${inputId}').value=${JSON.stringify(t)};
+                                  document.getElementById('${resultsId}').style.display='none';">
+                    ${escHtml(t)}
+                 </button>`
+            ).join('');
+            results.style.display = '';
+        });
+}
+
+// ── resource search chips ─────────────────────────────────────────────────────
+const _cgChips = {};
+
+function cgResourceSearch(inputId, resultsId, pid, endpoint) {
+    const input   = document.getElementById(inputId);
+    const results = document.getElementById(resultsId);
+    const q = input.value.trim();
+    if (!q) { results.style.display = 'none'; return; }
+    fetch(`/${pid}/api/${endpoint}?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(items => {
+            if (!items.length) { results.style.display = 'none'; return; }
+            results.innerHTML = items.map(item =>
+                `<button type="button" class="list-group-item list-group-item-action py-1"
+                         style="font-size:var(--fs-sm);"
+                         data-id="${item.id}" data-name="${escHtml(item.name)}">
+                    ${escHtml(item.name)}
+                    ${item.type ? `<span class="text-muted ms-1">(${escHtml(item.type)})</span>` : ''}
+                 </button>`
+            ).join('');
+            results.style.display = '';
+            results.querySelectorAll('button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const chipsId = resultsId.replace('-results', '-chips');
+                    cgAddChip(chipsId, btn.dataset.id, btn.dataset.name);
+                    input.value = '';
+                    results.style.display = 'none';
+                });
+            });
+        });
+}
+
+function cgAddChip(containerId, id, name) {
+    if (!_cgChips[containerId]) _cgChips[containerId] = new Map();
+    if (_cgChips[containerId].has(id)) return;
+    _cgChips[containerId].set(id, name);
+    cgRenderChips(containerId);
+}
+function cgRemoveChip(containerId, id) {
+    if (_cgChips[containerId]) _cgChips[containerId].delete(id);
+    cgRenderChips(containerId);
+}
+function cgRenderChips(containerId) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    const map = _cgChips[containerId] || new Map();
+    el.innerHTML = [...map.entries()].map(([id, name]) =>
+        `<span class="badge rounded-pill border text-body fw-normal d-inline-flex align-items-center gap-1"
+               style="background:var(--bs-tertiary-bg); font-size:var(--fs-xs);">
+            ${escHtml(name)}
+            <button type="button" class="btn-close" style="font-size:var(--fs-2xs);"
+                    onclick="cgRemoveChip('${containerId}','${id}')"></button>
+         </span>`
+    ).join('');
+}
+function cgGetChipIds(containerId) {
+    return [...(_cgChips[containerId] || new Map()).keys()];
+}
+
+// ── submit helpers ────────────────────────────────────────────────────────────
+function _cgSetSubmitting(btnId, errId, submitting, label) {
+    const btn = document.getElementById(btnId);
+    const err = document.getElementById(errId);
+    btn.disabled = submitting;
+    btn.innerHTML = submitting
+        ? '<span class="spinner-border spinner-border-sm me-1"></span>Creating…'
+        : label;
+    err.style.display = 'none';
+}
+
+// ── submit: sample ────────────────────────────────────────────────────────────
+async function cgSubmitSample(pid) {
+    const name = document.getElementById('sp-name').value.trim();
+    const errEl = document.getElementById('sp-error');
+    if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; return; }
+    _cgSetSubmitting('sp-submit', 'sp-error', true);
+    const resp = await fetch(`/${pid}/api/samples/create`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            sample_name: name,
+            sample_type: document.getElementById('sp-type').value.trim() || null,
+            description: document.getElementById('sp-desc').value.trim() || null,
+            parent_ids:  cgGetChipIds('sp-parent-chips'),
+            child_ids:   cgGetChipIds('sp-child-chips'),
+        }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) {
+        _cgSetSubmitting('sp-submit', 'sp-error', false, '<i class="bi bi-plus-circle me-1"></i>Create Sample');
+        errEl.textContent = data.error || 'Creation failed.';
+        errEl.style.display = '';
+        return;
+    }
+    window.location.href = data.url;
+}
+
+// ── submit: dataset ───────────────────────────────────────────────────────────
+async function cgOpenDatasetPanel_submit(pid) {
+    const name = document.getElementById('ds-name').value.trim();
+    const errEl = document.getElementById('ds-error');
+    if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; return; }
+    _cgSetSubmitting('ds-submit', 'ds-error', true);
+    const resp = await fetch(`/${pid}/api/datasets/create`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            dataset_name:    name,
+            measurement:     document.getElementById('ds-measurement').value.trim() || null,
+            instrument_name: document.getElementById('ds-instrument').value || null,
+            session_name:    document.getElementById('ds-session').value.trim() || null,
+            data_type:       document.getElementById('ds-datatype').value.trim() || null,
+            sample_ids:      cgGetChipIds('ds-sample-chips'),
+            parent_ids:      cgGetChipIds('ds-parent-chips'),
+        }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) {
+        _cgSetSubmitting('ds-submit', 'ds-error', false, '<i class="bi bi-plus-circle me-1"></i>Create Dataset');
+        errEl.textContent = data.error || 'Creation failed.';
+        errEl.style.display = '';
+        return;
+    }
+    window.location.href = data.url;
+}
+
+// ── submit: note ──────────────────────────────────────────────────────────────
+async function cgSubmitNote(pid) {
+    const name = document.getElementById('nt-name').value.trim();
+    const errEl = document.getElementById('nt-error');
+    if (!name) { errEl.textContent = 'Title is required.'; errEl.style.display = ''; return; }
+    _cgSetSubmitting('nt-submit', 'nt-error', true);
+    const resp = await fetch(`/${pid}/api/datasets/create`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            dataset_name: name,
+            measurement:  'MDNote',
+            sample_ids:   cgGetChipIds('nt-sample-chips'),
+        }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) {
+        _cgSetSubmitting('nt-submit', 'nt-error', false, '<i class="bi bi-plus-circle me-1"></i>Create &amp; Edit Note');
+        errEl.textContent = data.error || 'Creation failed.';
+        errEl.style.display = '';
+        return;
+    }
+    window.location.href = `/${pid}/datasets/${data.id}/mdnote-edit`;
+}
+
+// ── open panel functions with reset ──────────────────────────────────────────
+let _instrumentsLoaded = false;
+
+function cgOpenSamplePanel() {
+    ['sp-name','sp-type','sp-desc','sp-parent-search','sp-child-search'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+    });
+    ['sp-parent-chips','sp-child-chips'].forEach(id => {
+        _cgChips[id] = new Map(); cgRenderChips(id);
+    });
+    ['sp-type-results','sp-parent-results','sp-child-results'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+    document.getElementById('sp-error').style.display = 'none';
+    cgOpenPanel('cgSamplePanel');
+}
+
+function cgOpenDatasetPanel() {
+    ['ds-name','ds-measurement','ds-session','ds-datatype','ds-sample-search','ds-parent-search'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+    });
+    document.getElementById('ds-instrument').value = '';
+    ['ds-sample-chips','ds-parent-chips'].forEach(id => {
+        _cgChips[id] = new Map(); cgRenderChips(id);
+    });
+    ['ds-measurement-results','ds-sample-results','ds-parent-results'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+    document.getElementById('ds-error').style.display = 'none';
+    cgOpenPanel('cgDatasetPanel');
+    if (!_instrumentsLoaded) {
+        fetch('/api/instruments')
+            .then(r => r.json())
+            .then(instruments => {
+                _instrumentsLoaded = true;
+                const sel = document.getElementById('ds-instrument');
+                instruments.forEach(i => {
+                    const opt = document.createElement('option');
+                    opt.value = i.name; opt.textContent = i.name;
+                    sel.appendChild(opt);
+                });
+            })
+            .catch(() => {});
+    }
+}
+
+function cgOpenNotePanel() {
+    ['nt-name','nt-sample-search'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+    });
+    _cgChips['nt-sample-chips'] = new Map();
+    cgRenderChips('nt-sample-chips');
+    const el = document.getElementById('nt-sample-results');
+    if (el) el.style.display = 'none';
+    document.getElementById('nt-error').style.display = 'none';
+    cgOpenPanel('cgNotePanel');
+}
+</script>
