@@ -42,6 +42,18 @@
       </a>
       {% endfor %}
       {% endif %}
+      <button class="cg-sidebar-action w-100 text-start border-0 bg-transparent"
+              onclick="cgOpenSamplePanel()">
+        <i class="bi bi-flask"></i><span>New Sample</span>
+      </button>
+      <button class="cg-sidebar-action w-100 text-start border-0 bg-transparent"
+              onclick="cgOpenDatasetPanel()">
+        <i class="bi bi-database"></i><span>New Dataset</span>
+      </button>
+      <button class="cg-sidebar-action w-100 text-start border-0 bg-transparent"
+              onclick="cgOpenNotePanel()">
+        <i class="bi bi-file-text"></i><span>New Note</span>
+      </button>
     </div>
 
     <!-- ── browse zone ─────────────────────────────────────────────── -->
@@ -82,6 +94,15 @@
     </button>
     <button class="cg-rail-btn" onclick="window.location.href='/{{pc['project_id']}}/search'" title="Search">
       <i class="bi bi-search"></i>
+    </button>
+    <button class="cg-rail-btn" onclick="cgOpenSamplePanel()" title="New Sample">
+      <i class="bi bi-flask"></i>
+    </button>
+    <button class="cg-rail-btn" onclick="cgOpenDatasetPanel()" title="New Dataset">
+      <i class="bi bi-database"></i>
+    </button>
+    <button class="cg-rail-btn" onclick="cgOpenNotePanel()" title="New Note">
+      <i class="bi bi-file-text"></i>
     </button>
     <button class="cg-rail-btn" onclick="toggleSidebar()" title="Browse samples &amp; datasets">
       <i class="bi bi-funnel"></i>
@@ -1086,4 +1107,5 @@ function toggleSidebar() {
     })();
 </script>
 
+{% include '_create_panels.html' %}
 {% endblock %}
