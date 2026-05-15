@@ -8,6 +8,8 @@
             document.documentElement.classList.add('sidebar-collapsed');
     })();</script>
     <style>
+        /* reserve scrollbar gutter so layout never shifts when content grows */
+        html { scrollbar-gutter: stable; }
         /* critical: set sidebar width before styles.css loads — transition never fires on init */
         .cg-sidebar { width: 260px; }
         html.sidebar-collapsed .cg-sidebar { width: 40px; }
