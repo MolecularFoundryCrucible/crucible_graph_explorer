@@ -223,8 +223,13 @@ def create_blueprint(auth):
 
         sample_type = (data.get('sample_type') or '').strip() or None
         description = (data.get('description') or '').strip() or None
-        parent_ids  = [p for p in (data.get('parent_ids') or []) if p]
-        child_ids   = [c for c in (data.get('child_ids')  or []) if c]
+        timestamp   = (data.get('timestamp')   or '').strip() or None
+        public_val  = data.get('public')
+        sci_meta    = data.get('scientific_metadata') or None
+        links       = data.get('links') or []
+
+        parents  = [{'unique_id': l['id']} for l in links if l.get('type') == 'sample_parent']
+        children = [{'unique_id': l['id']} for l in links if l.get('type') == 'sample_child']
 
         try:
             result = get_user_client().samples.create(
@@ -233,8 +238,11 @@ def create_blueprint(auth):
                 description=description,
                 project_id=project_id,
                 owner_orcid=orcid,
-                parents=[{'unique_id': pid} for pid in parent_ids],
-                children=[{'unique_id': cid} for cid in child_ids],
+                timestamp=timestamp,
+                public=public_val,
+                parents=parents,
+                children=children,
+                scientific_metadata=sci_meta,
             )
         except Exception as exc:
             return jsonify({'error': str(exc)}), 500
@@ -258,12 +266,18 @@ def create_blueprint(auth):
         if not dataset_name:
             return jsonify({'error': 'dataset_name is required'}), 400
 
-        measurement   = (data.get('measurement')     or '').strip() or None
-        session_name  = (data.get('session_name')    or '').strip() or None
-        instrument    = (data.get('instrument_name') or '').strip() or None
-        data_type     = (data.get('data_type')       or '').strip() or None
-        sample_ids    = [s for s in (data.get('sample_ids')  or []) if s]
-        parent_ids    = [p for p in (data.get('parent_ids')  or []) if p]
+        measurement  = (data.get('measurement')     or '').strip() or None
+        session_name = (data.get('session_name')    or '').strip() or None
+        instrument   = (data.get('instrument_name') or '').strip() or None
+        data_type    = (data.get('data_type')       or '').strip() or None
+        timestamp    = (data.get('timestamp')       or '').strip() or None
+        public_val   = data.get('public')
+        sci_meta     = data.get('scientific_metadata') or None
+        links        = data.get('links') or []
+
+        linked_samples  = [l['id'] for l in links if l.get('type') == 'linked_sample']
+        parent_datasets = [l['id'] for l in links if l.get('type') == 'dataset_parent']
+        child_datasets  = [l['id'] for l in links if l.get('type') == 'dataset_child']
 
         ds = Dataset(
             dataset_name=dataset_name,
@@ -273,18 +287,20 @@ def create_blueprint(auth):
             instrument_name=instrument,
             data_type=data_type,
             owner_orcid=orcid,
+            timestamp=timestamp,
+            public=public_val,
         )
 
         try:
             client = get_user_client()
-            result = client.datasets.create(ds)
+            result = client.datasets.create(ds, scientific_metadata=sci_meta or {})
             uid = result['dsid']
-
-            for sid in sample_ids:
+            for sid in linked_samples:
                 client.datasets.add_sample(uid, sid)
-            for pid in parent_ids:
+            for pid in parent_datasets:
                 client.datasets.link_parent_child(pid, uid)
-
+            for cid in child_datasets:
+                client.datasets.link_parent_child(uid, cid)
         except Exception as exc:
             return jsonify({'error': str(exc)}), 500
 

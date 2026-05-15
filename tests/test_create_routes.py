@@ -38,3 +38,27 @@ def test_create_dataset_route_exists(app, client):
     resp = client.post('/proj-x/api/datasets/create',
                        json={'dataset_name': 'My DS'})
     assert resp.status_code != 404
+
+
+def test_create_sample_accepts_timestamp_public_metadata(app, client):
+    resp = client.post('/proj-x/api/samples/create',
+                       json={
+                           'sample_name': 'Test',
+                           'timestamp': '2026-01-01T00:00:00',
+                           'public': False,
+                           'scientific_metadata': {'key': 'value'},
+                           'links': [],
+                       })
+    assert resp.status_code != 404
+
+
+def test_create_dataset_accepts_timestamp_public_metadata(app, client):
+    resp = client.post('/proj-x/api/datasets/create',
+                       json={
+                           'dataset_name': 'DS',
+                           'timestamp': '2026-01-01T00:00:00',
+                           'public': False,
+                           'scientific_metadata': {'x': 1},
+                           'links': [],
+                       })
+    assert resp.status_code != 404
