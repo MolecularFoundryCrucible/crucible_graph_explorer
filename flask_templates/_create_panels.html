@@ -469,30 +469,37 @@ const ntLinks = new CgLinkBuilder('nt-links-container', '{{ pid }}', NOTE_LINK_T
 
 // ── submit: sample ────────────────────────────────────────────────────────────
 async function cgSubmitSample(pid) {
-    const name = document.getElementById('sp-name').value.trim();
-    const selectedPid = document.getElementById('sp-project').value || pid;
+    const name    = document.getElementById('sp-name').value.trim();
+    const submit  = document.getElementById('sp-submit');
+    const editId  = submit.dataset.editId || '';
+    const isEdit  = !!editId;
+    const selectedPid = isEdit
+        ? (submit.dataset.editPid || pid)
+        : (document.getElementById('sp-project').value || pid);
     const errEl = document.getElementById('sp-error');
     if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; return; }
     const meta = cgParseMetaJson('sp-meta-json', 'sp-meta-error');
-    if (meta === undefined) return;  // JSON parse error shown inline
+    if (meta === undefined) return;
     _cgSetSubmitting('sp-submit', 'sp-error', true);
-    const resp = await fetch(`/${selectedPid}/api/samples/create`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            sample_name: name,
-            sample_type: document.getElementById('sp-type').value.trim() || null,
-            description: document.getElementById('sp-desc').value.trim() || null,
-            timestamp:   _cgToISO(document.getElementById('sp-timestamp').value) || null,
-            public:      document.getElementById('sp-public').checked,
-            scientific_metadata: meta,
-            links: spLinks.export(),
-        }),
-    });
+    const url    = isEdit ? `/${selectedPid}/api/samples/${editId}/update` : `/${selectedPid}/api/samples/create`;
+    const method = isEdit ? 'PATCH' : 'POST';
+    const body   = {
+        sample_name: name,
+        sample_type: document.getElementById('sp-type').value.trim() || null,
+        description: document.getElementById('sp-desc').value.trim() || null,
+        timestamp:   _cgToISO(document.getElementById('sp-timestamp').value) || null,
+        public:      document.getElementById('sp-public').checked,
+        scientific_metadata: meta,
+    };
+    if (!isEdit) body.links = spLinks.export();
+    const resp = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
     const data = await resp.json();
+    const resetLabel = isEdit
+        ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
+        : '<i class="bi bi-plus-circle me-1"></i>Create Sample';
     if (!resp.ok || data.error) {
-        _cgSetSubmitting('sp-submit', 'sp-error', false, '<i class="bi bi-plus-circle me-1"></i>Create Sample');
-        errEl.textContent = data.error || 'Creation failed.';
+        _cgSetSubmitting('sp-submit', 'sp-error', false, resetLabel);
+        errEl.textContent = data.error || 'Failed.';
         errEl.style.display = '';
         return;
     }
@@ -501,36 +508,43 @@ async function cgSubmitSample(pid) {
 
 // ── submit: dataset ───────────────────────────────────────────────────────────
 async function cgSubmitDataset(pid) {
-    const name = document.getElementById('ds-name').value.trim();
-    const selectedPid = document.getElementById('ds-project').value || pid;
+    const name   = document.getElementById('ds-name').value.trim();
+    const submit = document.getElementById('ds-submit');
+    const editId  = submit.dataset.editId || '';
+    const isEdit  = !!editId;
+    const selectedPid = isEdit
+        ? (submit.dataset.editPid || pid)
+        : (document.getElementById('ds-project').value || pid);
     const errEl = document.getElementById('ds-error');
     if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; return; }
     const meta = cgParseMetaJson('ds-meta-json', 'ds-meta-error');
     if (meta === undefined) return;
     _cgSetSubmitting('ds-submit', 'ds-error', true);
-    const resp = await fetch(`/${selectedPid}/api/datasets/create`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            dataset_name:    name,
-            measurement:     document.getElementById('ds-measurement').value.trim() || null,
-            instrument_name: document.getElementById('ds-instrument').value.trim() || null,
-            session_name:    document.getElementById('ds-session').value.trim() || null,
-            data_type:       document.getElementById('ds-datatype').value.trim() || null,
-            timestamp:       _cgToISO(document.getElementById('ds-timestamp').value) || null,
-            public:          document.getElementById('ds-public').checked,
-            scientific_metadata: meta,
-            links: dsLinks.export(),
-        }),
-    });
+    const url    = isEdit ? `/${selectedPid}/api/datasets/${editId}/update` : `/${selectedPid}/api/datasets/create`;
+    const method = isEdit ? 'PATCH' : 'POST';
+    const body   = {
+        dataset_name:    name,
+        measurement:     document.getElementById('ds-measurement').value.trim() || null,
+        instrument_name: document.getElementById('ds-instrument').value.trim() || null,
+        session_name:    document.getElementById('ds-session').value.trim() || null,
+        data_type:       document.getElementById('ds-datatype').value.trim() || null,
+        timestamp:       _cgToISO(document.getElementById('ds-timestamp').value) || null,
+        public:          document.getElementById('ds-public').checked,
+        scientific_metadata: meta,
+    };
+    if (!isEdit) body.links = dsLinks.export();
+    const resp = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
     const data = await resp.json();
+    const resetLabel = isEdit
+        ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
+        : '<i class="bi bi-plus-circle me-1"></i>Create Dataset';
     if (!resp.ok || data.error) {
-        _cgSetSubmitting('ds-submit', 'ds-error', false, '<i class="bi bi-plus-circle me-1"></i>Create Dataset');
-        errEl.textContent = data.error || 'Creation failed.';
+        _cgSetSubmitting('ds-submit', 'ds-error', false, resetLabel);
+        errEl.textContent = data.error || 'Failed.';
         errEl.style.display = '';
         return;
     }
-    if (_dsFiles.length) {
+    if (!isEdit && _dsFiles.length) {
         const btn = document.getElementById('ds-submit');
         for (let i = 0; i < _dsFiles.length; i++) {
             btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Uploading ${i+1}/${_dsFiles.length}…`;
@@ -581,32 +595,67 @@ async function cgSubmitNote(pid) {
 // ── open panel functions ──────────────────────────────────────────────────────
 let _instrumentsLoaded = false;
 
-function cgOpenSamplePanel() {
-    document.getElementById('sp-name').value      = '';
-    document.getElementById('sp-type').value      = '';
-    document.getElementById('sp-desc').value      = '';
-    document.getElementById('sp-public').checked  = false;
-    document.getElementById('sp-timestamp').value = _cgNowLocal();
-    document.getElementById('sp-meta-json').value = '';
-    document.getElementById('sp-type-results').style.display  = 'none';
-    document.getElementById('sp-meta-error').style.display    = 'none';
-    document.getElementById('sp-error').style.display         = 'none';
+function cgOpenSamplePanel(editData) {
+    const isEdit = !!editData;
+    const d = editData || {};
+    document.getElementById('sp-name').value      = d.sample_name   || '';
+    document.getElementById('sp-type').value      = d.sample_type   || '';
+    document.getElementById('sp-desc').value      = d.description   || '';
+    document.getElementById('sp-public').checked  = !!d.public;
+    document.getElementById('sp-timestamp').value = isEdit ? (d.timestamp || '').slice(0,16) : _cgNowLocal();
+    document.getElementById('sp-meta-json').value = isEdit && d.scientific_metadata
+        ? JSON.stringify(d.scientific_metadata, null, 2) : '';
+    document.getElementById('sp-type-results').style.display = 'none';
+    document.getElementById('sp-meta-error').style.display   = 'none';
+    document.getElementById('sp-error').style.display        = 'none';
+
+    // Edit mode: hide project selector and links (not relevant for editing)
+    document.getElementById('sp-project').closest('.mb-3').style.display          = isEdit ? 'none' : '';
+    document.getElementById('sp-links-container').closest('.mb-3').style.display  = isEdit ? 'none' : '';
+
+    const title  = document.querySelector('#cgSamplePanel .cg-create-panel-title');
+    const submit = document.getElementById('sp-submit');
+    title.textContent  = isEdit ? 'Edit Sample'  : 'New Sample';
+    submit.innerHTML   = isEdit
+        ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
+        : '<i class="bi bi-plus-circle me-1"></i>Create Sample';
+    submit.dataset.editId  = d.unique_id    || '';
+    submit.dataset.editPid = d.project_id   || '';
+
     spLinks.reset();
     cgOpenPanel('cgSamplePanel');
 }
 
-function cgOpenDatasetPanel() {
-    document.getElementById('ds-name').value        = '';
-    document.getElementById('ds-measurement').value = '';
-    document.getElementById('ds-session').value     = '';
-    document.getElementById('ds-datatype').value    = '';
-    document.getElementById('ds-instrument').value  = '';
-    document.getElementById('ds-public').checked    = false;
-    document.getElementById('ds-timestamp').value   = _cgNowLocal();
-    document.getElementById('ds-meta-json').value   = '';
+function cgOpenDatasetPanel(editData) {
+    const isEdit = !!editData;
+    const d = editData || {};
+    document.getElementById('ds-name').value        = d.dataset_name    || '';
+    document.getElementById('ds-measurement').value = d.measurement     || '';
+    document.getElementById('ds-session').value     = d.session_name    || '';
+    document.getElementById('ds-datatype').value    = d.data_type       || '';
+    document.getElementById('ds-instrument').value  = d.instrument_name || '';
+    document.getElementById('ds-public').checked    = !!d.public;
+    document.getElementById('ds-timestamp').value   = isEdit ? (d.timestamp || '').slice(0,16) : _cgNowLocal();
+    document.getElementById('ds-meta-json').value   = isEdit && d.scientific_metadata
+        ? JSON.stringify(d.scientific_metadata, null, 2) : '';
     document.getElementById('ds-measurement-results').style.display = 'none';
-    document.getElementById('ds-meta-error').style.display = 'none';
-    document.getElementById('ds-error').style.display      = 'none';
+    document.getElementById('ds-meta-error').style.display          = 'none';
+    document.getElementById('ds-error').style.display               = 'none';
+
+    // Edit mode: hide project selector, links, and file drop zone
+    document.getElementById('ds-project').closest('.mb-3').style.display           = isEdit ? 'none' : '';
+    document.getElementById('ds-links-container').closest('.mb-3').style.display   = isEdit ? 'none' : '';
+    document.getElementById('ds-drop-zone').closest('.mb-3').style.display         = isEdit ? 'none' : '';
+
+    const title  = document.querySelector('#cgDatasetPanel .cg-create-panel-title');
+    const submit = document.getElementById('ds-submit');
+    title.textContent = isEdit ? 'Edit Dataset' : 'New Dataset';
+    submit.innerHTML  = isEdit
+        ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
+        : '<i class="bi bi-plus-circle me-1"></i>Create Dataset';
+    submit.dataset.editId  = d.unique_id  || '';
+    submit.dataset.editPid = d.project_id || '';
+
     _dsFiles.length = 0;
     _dsRenderFileList();
     dsLinks.reset();
