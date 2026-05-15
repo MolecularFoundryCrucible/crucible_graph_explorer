@@ -364,17 +364,17 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 /* ── sidebar action links ───────────────────────────────────────── */
 .cg-sidebar-action {
     display: flex; align-items: center; gap: 0.6rem;
-    padding: 0.45rem 0.75rem; font-size: var(--fs-sm);
+    padding: 0.45rem 0.75rem; font-size: var(--fs-md); font-weight: 500;
     color: var(--bs-body-color); text-decoration: none;
     transition: background 0.12s; cursor: pointer;
 }
 .cg-sidebar-action:hover { background: var(--cg-hover-bg); color: var(--bs-body-color); }
 .cg-sidebar-action .bi {
-    color: var(--cg-accent-mid); font-size: var(--fs-sm);
-    flex-shrink: 0; width: 1rem; text-align: center;
+    color: var(--cg-accent-mid); font-size: var(--fs-md);
+    flex-shrink: 0; width: 1.1rem; text-align: center;
 }
 .cg-sidebar-home {
-    font-size: var(--fs-md); padding: 0.55rem 0.85rem;
+    font-size: var(--fs-md); font-weight: 700; padding: 0.55rem 0.85rem;
 }
 .cg-sidebar-home .bi { font-size: var(--fs-lg); width: auto; }
 
@@ -382,6 +382,19 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 .cg-sidebar-section {
     border-top: 1px solid var(--bs-border-color);
     padding-top: 0.25rem; padding-bottom: 0.25rem;
+}
+
+/* ── sidebar create zone label ──────────────────────────────────── */
+.cg-sidebar-zone-label {
+    font-size: var(--fs-2xs); font-weight: 700;
+    letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--bs-secondary-color); opacity: 0.5;
+    padding: 0.55rem 0.85rem 0.1rem;
+}
+
+/* ── sidebar scrollable browse zone ─────────────────────────────── */
+.cg-sidebar-browse {
+    flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
 }
 
 /* ── sidebar navigation links ───────────────────────────────────── */
@@ -434,7 +447,7 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 .cg-sidebar-toggle i { transition: transform 0.25s; }
 .cg-sidebar.collapsed .cg-sidebar-toggle i { transform: rotate(180deg); }
 .cg-sidebar-content {
-    flex: 1; overflow-y: auto; overflow-x: hidden;
+    flex: 1; overflow: hidden;
     padding: 0.5rem 0; display: flex; flex-direction: column;
     opacity: 1; transition: opacity 0.15s;
 }

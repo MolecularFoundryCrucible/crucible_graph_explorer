@@ -42,6 +42,11 @@
       </a>
       {% endfor %}
       {% endif %}
+    </div>
+
+    <!-- ── create zone ─────────────────────────────────────────────── -->
+    <div class="cg-sidebar-section">
+      <div class="cg-sidebar-zone-label">Create</div>
       <button class="cg-sidebar-action w-100 text-start border-0 bg-transparent"
               onclick="cgOpenSamplePanel()">
         <i class="bi bi-flask"></i><span>New Sample</span>
@@ -56,8 +61,8 @@
       </button>
     </div>
 
-    <!-- ── browse zone ─────────────────────────────────────────────── -->
-    <div class="cg-sidebar-section px-2 pt-2">
+    <!-- ── browse zone (scrolls independently) ─────────────────────── -->
+    <div class="cg-sidebar-section cg-sidebar-browse px-2 pt-2">
       <div class="d-flex gap-1 mb-2">
         <input type="search" class="form-control form-control-sm" id="filterInput"
                placeholder="Filter…" oninput="applyFilter()" style="flex:1; min-width:0;">
