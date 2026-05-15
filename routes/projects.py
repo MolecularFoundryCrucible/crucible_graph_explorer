@@ -228,8 +228,8 @@ def create_blueprint(auth):
         sci_meta    = data.get('scientific_metadata') or None
         links       = data.get('links') or []
 
-        parents  = [{'unique_id': l['id']} for l in links if l.get('type') == 'sample_parent']
-        children = [{'unique_id': l['id']} for l in links if l.get('type') == 'sample_child']
+        parents  = [{'unique_id': l['id']} for l in links if l.get('type') == 'sample_parent' and l.get('id')]
+        children = [{'unique_id': l['id']} for l in links if l.get('type') == 'sample_child' and l.get('id')]
 
         try:
             result = get_user_client().samples.create(
@@ -275,9 +275,9 @@ def create_blueprint(auth):
         sci_meta     = data.get('scientific_metadata') or None
         links        = data.get('links') or []
 
-        linked_samples  = [l['id'] for l in links if l.get('type') == 'linked_sample']
-        parent_datasets = [l['id'] for l in links if l.get('type') == 'dataset_parent']
-        child_datasets  = [l['id'] for l in links if l.get('type') == 'dataset_child']
+        linked_samples  = [l['id'] for l in links if l.get('type') == 'linked_sample' and l.get('id')]
+        parent_datasets = [l['id'] for l in links if l.get('type') == 'dataset_parent' and l.get('id')]
+        child_datasets  = [l['id'] for l in links if l.get('type') == 'dataset_child' and l.get('id')]
 
         ds = Dataset(
             dataset_name=dataset_name,
