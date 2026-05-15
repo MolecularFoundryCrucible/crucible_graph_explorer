@@ -29,7 +29,7 @@
             <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
                  id="sampleNavLabel"
                  style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--cg-link);">
-                <i class="bi bi-eyedropper"></i> Samples
+                <i class="bi bi-flask"></i> Samples
             </div>
             <ul class="nav flex-column" id="sampleNav"></ul>
         </div>
@@ -186,7 +186,7 @@
             <div style="min-width:0; flex:1;">
                 <div class="small fw-semibold text-uppercase mb-1"
                      style="font-size:0.7rem; letter-spacing:0.05em; color:var(--bs-secondary-color);">
-                    <i class="bi bi-folder2 me-1"></i>Project
+                    <i class="bi bi-collection me-1"></i>Project
                 </div>
                 <h1 class="fs-4 fw-semibold mb-0 lh-sm" style="overflow-wrap:break-word;">
                     {{title if title and title != pid else pid}}
@@ -249,7 +249,7 @@
              onclick="switchTab('samples')">
             <div class="tab-inner">
                 <div class="d-flex align-items-center gap-2 mb-1">
-                    <i class="bi bi-eyedropper fs-5 tab-icon"></i>
+                    <i class="bi bi-flask fs-5 tab-icon"></i>
                     <span class="fw-semibold fs-5">Samples</span>
                 </div>
                 <div class="small text-muted text-truncate" id="tabSamplesSubtitle">
@@ -495,7 +495,7 @@
             container.innerHTML =
                 '<span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--bs-secondary-color);white-space:nowrap;flex-shrink:0;">Recent</span>' +
                 forProject.map(r => {
-                    const icon = r.type === 'sample' ? 'bi-eyedropper' : 'bi-database';
+                    const icon = r.type === 'sample' ? 'bi-flask' : 'bi-database';
                     const sgb = localStorage.getItem('pref_sample_groupby') || 'sample_type';
                     const dgb = localStorage.getItem('pref_dataset_groupby') || 'measurement';
                     const url  = r.type === 'sample'

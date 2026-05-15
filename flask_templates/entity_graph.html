@@ -90,22 +90,16 @@
     const response = await fetch('/{{pc["project_id"]}}/api/entity-graph-data/{{entity_type}}/{{entity_id}}');
     const graphData = await response.json();
 
-    function tryInit() {
-      if (window.initEntityGraph) {
-        cyInstance = window.initEntityGraph('cy', graphData);
-        document.getElementById('cy-spinner').style.display = 'none';
-        setTimeout(() => {
-          const hint = document.getElementById('zoomHint');
-          if (hint) {
-            hint.style.opacity = '0';
-            setTimeout(() => { hint.style.display = 'none'; }, 1000);
-          }
-        }, 2500);
-      } else {
-        setTimeout(tryInit, 100);
+    const initGraph = await window.loadEntityGraph();
+    cyInstance = initGraph('cy', graphData);
+    document.getElementById('cy-spinner').style.display = 'none';
+    setTimeout(() => {
+      const hint = document.getElementById('zoomHint');
+      if (hint) {
+        hint.style.opacity = '0';
+        setTimeout(() => { hint.style.display = 'none'; }, 1000);
       }
-    }
-    tryInit();
+    }, 2500);
   }
 
   document.getElementById('toggleLayoutBtn').addEventListener('click', function() {

@@ -258,7 +258,7 @@
             {% else %}
             <div class="list-row" style="pointer-events:none; opacity:0.6;">
             {% endif %}
-                <i class="bi {{ 'bi-database' if item.type == 'dataset' else 'bi-eyedropper' }}"
+                <i class="bi {{ 'bi-database' if item.type == 'dataset' else 'bi-flask' }}"
                    style="font-size:0.85rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
                 <div style="flex:1; min-width:0;">
                     <div class="fw-medium text-truncate" style="font-size:0.875rem;">{{ item.name }}</div>
@@ -328,7 +328,7 @@
     {% if shared_projects %}
     <div class="res-section">
         <div class="res-section-header" onclick="toggleSection(this)">
-            <i class="bi bi-folder2 text-muted"></i>
+            <i class="bi bi-collection text-muted"></i>
             <span>Shared Projects</span>
             <span class="badge fw-normal border text-muted ms-1"
                   style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
@@ -397,7 +397,7 @@
     {% if recent_samples %}
     <div class="res-section">
         <div class="res-section-header" onclick="toggleSection(this)">
-            <i class="bi bi-eyedropper text-muted"></i>
+            <i class="bi bi-flask text-muted"></i>
             <span>Recent Samples <span class="text-muted fw-normal" style="font-size:0.75em;">(by creation date)</span></span>
             <span class="badge fw-normal border text-muted ms-1"
                   style="background:var(--bs-tertiary-bg); font-size:0.75rem;">

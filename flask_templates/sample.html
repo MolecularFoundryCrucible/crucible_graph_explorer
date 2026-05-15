@@ -15,7 +15,7 @@
 {% set rel_indirect_parents = indirect_ancestors %}
 {% set rel_indirect_children = indirect_descendants %}
 {% set rel_associated = s['datasets'] %}
-{% set rel_item_icon = 'bi-eyedropper' %}
+{% set rel_item_icon = 'bi-flask' %}
 {% set rel_item_url_seg = 'samples' %}
 {% set rel_item_name_field = 'sample_name' %}
 {% set rel_item_sub_field = 'sample_type' %}
@@ -35,7 +35,7 @@
     {'label': 'Edit sample',    'url': '/' ~ pid ~ '/samples/' ~ s['unique_id'] ~ '/edit',         'icon': 'bi-pencil'},
     {'label': 'Upload photo',   'url': '/' ~ pid ~ '/samples/' ~ s['unique_id'] ~ '/upload-photo', 'icon': 'bi-camera'},
 ] %}
-{{ resource_sidebar(pid, 'sample', 'bi-eyedropper', s['sample_name'], all_projects, s['unique_id'], sidebar_actions) }}
+{{ resource_sidebar(pid, 'sample', 'bi-flask', s['sample_name'], all_projects, s['unique_id'], sidebar_actions) }}
 {% endblock %}
 
 {% block sibling_groupby_options %}

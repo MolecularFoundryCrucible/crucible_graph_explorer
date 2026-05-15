@@ -251,7 +251,7 @@
             const ds  = s ? (s.datasets ?? '—') : ph;
             return `<div style="display:flex; align-items:center; gap:0.75rem; font-size:0.78rem; color:var(--bs-secondary-color);">
                 <span style="display:flex;align-items:center;gap:0.3rem;">
-                    <i class="bi bi-eyedropper" style="font-size:0.7rem; opacity:0.7;"></i>${sp}
+                    <i class="bi bi-flask" style="font-size:0.7rem; opacity:0.7;"></i>${sp}
                 </span>
                 <span style="display:flex;align-items:center;gap:0.3rem;">
                     <i class="bi bi-database" style="font-size:0.7rem; opacity:0.7;"></i>${ds}
@@ -469,7 +469,7 @@
                 emptyEl.style.display = '';
                 emptyEl.innerHTML = filteredHidden().length > 0
                     ? '<i class="bi bi-eye-slash d-block fs-2 mb-2 text-muted opacity-50"></i>No active projects match — see hidden projects below.'
-                    : '<i class="bi bi-folder2-open d-block fs-2 mb-2 text-muted opacity-50"></i>No projects match your filter.';
+                    : '<i class="bi bi-collection d-block fs-2 mb-2 text-muted opacity-50"></i>No projects match your filter.';
             } else {
                 emptyEl.style.display = 'none';
             }

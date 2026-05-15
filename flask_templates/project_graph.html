@@ -104,22 +104,16 @@
     document.getElementById('toggleLayoutBtn').disabled = false;
     document.getElementById('fitBtn').disabled = false;
 
-    function tryInit() {
-      if (window.initEntityGraph) {
-        cyInstance = window.initEntityGraph('cy', graphData);
-        document.getElementById('cy-spinner').style.display = 'none';
-        setTimeout(() => {
-          const hint = document.getElementById('zoomHint');
-          if (hint) {
-            hint.style.opacity = '0';
-            setTimeout(() => { hint.style.display = 'none'; }, 1000);
-          }
-        }, 2500);
-      } else {
-        setTimeout(tryInit, 100);
+    const initGraph = await window.loadEntityGraph();
+    cyInstance = initGraph('cy', graphData);
+    document.getElementById('cy-spinner').style.display = 'none';
+    setTimeout(() => {
+      const hint = document.getElementById('zoomHint');
+      if (hint) {
+        hint.style.opacity = '0';
+        setTimeout(() => { hint.style.display = 'none'; }, 1000);
       }
-    }
-    tryInit();
+    }, 2500);
   }
 
   {% if _node_estimate > 200 %}

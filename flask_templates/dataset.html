@@ -20,7 +20,7 @@
 {% set rel_item_name_field = 'dataset_name' %}
 {% set rel_item_sub_field = 'measurement' %}
 {% set rel_assoc_label = 'Samples' %}
-{% set rel_assoc_icon = 'bi-eyedropper' %}
+{% set rel_assoc_icon = 'bi-flask' %}
 {% set rel_assoc_url_seg = 'samples' %}
 {% set rel_assoc_name_field = 'sample_name' %}
 {% set rel_assoc_sub_field = 'sample_type' %}
@@ -161,7 +161,7 @@
 {% if samples %}
 <div class="res-section d-xl-none" id="section-samples">
     <div class="res-section-header" onclick="toggleSection(this)">
-        <i class="bi bi-eyedropper text-muted"></i>
+        <i class="bi bi-flask text-muted"></i>
         <span>Linked Samples</span>
         <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
             {{samples|length}}

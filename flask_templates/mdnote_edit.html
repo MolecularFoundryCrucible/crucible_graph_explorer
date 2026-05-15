@@ -110,18 +110,15 @@
 <script type="module">
     const initialContent = {{ md_content | tojson }};
 
-    function init() {
-        if (window.initMDNoteEditor) {
-            window.initMDNoteEditor({
-                containerId: 'mdnote-editor',
-                previewId: 'mdnote-preview',
-                projectId: '{{ project_id }}',
-                initialContent,
-                saveUrl: '/{{ project_id }}/datasets/{{ ds["unique_id"] }}/mdnote-edit'
-            });
-        } else {
-            setTimeout(init, 50);
-        }
+    async function init() {
+        const initMDNoteEditor = await window.loadMDNoteEditor();
+        initMDNoteEditor({
+            containerId: 'mdnote-editor',
+            previewId: 'mdnote-preview',
+            projectId: '{{ project_id }}',
+            initialContent,
+            saveUrl: '/{{ project_id }}/datasets/{{ ds["unique_id"] }}/mdnote-edit'
+        });
     }
 
     if (document.readyState === 'loading') {
