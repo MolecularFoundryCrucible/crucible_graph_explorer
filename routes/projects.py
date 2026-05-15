@@ -315,4 +315,78 @@ def create_blueprint(auth):
             'url':  f'/{project_id}/datasets/{uid}',
         })
 
+    @bp.route("/<project_id>/api/samples/<sample_id>/update", methods=['PATCH'])
+    @auth.oidc_auth('orcid')
+    def api_sample_update(project_id, sample_id):
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        data = request.get_json(silent=True) or {}
+
+        update_kwargs = {}
+        for field in ('sample_name', 'sample_type', 'description', 'timestamp'):
+            val = data.get(field)
+            if val is not None:
+                update_kwargs[field] = val.strip() if isinstance(val, str) else val
+
+        public_val = data.get('public')
+        if public_val is not None:
+            update_kwargs['public'] = public_val
+
+        sci_meta = data.get('scientific_metadata')
+
+        try:
+            client = get_user_client()
+            result = client.samples.update(sample_id, **update_kwargs)
+            if sci_meta is not None:
+                client.samples.update_scientific_metadata(
+                    sample_id, sci_meta, overwrite=True
+                )
+        except Exception as exc:
+            return jsonify({'error': str(exc)}), 500
+
+        clear_project_cache(project_id, orcid)
+        uid = result.get('unique_id', sample_id)
+        return jsonify({
+            'id':   uid,
+            'name': result.get('sample_name', ''),
+            'url':  f'/{project_id}/samples/{uid}',
+        })
+
+    @bp.route("/<project_id>/api/datasets/<dataset_id>/update", methods=['PATCH'])
+    @auth.oidc_auth('orcid')
+    def api_dataset_update(project_id, dataset_id):
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        data = request.get_json(silent=True) or {}
+
+        update_kwargs = {}
+        for field in ('dataset_name', 'measurement', 'session_name',
+                      'instrument_name', 'data_type', 'timestamp'):
+            val = data.get(field)
+            if val is not None:
+                update_kwargs[field] = val.strip() if isinstance(val, str) else val
+
+        public_val = data.get('public')
+        if public_val is not None:
+            update_kwargs['public'] = public_val
+
+        sci_meta = data.get('scientific_metadata')
+
+        try:
+            client = get_user_client()
+            result = client.datasets.update(dataset_id, **update_kwargs)
+            if sci_meta is not None:
+                client.datasets.update_scientific_metadata(
+                    dataset_id, sci_meta, overwrite=True
+                )
+        except Exception as exc:
+            return jsonify({'error': str(exc)}), 500
+
+        clear_project_cache(project_id, orcid)
+        return jsonify({
+            'id':   dataset_id,
+            'name': result.get('dataset_name', ''),
+            'url':  f'/{project_id}/datasets/{dataset_id}',
+        })
+
     return bp

@@ -62,3 +62,15 @@ def test_create_dataset_accepts_timestamp_public_metadata(app, client):
                            'links': [],
                        })
     assert resp.status_code != 404
+
+
+def test_sample_update_route_exists(app, client):
+    resp = client.patch('/proj-x/api/samples/sample-123/update',
+                        json={'sample_name': 'Updated'})
+    assert resp.status_code != 404
+
+
+def test_dataset_update_route_exists(app, client):
+    resp = client.patch('/proj-x/api/datasets/ds-456/update',
+                        json={'dataset_name': 'Updated'})
+    assert resp.status_code != 404
