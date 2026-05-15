@@ -599,7 +599,7 @@
     // ── render helpers ────────────────────────────────────────────────────────
     function buildGroupEl(gid, icon, gkey, items, itemClass, countClass, rowFn, navPrefix) {
         const div = document.createElement('div');
-        div.className = `${icon.includes('eyedropper') ? 'sample' : 'dataset'}-group mb-3`;
+        div.className = `${icon.includes('flask') ? 'sample' : 'dataset'}-group mb-3`;
         div.id = gid;
 
         const rows = items.map(rowFn).join('');
@@ -645,7 +645,7 @@
         for (const [gkey, items] of Object.entries(grouped)) {
             idx++;
             const gid = `stype-${idx}`;
-            const groupEl = buildGroupEl(gid, 'eyedropper', gkey, items,
+            const groupEl = buildGroupEl(gid, 'flask', gkey, items,
                 'sample-item', 'sample-count',
                 s => `<a class="list-row sample-item"
                          href="/${PID}/samples/${escHtml(s.unique_id)}?sgb=${encodeURIComponent(field)}"
