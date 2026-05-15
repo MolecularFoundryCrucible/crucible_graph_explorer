@@ -643,9 +643,10 @@ function toggleSidebar() {
         li.className = 'nav-item';
         li.id = `${navPrefix}-${idx}`;
         li.innerHTML = `<a class="cg-sidebar-link" href="#${gid}"
+            style="align-items:flex-start;"
             onclick="expandAndScroll('${gid}', event)">
             <span style="flex:1; min-width:0; overflow-wrap:break-word; white-space:normal;">${escHtml(gkey)}</span>
-            <span style="font-size: var(--fs-xs); opacity:0.55; flex-shrink:0; margin-left:0.3rem;">${count}</span>
+            <span style="font-size: var(--fs-xs); opacity:0.55; flex-shrink:0; margin-left:0.3rem; padding-top:0.1rem;">${count}</span>
         </a>`;
         return li;
     }
