@@ -109,7 +109,7 @@
     </div>
   </div>
   <div class="cg-create-panel-footer">
-    <button class="btn btn-primary" onclick="cgOpenDatasetPanel_submit('{{ pid }}')" id="ds-submit">
+    <button class="btn btn-primary" onclick="cgSubmitDataset('{{ pid }}')" id="ds-submit">
       <i class="bi bi-plus-circle me-1"></i>Create Dataset
     </button>
     <button class="btn btn-outline-secondary" onclick="cgCloseAllPanels()">Cancel</button>
@@ -289,7 +289,7 @@ async function cgSubmitSample(pid) {
 }
 
 // ── submit: dataset ───────────────────────────────────────────────────────────
-async function cgOpenDatasetPanel_submit(pid) {
+async function cgSubmitDataset(pid) {
     const name = document.getElementById('ds-name').value.trim();
     const errEl = document.getElementById('ds-error');
     if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; return; }
