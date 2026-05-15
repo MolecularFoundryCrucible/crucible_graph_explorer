@@ -63,7 +63,7 @@
         <span class="text-muted align-self-center" style="font-size:var(--fs-xs);">or type below</span>
       </div>
       <textarea id="sp-meta-json" class="form-control font-monospace" rows="4"
-                placeholder="{}" style="font-size:var(--fs-xs); resize:vertical;"></textarea>
+                placeholder="{}" style="font-size:var(--fs-sm); resize:vertical;"></textarea>
       <div id="sp-meta-error" class="text-danger mt-1" style="display:none; font-size:var(--fs-xs);"></div>
     </div>
   </div>
@@ -144,7 +144,7 @@
         <span class="text-muted align-self-center" style="font-size:var(--fs-xs);">or type below</span>
       </div>
       <textarea id="ds-meta-json" class="form-control font-monospace" rows="4"
-                placeholder="{}" style="font-size:var(--fs-xs); resize:vertical;"></textarea>
+                placeholder="{}" style="font-size:var(--fs-sm); resize:vertical;"></textarea>
       <div id="ds-meta-error" class="text-danger mt-1" style="display:none; font-size:var(--fs-xs);"></div>
     </div>
   </div>
@@ -344,7 +344,7 @@ class CgLinkBuilder {
                         `<button type="button" class="list-group-item list-group-item-action py-1"
                                  style="font-size:var(--fs-sm);"
                                  data-id="${escHtml(item.id)}" data-name="${escHtml(item.name)}">
-                            <i class="bi ${escHtml(typeDef.icon)} me-1" style="font-size:0.7rem;"></i>
+                            <i class="bi ${escHtml(typeDef.icon)} me-1" style="font-size:var(--fs-xs);"></i>
                             ${escHtml(item.name)}
                             <span class="text-muted ms-1 mfid" style="font-size:var(--fs-xs);">${escHtml(item.id)}</span>
                          </button>`
@@ -379,7 +379,7 @@ class CgLinkBuilder {
             const chip = document.createElement('span');
             chip.className = 'cg-link-chip badge rounded-pill border text-body fw-normal d-inline-flex align-items-center gap-1 me-1 mb-1';
             chip.style.cssText = 'background:var(--bs-tertiary-bg); font-size:var(--fs-xs);';
-            chip.innerHTML = `<span class="text-muted" style="font-size:0.65rem;">${escHtml(l.label)}</span>${escHtml(l.name)}`;
+            chip.innerHTML = `<span class="text-muted" style="font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:0.07em;">${escHtml(l.label)}</span>${escHtml(l.name)}`;
             const closeBtn = document.createElement('button');
             closeBtn.type = 'button';
             closeBtn.className = 'btn-close';
