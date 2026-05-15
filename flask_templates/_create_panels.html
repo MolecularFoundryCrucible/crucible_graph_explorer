@@ -48,18 +48,23 @@
       <textarea id="sp-desc" class="form-control" rows="2"></textarea>
     </div>
     <div class="mb-3">
-      <label class="form-label fw-semibold">Scientific Metadata</label>
-      <div id="sp-meta-container"></div>
-      <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="spMeta.addRow()">
-        <i class="bi bi-plus me-1"></i>Add field
+      <label class="form-label fw-semibold">Relationships</label>
+      <div id="sp-links-container"></div>
+      <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="spLinks.openPicker()">
+        <i class="bi bi-link-45deg me-1"></i>Add relationship
       </button>
     </div>
     <div class="mb-1">
-      <label class="form-label fw-semibold">Links</label>
-      <div id="sp-links-container"></div>
-      <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="spLinks.openPicker()">
-        <i class="bi bi-link-45deg me-1"></i>Add link
-      </button>
+      <label class="form-label fw-semibold">Scientific Metadata</label>
+      <div class="d-flex gap-1 mb-1">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="cgImportJson('sp-meta-json')">
+          <i class="bi bi-upload me-1"></i>Import JSON
+        </button>
+        <span class="text-muted align-self-center" style="font-size:var(--fs-xs);">or type below</span>
+      </div>
+      <textarea id="sp-meta-json" class="form-control font-monospace" rows="4"
+                placeholder="{}" style="font-size:var(--fs-xs); resize:vertical;"></textarea>
+      <div id="sp-meta-error" class="text-danger mt-1" style="display:none; font-size:var(--fs-xs);"></div>
     </div>
   </div>
   <div class="cg-create-panel-footer">
@@ -107,9 +112,9 @@
     </div>
     <div class="mb-3">
       <label class="form-label fw-semibold" for="ds-instrument">Instrument</label>
-      <select id="ds-instrument" class="form-select">
-        <option value="">— none —</option>
-      </select>
+      <input type="text" id="ds-instrument" class="form-control" autocomplete="off"
+             list="ds-instrument-datalist" placeholder="Search instruments…">
+      <datalist id="ds-instrument-datalist"></datalist>
     </div>
     <div class="mb-3">
       <label class="form-label fw-semibold" for="ds-session">Session Name</label>
@@ -124,18 +129,23 @@
       <input type="text" id="ds-datatype" class="form-control" autocomplete="off">
     </div>
     <div class="mb-3">
-      <label class="form-label fw-semibold">Scientific Metadata</label>
-      <div id="ds-meta-container"></div>
-      <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="dsMeta.addRow()">
-        <i class="bi bi-plus me-1"></i>Add field
+      <label class="form-label fw-semibold">Relationships</label>
+      <div id="ds-links-container"></div>
+      <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="dsLinks.openPicker()">
+        <i class="bi bi-link-45deg me-1"></i>Add relationship
       </button>
     </div>
     <div class="mb-1">
-      <label class="form-label fw-semibold">Links</label>
-      <div id="ds-links-container"></div>
-      <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="dsLinks.openPicker()">
-        <i class="bi bi-link-45deg me-1"></i>Add link
-      </button>
+      <label class="form-label fw-semibold">Scientific Metadata</label>
+      <div class="d-flex gap-1 mb-1">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="cgImportJson('ds-meta-json')">
+          <i class="bi bi-upload me-1"></i>Import JSON
+        </button>
+        <span class="text-muted align-self-center" style="font-size:var(--fs-xs);">or type below</span>
+      </div>
+      <textarea id="ds-meta-json" class="form-control font-monospace" rows="4"
+                placeholder="{}" style="font-size:var(--fs-xs); resize:vertical;"></textarea>
+      <div id="ds-meta-error" class="text-danger mt-1" style="display:none; font-size:var(--fs-xs);"></div>
     </div>
   </div>
   <div class="cg-create-panel-footer">
@@ -168,10 +178,10 @@
       </select>
     </div>
     <div class="mb-1">
-      <label class="form-label fw-semibold">Links</label>
+      <label class="form-label fw-semibold">Relationships</label>
       <div id="nt-links-container"></div>
       <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="ntLinks.openPicker()">
-        <i class="bi bi-link-45deg me-1"></i>Add link
+        <i class="bi bi-link-45deg me-1"></i>Add relationship
       </button>
     </div>
   </div>
@@ -183,6 +193,9 @@
     <span id="nt-error" class="text-danger small ms-auto align-self-center" style="display:none;"></span>
   </div>
 </div>
+
+<!-- hidden file input for JSON import -->
+<input type="file" id="cgJsonFileInput" accept=".json,application/json" style="display:none;">
 
 <!-- ════════════════════════════════════════════════════════════════ -->
 <!--  PANEL JAVASCRIPT                                               -->
@@ -249,38 +262,45 @@ function _cgToISO(dtLocal) {
     return dtLocal.length === 16 ? dtLocal + ':00' : dtLocal;
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-//  CgMetaEditor — key-value scientific metadata editor
-// ══════════════════════════════════════════════════════════════════════════════
-class CgMetaEditor {
-    constructor(containerId) { this.el = document.getElementById(containerId); }
-    addRow(key = '', val = '') {
-        const row = document.createElement('div');
-        row.className = 'd-flex gap-1 mb-1 align-items-center';
-        row.innerHTML = `
-            <input type="text" class="form-control form-control-sm cg-meta-key"
-                   placeholder="Key" value="${escHtml(key)}" autocomplete="off">
-            <input type="text" class="form-control form-control-sm cg-meta-val"
-                   placeholder="Value" value="${escHtml(val)}" autocomplete="off">
-            <button type="button" class="btn btn-sm btn-outline-danger px-2"
-                    onclick="this.closest('.d-flex').remove()" title="Remove">
-                <i class="bi bi-x"></i></button>`;
-        this.el.appendChild(row);
+// ── JSON metadata helpers ─────────────────────────────────────────────────────
+function cgParseMetaJson(textareaId, errorId) {
+    const ta  = document.getElementById(textareaId);
+    const err = document.getElementById(errorId);
+    const raw = ta.value.trim();
+    if (!raw || raw === '{}' || raw === 'null') { err.style.display = 'none'; return null; }
+    try {
+        const parsed = JSON.parse(raw);
+        err.style.display = 'none';
+        return (typeof parsed === 'object' && parsed !== null && Object.keys(parsed).length) ? parsed : null;
+    } catch (e) {
+        err.textContent = 'Invalid JSON: ' + e.message;
+        err.style.display = '';
+        return undefined;  // sentinel: parse failed
     }
-    export() {
-        const out = {};
-        this.el.querySelectorAll('.d-flex').forEach(row => {
-            const k = row.querySelector('.cg-meta-key').value.trim();
-            const v = row.querySelector('.cg-meta-val').value.trim();
-            if (k) out[k] = v;
-        });
-        return Object.keys(out).length ? out : null;
-    }
-    reset() { this.el.innerHTML = ''; }
+}
+
+function cgImportJson(targetTextareaId) {
+    const input = document.getElementById('cgJsonFileInput');
+    input.onchange = () => {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const parsed = JSON.parse(e.target.result);
+                document.getElementById(targetTextareaId).value = JSON.stringify(parsed, null, 2);
+            } catch (err) {
+                alert('Could not parse JSON file: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+        input.value = '';  // allow re-importing same file
+    };
+    input.click();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  CgLinkBuilder — unified dynamic link picker
+//  CgLinkBuilder — unified dynamic relationship picker
 // ══════════════════════════════════════════════════════════════════════════════
 class CgLinkBuilder {
     constructor(containerId, pid, allowedTypes) {
@@ -297,7 +317,7 @@ class CgLinkBuilder {
         p.style.background = 'var(--bs-tertiary-bg)';
         p.innerHTML = `
             <div class="d-flex gap-1 mb-2">
-                <select class="form-select form-select-sm cg-lp-type" style="max-width:10rem;">
+                <select class="form-select form-select-sm cg-lp-type" style="max-width:11rem;">
                     ${this.types.map(t => `<option value="${t.type}">${escHtml(t.label)}</option>`).join('')}
                 </select>
                 <input type="text" class="form-control form-control-sm cg-lp-search"
@@ -373,23 +393,23 @@ class CgLinkBuilder {
     reset() { this.links = []; this.container.innerHTML = ''; this._picker = null; }
 }
 
-// ── Link type definitions ─────────────────────────────────────────────────────
+// ── Relationship type definitions ─────────────────────────────────────────────
 const SAMPLE_LINK_TYPES = [
-    { type: 'sample_parent', label: 'Parent Sample', icon: 'bi-flask',    endpoint: 'samples'  },
-    { type: 'sample_child',  label: 'Child Sample',  icon: 'bi-flask',    endpoint: 'samples'  },
+    { type: 'sample_parent',   label: 'Parent Sample',   icon: 'bi-flask',    endpoint: 'samples'  },
+    { type: 'sample_child',    label: 'Child Sample',    icon: 'bi-flask',    endpoint: 'samples'  },
+    { type: 'linked_dataset',  label: 'Linked Dataset',  icon: 'bi-database', endpoint: 'datasets' },
 ];
 const DATASET_LINK_TYPES = [
-    { type: 'linked_sample',  label: 'Linked Sample',  icon: 'bi-flask',    endpoint: 'samples'  },
-    { type: 'dataset_parent', label: 'Parent Dataset', icon: 'bi-database', endpoint: 'datasets' },
-    { type: 'dataset_child',  label: 'Child Dataset',  icon: 'bi-database', endpoint: 'datasets' },
+    { type: 'linked_sample',   label: 'Linked Sample',   icon: 'bi-flask',    endpoint: 'samples'  },
+    { type: 'dataset_parent',  label: 'Parent Dataset',  icon: 'bi-database', endpoint: 'datasets' },
+    { type: 'dataset_child',   label: 'Child Dataset',   icon: 'bi-database', endpoint: 'datasets' },
 ];
 const NOTE_LINK_TYPES = [
-    { type: 'linked_sample', label: 'Linked Sample', icon: 'bi-flask', endpoint: 'samples' },
+    { type: 'linked_sample',   label: 'Linked Sample',   icon: 'bi-flask',    endpoint: 'samples'  },
+    { type: 'linked_dataset',  label: 'Linked Dataset',  icon: 'bi-database', endpoint: 'datasets' },
 ];
 
-// ── Instantiate editors and link builders ─────────────────────────────────────
-const spMeta  = new CgMetaEditor('sp-meta-container');
-const dsMeta  = new CgMetaEditor('ds-meta-container');
+// ── Instantiate link builders ─────────────────────────────────────────────────
 const spLinks = new CgLinkBuilder('sp-links-container', '{{ pid }}', SAMPLE_LINK_TYPES);
 const dsLinks = new CgLinkBuilder('ds-links-container', '{{ pid }}', DATASET_LINK_TYPES);
 const ntLinks = new CgLinkBuilder('nt-links-container', '{{ pid }}', NOTE_LINK_TYPES);
@@ -400,6 +420,8 @@ async function cgSubmitSample(pid) {
     const selectedPid = document.getElementById('sp-project').value || pid;
     const errEl = document.getElementById('sp-error');
     if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; return; }
+    const meta = cgParseMetaJson('sp-meta-json', 'sp-meta-error');
+    if (meta === undefined) return;  // JSON parse error shown inline
     _cgSetSubmitting('sp-submit', 'sp-error', true);
     const resp = await fetch(`/${selectedPid}/api/samples/create`, {
         method: 'POST',
@@ -410,7 +432,7 @@ async function cgSubmitSample(pid) {
             description: document.getElementById('sp-desc').value.trim() || null,
             timestamp:   _cgToISO(document.getElementById('sp-timestamp').value) || null,
             public:      document.getElementById('sp-public').checked,
-            scientific_metadata: spMeta.export(),
+            scientific_metadata: meta,
             links: spLinks.export(),
         }),
     });
@@ -430,6 +452,8 @@ async function cgSubmitDataset(pid) {
     const selectedPid = document.getElementById('ds-project').value || pid;
     const errEl = document.getElementById('ds-error');
     if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; return; }
+    const meta = cgParseMetaJson('ds-meta-json', 'ds-meta-error');
+    if (meta === undefined) return;
     _cgSetSubmitting('ds-submit', 'ds-error', true);
     const resp = await fetch(`/${selectedPid}/api/datasets/create`, {
         method: 'POST',
@@ -437,12 +461,12 @@ async function cgSubmitDataset(pid) {
         body: JSON.stringify({
             dataset_name:    name,
             measurement:     document.getElementById('ds-measurement').value.trim() || null,
-            instrument_name: document.getElementById('ds-instrument').value || null,
+            instrument_name: document.getElementById('ds-instrument').value.trim() || null,
             session_name:    document.getElementById('ds-session').value.trim() || null,
             data_type:       document.getElementById('ds-datatype').value.trim() || null,
             timestamp:       _cgToISO(document.getElementById('ds-timestamp').value) || null,
             public:          document.getElementById('ds-public').checked,
-            scientific_metadata: dsMeta.export(),
+            scientific_metadata: meta,
             links: dsLinks.export(),
         }),
     });
@@ -482,18 +506,19 @@ async function cgSubmitNote(pid) {
     window.location.href = `/${selectedPid}/datasets/${data.id}/mdnote-edit`;
 }
 
-// ── open panel functions with full reset ──────────────────────────────────────
+// ── open panel functions ──────────────────────────────────────────────────────
 let _instrumentsLoaded = false;
 
 function cgOpenSamplePanel() {
-    document.getElementById('sp-name').value     = '';
-    document.getElementById('sp-type').value     = '';
-    document.getElementById('sp-desc').value     = '';
-    document.getElementById('sp-public').checked = false;
+    document.getElementById('sp-name').value      = '';
+    document.getElementById('sp-type').value      = '';
+    document.getElementById('sp-desc').value      = '';
+    document.getElementById('sp-public').checked  = false;
     document.getElementById('sp-timestamp').value = _cgNowLocal();
-    document.getElementById('sp-type-results').style.display = 'none';
-    document.getElementById('sp-error').style.display = 'none';
-    spMeta.reset();
+    document.getElementById('sp-meta-json').value = '';
+    document.getElementById('sp-type-results').style.display  = 'none';
+    document.getElementById('sp-meta-error').style.display    = 'none';
+    document.getElementById('sp-error').style.display         = 'none';
     spLinks.reset();
     cgOpenPanel('cgSamplePanel');
 }
@@ -506,9 +531,10 @@ function cgOpenDatasetPanel() {
     document.getElementById('ds-instrument').value  = '';
     document.getElementById('ds-public').checked    = false;
     document.getElementById('ds-timestamp').value   = _cgNowLocal();
+    document.getElementById('ds-meta-json').value   = '';
     document.getElementById('ds-measurement-results').style.display = 'none';
-    document.getElementById('ds-error').style.display = 'none';
-    dsMeta.reset();
+    document.getElementById('ds-meta-error').style.display = 'none';
+    document.getElementById('ds-error').style.display      = 'none';
     dsLinks.reset();
     cgOpenPanel('cgDatasetPanel');
     if (!_instrumentsLoaded) {
@@ -516,11 +542,11 @@ function cgOpenDatasetPanel() {
             .then(r => r.json())
             .then(instruments => {
                 _instrumentsLoaded = true;
-                const sel = document.getElementById('ds-instrument');
+                const dl = document.getElementById('ds-instrument-datalist');
                 instruments.forEach(i => {
                     const opt = document.createElement('option');
-                    opt.value = i.name; opt.textContent = i.name;
-                    sel.appendChild(opt);
+                    opt.value = i.name;
+                    dl.appendChild(opt);
                 });
             })
             .catch(() => {});

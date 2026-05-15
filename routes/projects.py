@@ -228,11 +228,13 @@ def create_blueprint(auth):
         sci_meta    = data.get('scientific_metadata') or None
         links       = data.get('links') or []
 
-        parents  = [{'unique_id': l['id']} for l in links if l.get('type') == 'sample_parent' and l.get('id')]
-        children = [{'unique_id': l['id']} for l in links if l.get('type') == 'sample_child' and l.get('id')]
+        parents         = [{'unique_id': l['id']} for l in links if l.get('type') == 'sample_parent'  and l.get('id')]
+        children        = [{'unique_id': l['id']} for l in links if l.get('type') == 'sample_child'   and l.get('id')]
+        linked_datasets = [l['id']               for l in links if l.get('type') == 'linked_dataset'  and l.get('id')]
 
         try:
-            result = get_user_client().samples.create(
+            client = get_user_client()
+            result = client.samples.create(
                 sample_name=sample_name,
                 sample_type=sample_type,
                 description=description,
@@ -244,11 +246,13 @@ def create_blueprint(auth):
                 children=children,
                 scientific_metadata=sci_meta,
             )
+            uid = result.get('unique_id', '')
+            for did in linked_datasets:
+                client.datasets.add_sample(did, uid)
         except Exception as exc:
             return jsonify({'error': str(exc)}), 500
 
         clear_project_cache(project_id, orcid)
-        uid = result.get('unique_id', '')
         return jsonify({
             'id':   uid,
             'name': result.get('sample_name', sample_name),
