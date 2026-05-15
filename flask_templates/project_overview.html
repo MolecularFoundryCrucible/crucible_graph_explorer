@@ -1107,5 +1107,6 @@ function toggleSidebar() {
     })();
 </script>
 
-{% include '_create_panels.html' %}
 {% endblock %}
+
+{% block panels %}{% include '_create_panels.html' %}{% endblock %}
