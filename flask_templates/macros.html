@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endif %}
   </div>
   <div class="flex-shrink-0">
-    <img src="{{ qrcode(uuid, box_size=3, border=2) }}" style="border-radius:4px; opacity:0.75;" title="{{ uuid }}">
+    <img src="{{ qrcode(uuid, box_size=3, border=2) }}" style="border-radius:4px; box-shadow: 0 0 0 1px var(--bs-border-color);" title="{{ uuid }}">
   </div>
 </div>
 {%- endmacro -%}
