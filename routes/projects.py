@@ -9,7 +9,7 @@ from flask_pyoidc.user_session import UserSession
 from utils.auth import get_user_client
 from utils.cache import (
     _project_cache, _PROJECT_CACHE_TTL,
-    get_project, get_user_projects, warm_project_caches,
+    clear_project_cache, get_project, get_user_projects, warm_project_caches,
 )
 from utils.helpers import abbrev_name
 
@@ -208,5 +208,42 @@ def create_blueprint(auth):
         if q:
             types = [t for t in types if q in t.lower()]
         return jsonify(types)
+
+    @bp.route("/<project_id>/api/samples/create", methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def api_sample_create(project_id):
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        data = request.get_json(silent=True) or {}
+
+        sample_name = (data.get('sample_name') or '').strip()
+        if not sample_name:
+            return jsonify({'error': 'sample_name is required'}), 400
+
+        sample_type = (data.get('sample_type') or '').strip() or None
+        description = (data.get('description') or '').strip() or None
+        parent_ids  = [p for p in (data.get('parent_ids') or []) if p]
+        child_ids   = [c for c in (data.get('child_ids')  or []) if c]
+
+        try:
+            result = get_user_client().samples.create(
+                sample_name=sample_name,
+                sample_type=sample_type,
+                description=description,
+                project_id=project_id,
+                owner_orcid=orcid,
+                parents=[{'unique_id': pid} for pid in parent_ids],
+                children=[{'unique_id': cid} for cid in child_ids],
+            )
+        except Exception as exc:
+            return jsonify({'error': str(exc)}), 500
+
+        clear_project_cache(project_id, orcid)
+        uid = result.get('unique_id', '')
+        return jsonify({
+            'id':   uid,
+            'name': result.get('sample_name', sample_name),
+            'url':  f'/{project_id}/samples/{uid}',
+        })
 
     return bp

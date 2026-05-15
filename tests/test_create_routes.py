@@ -24,3 +24,10 @@ def test_instruments_json_route_exists(app, client):
     """Route must exist (not 404)."""
     resp = client.get('/api/instruments')
     assert resp.status_code != 404
+
+
+def test_create_sample_route_exists(app, client):
+    """Route must exist (not 404)."""
+    resp = client.post('/proj-x/api/samples/create',
+                       json={'sample_name': 'Test'})
+    assert resp.status_code != 404
