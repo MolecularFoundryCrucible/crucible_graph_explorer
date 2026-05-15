@@ -371,6 +371,10 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
     color: var(--cg-accent-mid); font-size: var(--fs-sm);
     flex-shrink: 0; width: 1rem; text-align: center;
 }
+.cg-sidebar-home {
+    font-size: var(--fs-md); padding: 0.55rem 0.85rem;
+}
+.cg-sidebar-home .bi { font-size: var(--fs-lg); width: auto; }
 
 /* ── sidebar zone separator ─────────────────────────────────────── */
 .cg-sidebar-section {
