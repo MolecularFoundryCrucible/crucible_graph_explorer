@@ -17,6 +17,8 @@
     --bs-link-color-rgb:   58, 122, 135;
     --bs-link-hover-color: #031e2d;
 
+    --cg-navbar-height: 3rem;
+
     /* ── elevation shadows ────────────────────────────────────── */
     --cg-shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
     --cg-shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
@@ -717,8 +719,8 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 
 /* ── create resource slide-in panel ─────────────────────────────── */
 .cg-create-panel {
-    position: fixed; top: 0; right: 0;
-    width: min(420px, 100vw); height: 100dvh;
+    position: fixed; top: var(--cg-navbar-height); right: 0;
+    width: min(420px, 100vw); height: calc(100dvh - var(--cg-navbar-height));
     background: var(--bs-body-bg);
     border-left: 1px solid var(--bs-border-color);
     box-shadow: -4px 0 24px rgba(0,0,0,0.15);
@@ -731,7 +733,7 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 .cg-create-panel.open { transform: translateX(0); }
 
 .cg-create-panel-backdrop {
-    position: fixed; inset: 0;
+    position: fixed; top: var(--cg-navbar-height); left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.3);
     z-index: 1049;
     opacity: 0; pointer-events: none;
