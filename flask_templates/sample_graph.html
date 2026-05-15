@@ -1,38 +1,34 @@
 {% set s = self_info %}
 {% set pid = pc['project_id'] %}
+{% set res = s %}
+{% set res_name = s['sample_name'] %}
+{% set res_type = s.get('sample_type', '') %}
+{% set res_url_seg = 'samples' %}
+{% set res_card_id = 'sampleCard' %}
+{% set res_avatar_id = 'sampleAvatar' %}
+{% set graph_fetch_url = '/' ~ pid ~ '/api/entity-graph-data/sample/' ~ s['unique_id'] %}
+{% set has_dataset_toggle = true %}
+{% set groupby_param = 'sgb' %}
+{% set groupby_default = 'sample_type' %}
+{% set rel_parents = direct_ancestors %}
+{% set rel_children = direct_descendants %}
+{% set rel_indirect_parents = indirect_ancestors %}
+{% set rel_indirect_children = indirect_descendants %}
+{% set rel_associated = s['datasets'] %}
+{% set rel_item_icon = 'bi-eyedropper' %}
+{% set rel_item_url_seg = 'samples' %}
+{% set rel_item_name_field = 'sample_name' %}
+{% set rel_item_sub_field = 'sample_type' %}
+{% set rel_assoc_label = 'Datasets' %}
+{% set rel_assoc_icon = 'bi-database' %}
+{% set rel_assoc_url_seg = 'datasets' %}
+{% set rel_assoc_name_field = 'dataset_name' %}
+{% set rel_assoc_sub_field = 'measurement' %}
 
 {% from 'macros.html' import mrow, mrow_link, section_metadata, deletion_banner, resource_sidebar, resource_card_identity %}
+{% extends "resource_base.html" %}
 
-{% extends "base.html" %}
 {% block title %}{{s['sample_name']}}{% endblock %}
-
-{% block head %}
-{{ super() }}
-<style>
-    /* ── graph containers ───────────────────────────────────────────────── */
-    #cy {
-        width: 100%; height: 40vh; min-height: 280px;
-        border-top: 1px solid var(--bs-border-color);
-    }
-    #section-graph:fullscreen {
-        background: var(--bs-body-bg);
-        display: flex !important;
-        flex-direction: column;
-        height: 100vh;
-    }
-    #section-graph:fullscreen .res-section-body {
-        flex: 1; display: flex; flex-direction: column; overflow: hidden;
-    }
-    #section-graph:fullscreen #cy {
-        flex: 1; height: unset !important; min-height: unset !important;
-    }
-</style>
-{% endblock %}
-
-{% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/{{pid}}/">{{pid}}</a></li>
-    <li class="breadcrumb-item active" aria-current="page">{{s['sample_name']}}</li>
-{% endblock %}
 
 {% block sidebar %}
 {% set sidebar_actions = [
@@ -42,159 +38,58 @@
 {{ resource_sidebar(pid, 'sample', 'bi-eyedropper', s['sample_name'], all_projects, s['unique_id'], sidebar_actions) }}
 {% endblock %}
 
-{% block main_col_class %}col-12 col-md{% endblock %}
+{% block sibling_groupby_options %}
+<option value="sample_type">Type</option>
+<option value="owner_orcid">Owner</option>
+<option value="timestamp">Date</option>
+{% endblock %}
 
-{% block content %}
+{% block details_section %}
+{# ── Basic view ── #}
+{{ mrow("Type",        s.get('sample_type')) }}
+{{ mrow_link("Project", s.get('project_id'), '/' + (s.get('project_id') or '') + '/') }}
+{{ mrow("Timestamp",   s.get('timestamp') | humanize_date) }}
+{{ mrow("Description", s.get('description')) }}
 
-{{ deletion_banner(s) }}
-
-<div class="d-flex gap-3 align-items-start">
-<div style="flex: 1; min-width: 0; max-width: 680px;">
-
-<!-- ── compact resource card ────────────────────────────────────────────── -->
-<div class="cg-resource-card mb-3" id="sampleCard" style="max-width:680px;">
-
-  <!-- Identity strip -->
-  {{ resource_card_identity('sampleAvatar', s['sample_name'], s['unique_id'],
-                            keywords=s.get('keywords'), type_badge=s.get('sample_type')) }}
-
-  <!-- Action strip -->
-  <div class="cg-card-actions">
-    <div class="cg-sibling-nav">
-      {% if sibling_count > 1 %}
-        {% if prev_sibling %}
-        <a class="cg-sib-btn" href="/{{pid}}/samples/{{prev_sibling['unique_id']}}" title="{{prev_sibling['sample_name']}}"><i class="bi bi-chevron-left"></i></a>
-        {% else %}
-        <button class="cg-sib-btn" disabled><i class="bi bi-chevron-left"></i></button>
-        {% endif %}
-        <span class="cg-sib-label">{{sibling_index}}&thinsp;/&thinsp;{{sibling_count}}{% if sibling_label %}<span class="cg-sib-type">{{sibling_label}}</span>{% endif %}</span>
-        {% if next_sibling %}
-        <a class="cg-sib-btn" href="/{{pid}}/samples/{{next_sibling['unique_id']}}" title="{{next_sibling['sample_name']}}"><i class="bi bi-chevron-right"></i></a>
-        {% else %}
-        <button class="cg-sib-btn" disabled><i class="bi bi-chevron-right"></i></button>
-        {% endif %}
-        <button class="cg-sib-jump-btn" onclick="toggleSibJump(event)">Jump <i class="bi bi-chevron-down" style="font-size:0.7em;"></i></button>
-        <div id="sibJumpDropdown" class="cg-sib-dropdown" style="display:none;">
-          {% for sib in siblings %}
-          <a class="cg-sib-item {% if sib['unique_id'] == s['unique_id'] %}active{% endif %}"
-             href="/{{pid}}/samples/{{sib['unique_id']}}">{{sib['sample_name']}}</a>
-          {% endfor %}
-        </div>
-      {% endif %}
-      <select class="cg-sib-groupby" onchange="changeSiblingGroup(this)" title="Group by">
-        <option value="sample_type">Type</option>
-        <option value="owner_orcid">Owner</option>
-        <option value="timestamp">Date</option>
-      </select>
-    </div>
-  </div>
-
+{# ── Advanced toggle button ── #}
+<div class="mt-3 pt-2" style="border-top: 1px solid var(--bs-border-color);">
+    <button onclick="toggleDetailsAdv()"
+            class="btn btn-sm d-inline-flex align-items-center gap-1 text-muted border-0 bg-transparent px-0 py-0"
+            style="font-size:0.78rem;">
+        <i class="bi bi-chevron-right" id="details-adv-chevron"
+           style="font-size:0.65rem; transition:transform 0.2s;"></i>
+        Advanced
+    </button>
 </div>
 
-<!-- ── section controls ─────────────────────────────────────────────── -->
-<div class="d-flex align-items-center gap-1 mb-2" style="max-width:680px;">
-  <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
-          style="font-size:0.75rem; text-decoration:none;" onclick="setAllSections(true)">
-    <i class="bi bi-chevron-expand"></i><span>Expand all</span>
-  </button>
-  <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
-          style="font-size:0.75rem; text-decoration:none;" onclick="setAllSections(false)">
-    <i class="bi bi-chevron-contract"></i><span>Collapse all</span>
-  </button>
+{# ── Advanced view ── #}
+<div id="details-advanced" style="display:none;">
+    <div class="meta-divider">
+        <span class="meta-divider-label">Ownership</span>
+        <div class="meta-divider-line"></div>
+    </div>
+    {%- set pub = s.get('public') -%}
+    {{ mrow("Visibility",  "Public" if pub == true else ("Private" if pub == false else None)) }}
+    {{ mrow_link("Owner ORCID", s.get('owner_orcid'), 'https://orcid.org/' + (s.get('owner_orcid') or ''), external=true) }}
+
+    <div class="meta-divider">
+        <span class="meta-divider-label">Dates</span>
+        <div class="meta-divider-line"></div>
+    </div>
+    {{ mrow("Created",  s.get('creation_time') | humanize_date) }}
+    {{ mrow("Modified", s.get('modification_time') | humanize_date) }}
 </div>
+{% endblock %}
 
-<!-- ── details — expanded by default ────────────────────────────────────── -->
-<div class="res-section" id="section-details">
-    <div class="res-section-header" onclick="toggleSection(this)">
-        <i class="bi bi-card-list text-muted"></i>
-        <span>Details</span>
-        <i class="bi bi-chevron-right res-section-chevron" style="transform: rotate(90deg);"></i>
-    </div>
-    <div class="res-section-body">
-        <div class="px-3 pt-2 pb-3">
-            {# ── Basic view ── #}
-            {{ mrow("Type",        s.get('sample_type')) }}
-            {{ mrow_link("Project", s.get('project_id'), '/' + (s.get('project_id') or '') + '/') }}
-            {{ mrow("Timestamp",   s.get('timestamp') | humanize_date) }}
-            {{ mrow("Description", s.get('description')) }}
+{% block graph_section_title %}Sample Graph{% endblock %}
 
-            {# ── Advanced toggle button ── #}
-            <div class="mt-3 pt-2" style="border-top: 1px solid var(--bs-border-color);">
-                <button onclick="toggleDetailsAdv()"
-                        class="btn btn-sm d-inline-flex align-items-center gap-1 text-muted border-0 bg-transparent px-0 py-0"
-                        style="font-size:0.78rem;">
-                    <i class="bi bi-chevron-right" id="details-adv-chevron"
-                       style="font-size:0.65rem; transition:transform 0.2s;"></i>
-                    Advanced
-                </button>
-            </div>
+{% block extra_graph_buttons %}
+<button id="toggleDatasetsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+    <i class="bi bi-database me-1"></i>Hide Datasets
+</button>
+{% endblock %}
 
-            {# ── Advanced view ── #}
-            <div id="details-advanced" style="display:none;">
-                <div class="meta-divider">
-                    <span class="meta-divider-label">Ownership</span>
-                    <div class="meta-divider-line"></div>
-                </div>
-                {%- set pub = s.get('public') -%}
-                {{ mrow("Visibility",  "Public" if pub == true else ("Private" if pub == false else None)) }}
-                {{ mrow_link("Owner ORCID", s.get('owner_orcid'), 'https://orcid.org/' + (s.get('owner_orcid') or ''), external=true) }}
-
-                <div class="meta-divider">
-                    <span class="meta-divider-label">Dates</span>
-                    <div class="meta-divider-line"></div>
-                </div>
-                {{ mrow("Created",  s.get('creation_time') | humanize_date) }}
-                {{ mrow("Modified", s.get('modification_time') | humanize_date) }}
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ── sample graph ──────────────────────────────────────────────────────── -->
-<div class="res-section" id="section-graph">
-    <div class="res-section-header" onclick="toggleGraphSection(this)">
-        <i class="bi bi-diagram-3 text-muted"></i>
-        <span id="graphSectionTitle">Sample Graph</span>
-        <div class="d-flex gap-2 ms-auto me-2" onclick="event.stopPropagation()">
-            <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
-                <i class="bi bi-arrow-left-right me-1"></i>Vertical
-            </button>
-            <button id="fitBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
-                <i class="bi bi-bounding-box me-1"></i>Fit
-            </button>
-            <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
-                <i class="bi bi-image me-1"></i>Thumbnails
-            </button>
-            <button id="toggleDatasetsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
-                <i class="bi bi-database me-1"></i>Hide Datasets
-            </button>
-            <button id="fullscreenBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
-                <i class="bi bi-fullscreen me-1"></i>Fullscreen
-            </button>
-        </div>
-        <i class="bi bi-chevron-right res-section-chevron" style="margin-left: 0;"></i>
-    </div>
-    <div class="res-section-body" style="position:relative; display:none;">
-        <div id="cy-spinner" style="position:absolute;inset:0;display:none;align-items:center;
-                                    justify-content:center;z-index:5;background:var(--bs-body-bg);">
-            <div class="spinner-border text-secondary" role="status">
-                <span class="visually-hidden">Loading…</span>
-            </div>
-        </div>
-        <div id="cy-error" style="position:absolute;inset:0;display:none;align-items:center;
-                                   justify-content:center;z-index:5;background:var(--bs-body-bg);
-                                   flex-direction:column;text-align:center;
-                                   color:var(--bs-secondary-color);padding:2rem;gap:0.5rem;"></div>
-        <div id="cy" data-project-id="{{pid}}"></div>
-        <div id="zoomHint" style="position:absolute; bottom:0.5rem; right:0.75rem;
-                                   font-size:0.72rem; color:var(--bs-secondary-color);
-                                   pointer-events:none; transition:opacity 1s; opacity:1;">
-            <i class="bi bi-keyboard me-1"></i>Ctrl + scroll to zoom
-        </div>
-    </div>
-</div>
-
-<!-- ── linked datasets ───────────────────────────────────────────────────── -->
+{% block resource_sections %}
 {% if img_datasets %}
 <div class="res-section" id="section-photos">
     <div class="res-section-header" onclick="toggleSection(this)">
@@ -226,7 +121,9 @@
     </div>
 </div>
 {% endif %}
+{% endblock %}
 
+{% block bottom_sections %}
 {% if s['datasets'] %}
 <div class="res-section d-xl-none" id="section-datasets">
     <div class="res-section-header" onclick="toggleSection(this)">
@@ -326,335 +223,4 @@
 
 <!-- ── scientific metadata — collapsed by default ───────────────────────── -->
 {{ section_metadata(s.get('scientific_metadata')) }}
-
-<script type="module">
-  let cyInstance  = null;
-  let graphData   = null;
-  let graphLoaded = false;
-  let datasetsVisible = true;
-
-  function _graphError(msg) {
-    const el = document.getElementById('cy-error');
-    if (!el) return;
-    el.innerHTML = `<i class="bi bi-exclamation-circle mb-2" style="font-size:1.5rem;color:var(--bs-warning);"></i>`
-                 + `<span style="font-size:0.85rem;">${msg}</span>`;
-    el.style.display = 'flex';
-  }
-
-  async function renderGraph() {
-    const spinner = document.getElementById('cy-spinner');
-    const errorEl = document.getElementById('cy-error');
-    if (spinner) spinner.style.display = 'flex';
-    if (errorEl) errorEl.style.display = 'none';
-    if (cyInstance) { cyInstance.destroy(); cyInstance = null; }
-
-    try {
-      if (!graphData) {
-        const r = await fetch('/{{pid}}/api/entity-graph-data/sample/{{s["unique_id"]}}');
-        if (!r.ok) throw new Error(`Graph API returned ${r.status}`);
-        graphData = await r.json();
-      }
-
-      if (!window.initEntityGraph) throw new Error('Graph library not loaded — try refreshing');
-
-      if (!graphData.nodes || graphData.nodes.length === 0) {
-        _graphError('No graph data for this sample.');
-        return;
-      }
-
-      cyInstance = window.initEntityGraph('cy', graphData);
-
-      if (!datasetsVisible && cyInstance) applyDatasetVisibility(false);
-
-      const hint = document.getElementById('zoomHint');
-      if (hint) {
-        hint.style.transition = 'none';
-        hint.style.opacity = '1';
-        setTimeout(() => { hint.style.transition = 'opacity 1.5s'; hint.style.opacity = '0'; }, 2500);
-      }
-    } catch (err) {
-      console.error('Graph render failed:', err);
-      _graphError(err.message || 'Could not load graph');
-    } finally {
-      if (spinner) spinner.style.display = 'none';
-    }
-  }
-
-  function applyDatasetVisibility(visible) {
-    if (!cyInstance) return;
-    const display = visible ? 'element' : 'none';
-    cyInstance.nodes('[type="dataset"]').style('display', display);
-    cyInstance.edges().forEach(edge => {
-      const hidden = edge.source().style('display') === 'none'
-                  || edge.target().style('display') === 'none';
-      edge.style('display', hidden ? 'none' : 'element');
-    });
-    const visEles = cyInstance.elements(':visible');
-    cyInstance.one('layoutstop', () => { cyInstance.fit(cyInstance.nodes(':visible'), 30); });
-    cyInstance.relayout(true, visEles);
-    document.getElementById('toggleThumbnailsBtn').disabled = !visible;
-  }
-
-  document.getElementById('toggleDatasetsBtn').addEventListener('click', function() {
-    datasetsVisible = !datasetsVisible;
-    applyDatasetVisibility(datasetsVisible);
-    this.innerHTML = datasetsVisible
-      ? '<i class="bi bi-database me-1"></i>Hide Datasets'
-      : '<i class="bi bi-database me-1"></i>Show Datasets';
-  });
-
-  document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
-    if (cyInstance && cyInstance.toggleLayout) {
-      const newLayout = cyInstance.toggleLayout();
-      this.innerHTML = newLayout === 'LR'
-        ? '<i class="bi bi-arrow-left-right me-1"></i>Vertical'
-        : '<i class="bi bi-arrow-down me-1"></i>Horizontal';
-      cyInstance.one('layoutstop', () => { cyInstance.resize(); cyInstance.fit(cyInstance.nodes(':visible'), 30); });
-    }
-  });
-
-  document.getElementById('toggleThumbnailsBtn').addEventListener('click', function() {
-    if (cyInstance && cyInstance.toggleThumbnails) {
-      const visible = cyInstance.toggleThumbnails();
-      this.innerHTML = visible
-        ? '<i class="bi bi-image me-1"></i>Thumbnails'
-        : '<i class="bi bi-image-fill me-1"></i>No Thumbnails';
-    }
-  });
-
-  document.getElementById('fitBtn').addEventListener('click', () => {
-    if (cyInstance) cyInstance.fit();
-  });
-
-  document.getElementById('fullscreenBtn').addEventListener('click', async () => {
-    const section = document.getElementById('section-graph');
-    const body    = section.querySelector('.res-section-body');
-    if (!document.fullscreenElement) {
-      if (body.style.display === 'none') toggleSection(section.querySelector('.res-section-header'));
-      if (!graphLoaded) {
-        graphLoaded = true;
-        await renderGraph();
-      } else if (cyInstance) {
-        cyInstance.resize(); cyInstance.fit();
-      }
-      section.requestFullscreen().catch(err => console.error(err));
-    } else {
-      document.exitFullscreen();
-    }
-  });
-
-  document.addEventListener('fullscreenchange', () => {
-    const btn = document.getElementById('fullscreenBtn');
-    btn.innerHTML = document.fullscreenElement
-      ? '<i class="bi bi-fullscreen-exit me-1"></i>Exit'
-      : '<i class="bi bi-fullscreen me-1"></i>Fullscreen';
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (cyInstance) { cyInstance.resize(); cyInstance.fit(); }
-    }));
-  });
-
-  window.toggleGraphSection = function(header) {
-    toggleSection(header);
-    const body = header.nextElementSibling;
-    if (body.style.display !== 'none') {
-      if (!graphLoaded) {
-        graphLoaded = true;
-        renderGraph();
-      } else if (cyInstance) {
-        cyInstance.resize(); cyInstance.fit();
-      }
-    }
-  };
-</script>
-
-<script>
-    const _SIDEBAR_KEY = 'cg_sidebar_collapsed';
-    const _PID = {{ pid | tojson }};
-
-    function goBackToProject() {
-        const stored = localStorage.getItem('cg_overview_state_' + _PID);
-        window.location.href = '/' + _PID + '/' + (stored || '');
-    }
-
-    function toggleSidebar() {
-        const sb = document.getElementById('resourceSidebar');
-        const collapsed = sb.classList.toggle('collapsed');
-        document.documentElement.classList.toggle('sidebar-collapsed', collapsed);
-        localStorage.setItem(_SIDEBAR_KEY, collapsed ? '1' : '');
-    }
-
-    // Render small project avatar in icon rail
-    (function() {
-        const railAv = document.getElementById('projectAvatarRail');
-        if (railAv) makeAvatar(railAv, _PID, '24px', '0.65rem');
-    })();
-
-    const projAv = document.getElementById('projectAvatar');
-    if (projAv) makeAvatar(projAv, _PID, '1.5rem', '0.6rem');
-
-    const stype = {{ (s.get('sample_type') or s['sample_name']) | tojson }};
-    const sampleColor = hashColor(stype);
-    const avatarColor = makeAvatar(document.getElementById('sampleAvatar'), {{ s['sample_name'] | tojson }});
-    document.getElementById('sampleCard').style.borderLeftColor = sampleColor;
-
-    function toggleSibJump(event) {
-        event.stopPropagation();
-        const dd = document.getElementById('sibJumpDropdown');
-        if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
-    }
-    document.addEventListener('click', () => {
-        const dd = document.getElementById('sibJumpDropdown');
-        if (dd) dd.style.display = 'none';
-    });
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') {
-            const dd = document.getElementById('sibJumpDropdown');
-            if (dd) dd.style.display = 'none';
-        }
-    });
-
-    function changeSiblingGroup(sel) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('sgb', sel.value);
-        window.location.href = url.toString();
-    }
-    (function() {
-        const gbParam = new URLSearchParams(window.location.search).get('sgb') || 'sample_type';
-        const sel = document.querySelector('.cg-sib-groupby');
-        if (sel) sel.value = gbParam;
-    })();
-
-</script>
-
-</div>{# end flex-1 content column #}
-
-<!-- ── right panel: relationships (xl+ only) ─────────────────────────── -->
-<div class="rel-panel d-none d-xl-flex flex-column flex-shrink-0">
-  <div style="position: sticky; top: 3.25rem; max-height: calc(100vh - 3.5rem); overflow-y: auto;">
-
-    <!-- panel title -->
-    <div class="rel-panel-title">
-      <i class="bi bi-diagram-3"></i>
-      Relationships
-      {% set total = (direct_ancestors|length) + (direct_descendants|length) + (s['datasets']|length) %}
-      {% if total %}<span class="ms-auto" style="font-family:'IBM Plex Mono',monospace; font-size:0.72rem;">{{ total }}</span>{% endif %}
-    </div>
-
-    {% if not direct_ancestors and not direct_descendants and not s['datasets'] %}
-    <div class="rel-panel-empty">
-      <i class="bi bi-diagram-3 d-block mb-2 opacity-40" style="font-size:1.5rem;"></i>
-      No relationships
-    </div>
-    {% endif %}
-
-    <!-- Parents -->
-    {% if direct_ancestors %}
-    <div class="res-section">
-      <div class="res-section-header" onclick="toggleSection(this)">
-        <i class="bi bi-arrow-up-short" style="color:var(--cg-accent-mid);"></i>
-        <span>Parents</span>
-        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ direct_ancestors|length }}</span>
-        <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
-      </div>
-      <div class="res-section-body">
-        {% for anc in direct_ancestors %}
-        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/samples/{{anc['unique_id']}}')">
-          <i class="bi bi-eyedropper" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
-          <span class="rel-item-name"><span class="rel-item-name-text">{{anc['sample_name']}}</span><span class="rel-item-sub mfid">{{anc['unique_id']}}</span></span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Children -->
-    {% if direct_descendants %}
-    <div class="res-section">
-      <div class="res-section-header" onclick="toggleSection(this)">
-        <i class="bi bi-arrow-down-short" style="color:var(--cg-accent-mid);"></i>
-        <span>Children</span>
-        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ direct_descendants|length }}</span>
-        <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
-      </div>
-      <div class="res-section-body">
-        {% for desc in direct_descendants %}
-        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/samples/{{desc['unique_id']}}')">
-          <i class="bi bi-eyedropper" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
-          <span class="rel-item-name"><span class="rel-item-name-text">{{desc['sample_name']}}</span><span class="rel-item-sub mfid">{{desc['unique_id']}}</span></span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Datasets -->
-    {% if s['datasets'] %}
-    <div class="res-section">
-      <div class="res-section-header" onclick="toggleSection(this)">
-        <i class="bi bi-database" style="color:var(--cg-accent-mid); font-size:0.8rem;"></i>
-        <span>Datasets</span>
-        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ s['datasets']|length }}</span>
-        <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
-      </div>
-      <div class="res-section-body">
-        {% for ds in s['datasets'] %}
-        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/datasets/{{ds['unique_id']}}')">
-          <i class="bi bi-database" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
-          <span class="rel-item-name">
-            <span class="rel-item-name-text">{{ds['dataset_name']}}</span>
-            <span class="rel-item-sub mfid">{{ds['unique_id']}}</span>
-            {% if ds.get('measurement') %}<span class="rel-item-sub">{{ds['measurement']}}</span>{% endif %}
-          </span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Further ancestors (collapsed) -->
-    {% if indirect_ancestors %}
-    <div class="res-section">
-      <div class="res-section-header" onclick="toggleSection(this)">
-        <i class="bi bi-arrow-up" style="color:var(--cg-accent-mid); font-size:0.75rem;"></i>
-        <span>Further ancestors</span>
-        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ indirect_ancestors|length }}</span>
-        <i class="bi bi-chevron-right res-section-chevron"></i>
-      </div>
-      <div class="res-section-body" style="display:none;">
-        {% for anc in indirect_ancestors %}
-        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/samples/{{anc['unique_id']}}')">
-          <i class="bi bi-eyedropper" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0; opacity:0.6;"></i>
-          <span class="rel-item-name"><span class="rel-item-name-text">{{anc['sample_name']}}</span><span class="rel-item-sub mfid">{{anc['unique_id']}}</span></span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Further descendants (collapsed) -->
-    {% if indirect_descendants %}
-    <div class="res-section">
-      <div class="res-section-header" onclick="toggleSection(this)">
-        <i class="bi bi-arrow-down" style="color:var(--cg-accent-mid); font-size:0.75rem;"></i>
-        <span>Further descendants</span>
-        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ indirect_descendants|length }}</span>
-        <i class="bi bi-chevron-right res-section-chevron"></i>
-      </div>
-      <div class="res-section-body" style="display:none;">
-        {% for desc in indirect_descendants %}
-        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/samples/{{desc['unique_id']}}')">
-          <i class="bi bi-eyedropper" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0; opacity:0.6;"></i>
-          <span class="rel-item-name"><span class="rel-item-name-text">{{desc['sample_name']}}</span><span class="rel-item-sub mfid">{{desc['unique_id']}}</span></span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-
-  </div>
-</div>
-
-</div>{# end outer flex row #}
-
 {% endblock %}
