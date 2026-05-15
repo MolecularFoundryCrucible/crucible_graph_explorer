@@ -381,6 +381,7 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 /* ── sidebar navigation links ───────────────────────────────────── */
 .cg-sidebar-link {
     display: flex; align-items: center; gap: 0.4rem;
+    width: 100%; min-width: 0;
     padding: 0.2rem 0.5rem; border-radius: 0.25rem;
     color: var(--bs-secondary-color); text-decoration: none;
     font-size: var(--fs-sm); transition: background 0.12s, color 0.12s;
