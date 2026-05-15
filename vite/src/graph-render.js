@@ -13,7 +13,7 @@ export async function mountGraph({ fetchUrl, showDatasetToggle = false }) {
     if (spinner) spinner.style.display = 'none';
     if (!errorEl) return;
     errorEl.innerHTML =
-      `<i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>`
+      `<i class="bi bi-exclamation-circle mb-2" style="font-size:1.5rem;color:var(--bs-warning);"></i>`
       + `<span style="font-size:0.85rem;">${msg}</span>`;
     errorEl.style.display = 'flex';
   }
