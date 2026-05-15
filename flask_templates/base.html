@@ -287,10 +287,10 @@
 
     </script>
 
-    <div class="container-fluid mt-3 px-4" id="content">
+    <div class="container-fluid px-4" id="content">
       <div class="row">
         {% block sidebar %}{% endblock %}
-        <div class="{% block main_col_class %}col-12{% endblock %} pe-4">{% block content %}{% endblock %}</div>
+        <div class="{% block main_col_class %}col-12{% endblock %} pe-4 pt-3">{% block content %}{% endblock %}</div>
       </div>
     </div>
     <div id="footer">
