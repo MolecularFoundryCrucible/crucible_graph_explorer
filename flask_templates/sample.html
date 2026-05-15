@@ -32,8 +32,8 @@
 
 {% block sidebar %}
 {% set sidebar_actions = [
-    {'label': 'Edit sample',    'url': '/' ~ pid ~ '/samples/' ~ s['unique_id'] ~ '/edit',         'icon': 'bi-pencil'},
-    {'label': 'Upload photo',   'url': '/' ~ pid ~ '/samples/' ~ s['unique_id'] ~ '/upload-photo', 'icon': 'bi-camera'},
+    {'label': 'Edit sample',  'onclick': 'cgOpenSamplePanel(SAMPLE_DATA)', 'icon': 'bi-pencil'},
+    {'label': 'Upload photo', 'url': '/' ~ pid ~ '/samples/' ~ s['unique_id'] ~ '/upload-photo', 'icon': 'bi-camera'},
 ] %}
 {{ resource_sidebar(pid, 'sample', 'bi-flask', s['sample_name'], resource_id=s['unique_id'], actions=sidebar_actions) }}
 {% endblock %}
@@ -224,3 +224,11 @@
 <!-- ── scientific metadata — collapsed by default ───────────────────────── -->
 {{ section_metadata(s.get('scientific_metadata')) }}
 {% endblock %}
+
+{% block resource_scripts %}
+<script>
+const SAMPLE_DATA = {{ s | tojson }};
+</script>
+{% endblock %}
+
+{% block panels %}{% include '_create_panels.html' %}{% endblock %}
