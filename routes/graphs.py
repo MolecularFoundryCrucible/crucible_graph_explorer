@@ -58,6 +58,7 @@ def create_blueprint(auth):
                     'id': node_id,
                     'label': sample.get('sample_name', attrs.get('name', node_id[:13])),
                     'type': 'sample',
+                    'sampleType': sample.get('sample_type', ''),
                     'description': sample.get('description', ''),
                     'url': f'/{project_id}/samples/{node_id}'
                 })

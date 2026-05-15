@@ -24,7 +24,7 @@
         }
         #zoomHint {
             position: absolute; bottom: 0.6rem; right: 0.8rem;
-            font-size: 0.7rem; color: var(--bs-secondary-color);
+            font-size: var(--fs-xs); color: var(--bs-secondary-color);
             pointer-events: none; transition: opacity 1s; opacity: 1;
         }
     </style>
@@ -41,21 +41,21 @@
 <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
     <div class="d-flex align-items-center gap-2">
         <i class="bi bi-diagram-3" style="color:var(--cg-accent-mid);"></i>
-        <span class="fw-semibold" style="font-size:0.95rem;">Project Graph</span>
+        <span class="fw-semibold" style="font-size: var(--fs-lg);">Project Graph</span>
         <span class="text-muted">—</span>
         <span class="text-body-secondary small">{{pc['project_id']}}</span>
     </div>
     <div class="d-flex align-items-center gap-1 ms-auto flex-wrap">
-        <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.78rem;" disabled>
+        <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);" disabled>
             <i class="bi bi-arrow-left-right me-1"></i>Vertical
         </button>
-        <button id="fitBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.78rem;" title="Fit graph" disabled>
+        <button id="fitBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);" title="Fit graph" disabled>
             <i class="bi bi-bounding-box"></i>
         </button>
-        <span class="badge fw-normal border" style="background:var(--bs-tertiary-bg);color:var(--bs-secondary-color);font-size:0.7rem;">
+        <span class="badge fw-normal border" style="background:var(--bs-tertiary-bg);color:var(--bs-secondary-color);font-size: var(--fs-xs);">
             <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--cy-sample-color);margin-right:3px;vertical-align:middle;"></span>Sample
         </span>
-        <span class="badge fw-normal border" style="background:var(--bs-tertiary-bg);color:var(--bs-secondary-color);font-size:0.7rem;">
+        <span class="badge fw-normal border" style="background:var(--bs-tertiary-bg);color:var(--bs-secondary-color);font-size: var(--fs-xs);">
             <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--cy-dataset-color);margin-right:3px;vertical-align:middle;"></span>Dataset
         </span>
     </div>

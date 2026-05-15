@@ -3,7 +3,7 @@ export async function mountGraph({ fetchUrl, showDatasetToggle = false }) {
   let cyInstance = null;
   let graphData  = null;
   let graphLoaded = false;
-  let datasetsVisible = true;
+  let datasetsVisible = !showDatasetToggle; // hidden by default on sample pages
 
   const spinner    = document.getElementById('cy-spinner');
   const errorEl    = document.getElementById('cy-error');
@@ -39,25 +39,26 @@ export async function mountGraph({ fetchUrl, showDatasetToggle = false }) {
         return;
       }
 
-      cyInstance = initGraph('cy', graphData);
-
-      if (showDatasetToggle && !datasetsVisible && cyInstance) {
-        _applyDatasetVisibility(false);
-      }
-
-      if (zoomHint) {
-        zoomHint.style.transition = 'none';
-        zoomHint.style.opacity = '1';
-        setTimeout(() => {
-          zoomHint.style.transition = 'opacity 1.5s';
-          zoomHint.style.opacity = '0';
-        }, 2500);
-      }
+      cyInstance = initGraph('cy', graphData, {
+        onReady: () => {
+          if (spinner) spinner.style.display = 'none';
+          if (showDatasetToggle && !datasetsVisible && cyInstance) {
+            _applyDatasetVisibility(false);
+          }
+          if (zoomHint) {
+            zoomHint.style.transition = 'none';
+            zoomHint.style.opacity = '1';
+            setTimeout(() => {
+              zoomHint.style.transition = 'opacity 1.5s';
+              zoomHint.style.opacity = '0';
+            }, 2500);
+          }
+        }
+      });
     } catch (err) {
       console.error('Graph render failed:', err);
-      _graphError(err.message || 'Could not load graph');
-    } finally {
       if (spinner) spinner.style.display = 'none';
+      _graphError(err.message || 'Could not load graph');
     }
   }
 

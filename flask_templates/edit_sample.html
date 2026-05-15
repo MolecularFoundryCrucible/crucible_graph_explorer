@@ -222,7 +222,7 @@ function renderSelected(role) {
         `<span class="badge rounded-pill border text-body fw-normal d-inline-flex align-items-center gap-1"
                style="background:var(--bs-tertiary-bg);">
             ${s.name}
-            <button type="button" class="btn-close btn-close-sm" style="font-size:0.6rem;"
+            <button type="button" class="btn-close btn-close-sm" style="font-size: var(--fs-2xs);"
                     onclick="removeSelected('${role}', '${s.id}')"></button>
         </span>`
     ).join('');

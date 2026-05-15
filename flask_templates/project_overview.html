@@ -13,58 +13,76 @@
 {% endblock %}
 
 {% block sidebar %}
-<div class="col-md-2 pe-0 d-none d-md-block">
-    <div class="sticky-top pt-1" style="top: 5em; overflow-y: auto; max-height: calc(100vh - 6em);">
+<div id="resourceSidebar" class="cg-sidebar d-none d-md-block">
+<script>if(localStorage.getItem('cg_sidebar_collapsed'))document.getElementById('resourceSidebar').classList.add('collapsed');</script>
+  <button class="cg-sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+    <i class="bi bi-chevron-left"></i>
+  </button>
+  <div class="cg-sidebar-content">
 
-        <div class="d-flex gap-2 mb-3">
-            <input type="search" class="form-control form-control-sm" id="filterInput"
-                   placeholder="Filter…" oninput="applyFilter()" style="flex: 1; min-width: 0;">
-            <button id="showMineToggle" class="btn btn-sm btn-outline-secondary text-nowrap"
-                    onclick="toggleShowMine()" title="Show only my resources">
-                <i class="bi bi-person-check me-1"></i>Mine
-            </button>
+    <!-- ── navigation zone ─────────────────────────────────────────── -->
+    <a href="/" class="cg-sidebar-action">
+      <i class="bi bi-house"></i>
+      <span>Dashboard</span>
+    </a>
+
+    <!-- ── browse zone ─────────────────────────────────────────────── -->
+    <div class="cg-sidebar-section px-2 pt-2">
+      <div class="d-flex gap-1 mb-2">
+        <input type="search" class="form-control form-control-sm" id="filterInput"
+               placeholder="Filter…" oninput="applyFilter()" style="flex:1; min-width:0;">
+        <button id="showMineToggle" class="btn btn-sm btn-outline-secondary"
+                onclick="toggleShowMine()" title="Show only my resources">
+          <i class="bi bi-person-check"></i>
+        </button>
+      </div>
+      <div class="mb-1">
+        <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
+             id="sampleNavLabel"
+             style="font-size: var(--fs-xs); letter-spacing:0.05em; text-transform:uppercase; color:var(--cg-link);">
+          <i class="bi bi-flask"></i> Samples
         </div>
-
-        <div class="mb-2">
-            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
-                 id="sampleNavLabel"
-                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--cg-link);">
-                <i class="bi bi-flask"></i> Samples
-            </div>
-            <ul class="nav flex-column" id="sampleNav"></ul>
+        <ul class="nav flex-column" id="sampleNav"></ul>
+      </div>
+      <hr class="my-2 mx-1">
+      <div class="mb-1">
+        <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
+             id="datasetNavLabel"
+             style="font-size: var(--fs-xs); letter-spacing:0.05em; text-transform:uppercase; color:var(--bs-secondary-color); opacity:0.6;">
+          <i class="bi bi-database"></i> Datasets
         </div>
-
-        <hr class="my-2 mx-1">
-
-        <div class="mb-2">
-            <div class="d-flex align-items-center gap-1 fw-semibold mb-1 px-1"
-                 id="datasetNavLabel"
-                 style="font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bs-secondary-color); opacity: 0.6;">
-                <i class="bi bi-database"></i> Datasets
-            </div>
-            <ul class="nav flex-column" id="datasetNav"></ul>
-        </div>
-
-        {% if all_projects and all_projects|length > 1 %}
-        <hr class="mt-3 mb-2 mx-1">
-        <div class="mb-1 px-1"
-             style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--bs-secondary-color);">
-            <i class="bi bi-grid me-1"></i>Projects
-        </div>
-        {% for proj in all_projects %}
-        <a class="cg-sidebar-link {% if proj['project_id'] == pc['project_id'] %}active{% endif %}"
-           href="/{{proj['project_id']}}/">
-            <span class="text-truncate">{{proj['project_id']}}</span>
-            {% if proj['project_id'] == pc['project_id'] %}<i class="bi bi-dot ms-auto flex-shrink-0"></i>{% endif %}
-        </a>
-        {% endfor %}
-        {% endif %}
-
+        <ul class="nav flex-column" id="datasetNav"></ul>
+      </div>
     </div>
+
+  </div>
+
+  <!-- collapsed icon rail -->
+  <div class="cg-sidebar-icon-rail" id="sidebarIconRail">
+    <button class="cg-rail-btn" onclick="window.location.href='/'" title="Dashboard">
+      <i class="bi bi-house"></i>
+    </button>
+    <button class="cg-rail-btn" onclick="toggleSidebar()" title="Browse samples &amp; datasets">
+      <i class="bi bi-funnel"></i>
+    </button>
+  </div>
 </div>
+<script>
+function toggleSidebar() {
+  var sb = document.getElementById('resourceSidebar');
+  var collapsed = sb.classList.toggle('collapsed');
+  document.documentElement.classList.toggle('sidebar-collapsed', collapsed);
+  localStorage.setItem('cg_sidebar_collapsed', collapsed ? '1' : '');
+}
+(function() {
+  var projects = {{ all_projects | tojson }};
+  var list = projects.map(function(p) { return { pid: p.project_id, label: p.project_id }; });
+  try { localStorage.setItem('cg_all_projects', JSON.stringify(list)); } catch(e) {}
+})();
+</script>
 {% endblock %}
 
-{% block main_col_class %}col-12 col-md-10{% endblock %}
+{% block main_col_class %}col-12 col-md{% endblock %}
 
 {% block content %}
 <style>
@@ -86,7 +104,7 @@
     .group-header {
         display: flex; align-items: center; gap: 0.5rem;
         padding: 0.6rem 0.75rem;
-        font-size: 0.875rem; font-weight: 600;
+        font-size: var(--fs-md); font-weight: 600;
         background: var(--cg-hover-bg);
         border: 1px solid var(--bs-border-color);
         border-left-width: 4px;
@@ -163,7 +181,7 @@
         display: inline-flex; align-items: center; gap: 0.3rem;
         padding: 0.2rem 0.6rem; border-radius: 10px; white-space: nowrap;
         border: 1px solid var(--bs-border-color); background: var(--cg-hover-bg);
-        color: var(--bs-body-color); font-size: 0.78rem; text-decoration: none;
+        color: var(--bs-body-color); font-size: var(--fs-sm); text-decoration: none;
         max-width: 160px; transition: border-color 0.12s, background 0.12s;
     }
     .cg-recent-chip span { overflow: hidden; text-overflow: ellipsis; }
@@ -181,24 +199,24 @@
          style="border-left-width: 5px !important;">
         <div class="d-flex align-items-start gap-3 p-3">
 
-            <div id="projectAvatar" style="flex-shrink:0;"></div>
+            <i class="bi bi-collection" style="font-size:2rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
 
             <div style="min-width:0; flex:1;">
                 <div class="small fw-semibold text-uppercase mb-1"
-                     style="font-size:0.7rem; letter-spacing:0.05em; color:var(--bs-secondary-color);">
+                     style="font-size: var(--fs-xs); letter-spacing:0.05em; color:var(--bs-secondary-color);">
                     <i class="bi bi-collection me-1"></i>Project
                 </div>
                 <h1 class="fs-4 fw-semibold mb-0 lh-sm" style="overflow-wrap:break-word;">
                     {{title if title and title != pid else pid}}
                 </h1>
                 {% if title and title != pid %}
-                <div class="mt-1 mfid" style="font-size:0.78rem; color:var(--bs-secondary-color);">{{pid}}</div>
+                <div class="mt-1 mfid" style="font-size: var(--fs-sm); color:var(--bs-secondary-color);">{{pid}}</div>
                 {% endif %}
 
                 <div class="d-flex flex-wrap gap-2 mt-2">
                     {% if project_meta.get('organization') %}
                     <span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
-                          style="background:var(--bs-tertiary-bg); font-size:0.78rem;">
+                          style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
                         <i class="bi bi-building"></i>{{project_meta['organization']}}
                     </span>
                     {% endif %}
@@ -206,14 +224,14 @@
                     {% set _lead_name = abbrev_name(_lead.get('first_name') or '', _lead.get('last_name') or '') or _lead.get('email') or project_meta.get('project_lead_email') %}
                     {% if _lead_name %}
                     <span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
-                          style="background:var(--bs-tertiary-bg); font-size:0.78rem;">
+                          style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
                         <i class="bi bi-person"></i>{{ _lead_name }}
                     </span>
                     {% endif %}
                 </div>
 
                 {% if project_meta.get('description') %}
-                <p class="mt-2 mb-0 text-secondary" style="font-size:0.875rem;">
+                <p class="mt-2 mb-0 text-secondary" style="font-size: var(--fs-md);">
                     {{project_meta['description']}}
                 </p>
                 {% endif %}
@@ -278,29 +296,29 @@
            style="background:var(--bs-tertiary-bg); min-height:2rem;">
 
         <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
-                style="font-size:0.78rem; text-decoration:none;"
+                style="font-size: var(--fs-sm); text-decoration:none;"
                 onclick="setAllGroups(true); event.stopPropagation();" title="Expand all">
             <i class="bi bi-chevron-expand"></i>
             <span class="d-none d-lg-inline">Expand</span>
         </button>
         <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
-                style="font-size:0.78rem; text-decoration:none;"
+                style="font-size: var(--fs-sm); text-decoration:none;"
                 onclick="setAllGroups(false); event.stopPropagation();" title="Collapse all">
             <i class="bi bi-chevron-contract"></i>
             <span class="d-none d-lg-inline">Collapse</span>
         </button>
 
         <div class="ms-auto d-flex align-items-center gap-2">
-            <span class="text-muted" style="font-size:0.72rem; white-space:nowrap; letter-spacing:0.03em;">Group</span>
+            <span class="text-muted" style="font-size: var(--fs-xs); white-space:nowrap; letter-spacing:0.03em;">Group</span>
             <select class="form-select form-select-sm" id="sampleGroupBySelect"
-                    style="font-size:0.78rem; width:auto; padding-top:0.15rem; padding-bottom:0.15rem;"
+                    style="font-size: var(--fs-sm); width:auto; padding-top:0.15rem; padding-bottom:0.15rem;"
                     onclick="event.stopPropagation()" onchange="onSettingChange()">
                 <option value="sample_type">Type</option>
                 <option value="owner_orcid">Owner</option>
                 <option value="timestamp">Date</option>
             </select>
             <select class="form-select form-select-sm" id="datasetGroupBySelect"
-                    style="font-size:0.78rem; width:auto; display:none; padding-top:0.15rem; padding-bottom:0.15rem;"
+                    style="font-size: var(--fs-sm); width:auto; display:none; padding-top:0.15rem; padding-bottom:0.15rem;"
                     onclick="event.stopPropagation()" onchange="onSettingChange()">
                 <option value="measurement">Measurement</option>
                 <option value="instrument_name">Instrument</option>
@@ -309,9 +327,9 @@
                 <option value="owner_orcid">Owner</option>
                 <option value="timestamp">Date</option>
             </select>
-            <span class="text-muted" style="font-size:0.72rem; white-space:nowrap; letter-spacing:0.03em;">Sort</span>
+            <span class="text-muted" style="font-size: var(--fs-xs); white-space:nowrap; letter-spacing:0.03em;">Sort</span>
             <select class="form-select form-select-sm" id="sampleSortBySelect"
-                    style="font-size:0.78rem; width:auto; padding-top:0.15rem; padding-bottom:0.15rem;"
+                    style="font-size: var(--fs-sm); width:auto; padding-top:0.15rem; padding-bottom:0.15rem;"
                     onclick="event.stopPropagation()" onchange="onSettingChange()">
                 <option value="name_asc">Name A→Z</option>
                 <option value="name_desc">Name Z→A</option>
@@ -320,7 +338,7 @@
                 <option value="id_asc">ID</option>
             </select>
             <select class="form-select form-select-sm" id="datasetSortBySelect"
-                    style="font-size:0.78rem; width:auto; display:none; padding-top:0.15rem; padding-bottom:0.15rem;"
+                    style="font-size: var(--fs-sm); width:auto; display:none; padding-top:0.15rem; padding-bottom:0.15rem;"
                     onclick="event.stopPropagation()" onchange="onSettingChange()">
                 <option value="name_asc">Name A→Z</option>
                 <option value="name_desc">Name Z→A</option>
@@ -416,11 +434,11 @@
 
             <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
                  style="background:var(--bs-tertiary-bg);">
-                <span class="fw-semibold" style="font-size:0.8rem;">
+                <span class="fw-semibold" style="font-size: var(--fs-sm);">
                     <i class="bi bi-people me-1 text-secondary"></i>Members
                 </span>
                 <span class="badge fw-normal border text-muted"
-                      style="background:var(--bs-body-bg); font-size:0.7rem;">
+                      style="background:var(--bs-body-bg); font-size: var(--fs-xs);">
                     {{ project_users | length }}
                 </span>
             </div>
@@ -432,16 +450,16 @@
                  {% if u.orcid %}href="/user/{{ u.orcid }}"{% endif %}>
                 <div style="width:1.85rem; height:1.85rem; min-width:1.85rem; border-radius:50%;
                             display:flex; align-items:center; justify-content:center;
-                            font-size:0.65rem; font-weight:700; color:#fff; flex-shrink:0;"
+                            font-size: var(--fs-2xs); font-weight:700; color:#fff; flex-shrink:0;"
                      data-avatar-for="{{ u.name or u.orcid }}">
                     {{ u.initials }}
                 </div>
                 <div style="min-width:0;">
-                    <div class="fw-medium text-truncate" style="font-size:0.8rem;">
+                    <div class="fw-medium text-truncate" style="font-size: var(--fs-sm);">
                         {{ u.name or '—' }}
                     </div>
                     {% if u.email %}
-                    <div class="text-muted text-truncate" style="font-size:0.7rem;">
+                    <div class="text-muted text-truncate" style="font-size: var(--fs-xs);">
                         {{ u.email }}
                     </div>
                     {% endif %}
@@ -451,7 +469,7 @@
 
             <div class="px-3 py-2 border-top" style="background:var(--bs-tertiary-bg);">
                 <a href="/users" class="text-muted text-decoration-none"
-                   style="font-size:0.75rem;">
+                   style="font-size: var(--fs-sm);">
                     <i class="bi bi-arrow-right me-1"></i>All users
                 </a>
             </div>
@@ -493,7 +511,7 @@
             if (!forProject.length) { container.style.display = 'none'; return; }
             container.style.display = 'flex';
             container.innerHTML =
-                '<span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--bs-secondary-color);white-space:nowrap;flex-shrink:0;">Recent</span>' +
+                '<span style="font-size: var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--bs-secondary-color);white-space:nowrap;flex-shrink:0;">Recent</span>' +
                 forProject.map(r => {
                     const icon = r.type === 'sample' ? 'bi-flask' : 'bi-database';
                     const sgb = localStorage.getItem('pref_sample_groupby') || 'sample_type';
@@ -605,10 +623,10 @@
         const rows = items.map(rowFn).join('');
         div.innerHTML = `
             <div class="group-header" onclick="toggleGroup(this)">
-                <i class="bi bi-${icon} text-muted" style="font-size:0.85rem; opacity:0.7;"></i>
+                <i class="bi bi-${icon} text-muted" style="font-size: var(--fs-sm); opacity:0.7;"></i>
                 <span>${escHtml(gkey)}</span>
                 <span class="badge fw-normal border text-muted ${countClass}"
-                      style="background:var(--bs-tertiary-bg); font-size:0.75rem;">${items.length}</span>
+                      style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">${items.length}</span>
                 <i class="bi bi-chevron-right group-chevron"></i>
             </div>
             <div class="collapse-body" style="display:none;">
@@ -626,9 +644,10 @@
         li.className = 'nav-item';
         li.id = `${navPrefix}-${idx}`;
         li.innerHTML = `<a class="cg-sidebar-link" href="#${gid}"
+            style="flex-direction:column; align-items:flex-start; gap:0;"
             onclick="expandAndScroll('${gid}', event)">
-            <span class="text-truncate">${escHtml(gkey)}</span>
-            <span class="ms-auto flex-shrink-0" style="font-size:0.72rem; opacity:0.6;">${count}</span>
+            <span class="text-truncate w-100">${escHtml(gkey)}</span>
+            <span style="font-size: var(--fs-xs); opacity:0.55;">${count}</span>
         </a>`;
         return li;
     }
@@ -719,19 +738,8 @@
         renderDatasetGroups(dgb, dsb);
     }
 
-    // ── avatar + project card accent ──────────────────────────────────────────
-    (function () {
-        const color    = hashColor(PID);
-        const initials = PID.replace(/[_-]/g, ' ').split(' ')
-                            .filter(Boolean).slice(0, 2)
-                            .map(w => w[0].toUpperCase()).join('');
-        const av = document.getElementById('projectAvatar');
-        av.style.cssText = `width:3rem;height:3rem;min-width:3rem;border-radius:50%;`
-            + `background:${color};color:#fff;display:flex;align-items:center;`
-            + `justify-content:center;font-size:0.85rem;font-weight:700;letter-spacing:0.05em;`;
-        av.textContent = initials;
-        document.getElementById('projectCard').style.borderLeftColor = color;
-    })();
+    // ── project card accent ───────────────────────────────────────────────────
+    document.getElementById('projectCard').style.borderLeftColor = hashColor(PID);
 
     // ── member avatars ────────────────────────────────────────────────────────
     document.querySelectorAll('[data-avatar-for]').forEach(el => {
@@ -839,7 +847,15 @@
             body.style.display = '';
             if (chevron) chevron.style.transform = 'rotate(90deg)';
         }
-        setTimeout(() => group.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+        setTimeout(() => {
+            const navbar  = document.querySelector('nav[aria-label="breadcrumb"]');
+            const tabBar  = document.getElementById('tabGroup');
+            const stickyH = (navbar ? navbar.getBoundingClientRect().height : 0)
+                          + (tabBar ? tabBar.getBoundingClientRect().height  : 0)
+                          + 8;
+            const top = group.getBoundingClientRect().top + window.scrollY - stickyH;
+            window.scrollTo({ top, behavior: 'smooth' });
+        }, 30);
     }
 
     function updateSidebarNav() {
@@ -965,6 +981,8 @@
         switch (e.key) {
             case '/':
                 e.preventDefault();
+                const sb = document.getElementById('resourceSidebar');
+                if (sb && sb.classList.contains('collapsed')) toggleSidebar();
                 document.getElementById('filterInput').focus();
                 break;
             case 'j': case 'ArrowDown':

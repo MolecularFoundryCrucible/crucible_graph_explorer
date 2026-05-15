@@ -43,7 +43,7 @@
 <div class="cg-resource-card mb-3" id="{{ res_card_id }}" style="max-width:680px;">
 
   <!-- Identity strip -->
-  {{ resource_card_identity(res_avatar_id, res_name, res['unique_id'],
+  {{ resource_card_identity(res_name, res['unique_id'], icon=res_icon,
                             keywords=res.get('keywords'), type_badge=res_type) }}
 
   <!-- Action strip -->
@@ -80,11 +80,11 @@
 <!-- ── section controls ─────────────────────────────────────────────── -->
 <div class="d-flex align-items-center gap-1 mb-2" style="max-width:680px;">
   <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
-          style="font-size:0.75rem; text-decoration:none;" onclick="setAllSections(true)">
+          style="font-size: var(--fs-sm); text-decoration:none;" onclick="setAllSections(true)">
     <i class="bi bi-chevron-expand"></i><span>Expand all</span>
   </button>
   <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
-          style="font-size:0.75rem; text-decoration:none;" onclick="setAllSections(false)">
+          style="font-size: var(--fs-sm); text-decoration:none;" onclick="setAllSections(false)">
     <i class="bi bi-chevron-contract"></i><span>Collapse all</span>
   </button>
 </div>
@@ -112,16 +112,16 @@
         <span>{% block graph_section_title %}Entity Graph{% endblock %}</span>
         <div class="d-flex gap-2 ms-auto me-2" onclick="event.stopPropagation()">
             {% block extra_graph_buttons %}{% endblock %}
-            <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+            <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);">
                 <i class="bi bi-arrow-left-right me-1"></i>Vertical
             </button>
-            <button id="fitBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+            <button id="fitBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);">
                 <i class="bi bi-bounding-box me-1"></i>Fit
             </button>
-            <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+            <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);">
                 <i class="bi bi-image me-1"></i>Thumbnails
             </button>
-            <button id="fullscreenBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+            <button id="fullscreenBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);">
                 <i class="bi bi-fullscreen me-1"></i>Fullscreen
             </button>
         </div>
@@ -140,7 +140,7 @@
                                    color:var(--bs-secondary-color);padding:2rem;gap:0.5rem;"></div>
         <div id="cy" data-project-id="{{pid}}"></div>
         <div id="zoomHint" style="position:absolute; bottom:0.5rem; right:0.75rem;
-                                   font-size:0.72rem; color:var(--bs-secondary-color);
+                                   font-size: var(--fs-xs); color:var(--bs-secondary-color);
                                    pointer-events:none; transition:opacity 1s; opacity:1;">
             <i class="bi bi-keyboard me-1"></i>Ctrl + scroll to zoom
         </div>
@@ -158,7 +158,6 @@
 </script>
 
 <script>
-    const _SIDEBAR_KEY = 'cg_sidebar_collapsed';
     const _PID = {{ pid | tojson }};
 
     function goBackToProject() {
@@ -166,24 +165,7 @@
         window.location.href = '/' + _PID + '/' + (stored || '');
     }
 
-    function toggleSidebar() {
-        const sb = document.getElementById('resourceSidebar');
-        const collapsed = sb.classList.toggle('collapsed');
-        document.documentElement.classList.toggle('sidebar-collapsed', collapsed);
-        localStorage.setItem(_SIDEBAR_KEY, collapsed ? '1' : '');
-    }
-
-    // Render small project avatar in icon rail
-    (function() {
-        const railAv = document.getElementById('projectAvatarRail');
-        if (railAv) makeAvatar(railAv, _PID, '24px', '0.65rem');
-    })();
-
-    const projAv = document.getElementById('projectAvatar');
-    if (projAv) makeAvatar(projAv, {{ pid | tojson }}, '1.5rem', '0.6rem');
-
     const resColor = hashColor({{ (res_type or res_name) | tojson }});
-    makeAvatar(document.getElementById('{{ res_avatar_id }}'), {{ res_name | tojson }});
     document.getElementById('{{ res_card_id }}').style.borderLeftColor = resColor;
 
     function toggleSibJump(event) {
@@ -227,12 +209,12 @@
       <i class="bi bi-diagram-3"></i>
       Relationships
       {% set total = (rel_parents|length) + (rel_children|length) + (rel_associated|length) %}
-      {% if total %}<span class="ms-auto" style="font-family:'IBM Plex Mono',monospace; font-size:0.72rem;">{{ total }}</span>{% endif %}
+      {% if total %}<span class="ms-auto" style="font-family:'IBM Plex Mono',monospace; font-size: var(--fs-xs);">{{ total }}</span>{% endif %}
     </div>
 
     {% if not rel_parents and not rel_children and not rel_associated %}
     <div class="rel-panel-empty">
-      <i class="bi bi-diagram-3 d-block mb-2 opacity-40" style="font-size:1.5rem;"></i>
+      <i class="bi bi-diagram-3 d-block mb-2 opacity-40" style="font-size: var(--fs-2xl);"></i>
       No relationships
     </div>
     {% endif %}
@@ -243,13 +225,13 @@
       <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-arrow-up-short" style="color:var(--cg-accent-mid);"></i>
         <span>Parents</span>
-        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ rel_parents|length }}</span>
+        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size: var(--fs-xs);">{{ rel_parents|length }}</span>
         <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
       </div>
       <div class="res-section-body">
         {% for item in rel_parents %}
         <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')">
-          <i class="bi {{ rel_item_icon }}" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
+          <i class="bi {{ rel_item_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0;"></i>
           <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
         </div>
         {% endfor %}
@@ -263,13 +245,13 @@
       <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-arrow-down-short" style="color:var(--cg-accent-mid);"></i>
         <span>Children</span>
-        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ rel_children|length }}</span>
+        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size: var(--fs-xs);">{{ rel_children|length }}</span>
         <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
       </div>
       <div class="res-section-body">
         {% for item in rel_children %}
         <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')">
-          <i class="bi {{ rel_item_icon }}" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
+          <i class="bi {{ rel_item_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0;"></i>
           <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
         </div>
         {% endfor %}
@@ -281,15 +263,15 @@
     {% if rel_associated %}
     <div class="res-section">
       <div class="res-section-header" onclick="toggleSection(this)">
-        <i class="bi {{ rel_assoc_icon }}" style="color:var(--cg-accent-mid); font-size:0.8rem;"></i>
+        <i class="bi {{ rel_assoc_icon }}" style="color:var(--cg-accent-mid); font-size: var(--fs-sm);"></i>
         <span>{{ rel_assoc_label }}</span>
-        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ rel_associated|length }}</span>
+        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size: var(--fs-xs);">{{ rel_associated|length }}</span>
         <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
       </div>
       <div class="res-section-body">
         {% for item in rel_associated %}
         <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_assoc_url_seg}}/{{item['unique_id']}}')">
-          <i class="bi {{ rel_assoc_icon }}" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
+          <i class="bi {{ rel_assoc_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0;"></i>
           <span class="rel-item-name">
             <span class="rel-item-name-text">{{item[rel_assoc_name_field]}}</span>
             <span class="rel-item-sub mfid">{{item['unique_id']}}</span>
@@ -305,15 +287,15 @@
     {% if rel_indirect_parents %}
     <div class="res-section">
       <div class="res-section-header" onclick="toggleSection(this)">
-        <i class="bi bi-arrow-up" style="color:var(--cg-accent-mid); font-size:0.75rem;"></i>
+        <i class="bi bi-arrow-up" style="color:var(--cg-accent-mid); font-size: var(--fs-sm);"></i>
         <span>Further ancestors</span>
-        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ rel_indirect_parents|length }}</span>
+        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size: var(--fs-xs);">{{ rel_indirect_parents|length }}</span>
         <i class="bi bi-chevron-right res-section-chevron"></i>
       </div>
       <div class="res-section-body" style="display:none;">
         {% for item in rel_indirect_parents %}
         <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')">
-          <i class="bi {{ rel_item_icon }}" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0; opacity:0.6;"></i>
+          <i class="bi {{ rel_item_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0; opacity:0.6;"></i>
           <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
         </div>
         {% endfor %}
@@ -325,15 +307,15 @@
     {% if rel_indirect_children %}
     <div class="res-section">
       <div class="res-section-header" onclick="toggleSection(this)">
-        <i class="bi bi-arrow-down" style="color:var(--cg-accent-mid); font-size:0.75rem;"></i>
+        <i class="bi bi-arrow-down" style="color:var(--cg-accent-mid); font-size: var(--fs-sm);"></i>
         <span>Further descendants</span>
-        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ rel_indirect_children|length }}</span>
+        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size: var(--fs-xs);">{{ rel_indirect_children|length }}</span>
         <i class="bi bi-chevron-right res-section-chevron"></i>
       </div>
       <div class="res-section-body" style="display:none;">
         {% for item in rel_indirect_children %}
         <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')">
-          <i class="bi {{ rel_item_icon }}" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0; opacity:0.6;"></i>
+          <i class="bi {{ rel_item_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0; opacity:0.6;"></i>
           <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
         </div>
         {% endfor %}

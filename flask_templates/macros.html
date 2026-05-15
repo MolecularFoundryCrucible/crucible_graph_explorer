@@ -1,55 +1,52 @@
 {# Shared Jinja2 macros for resource detail pages (dataset.html, sample_graph.html). #}
 
 {# ── resource_sidebar: left nav sidebar for sample/dataset pages ─────────────── #}
-{%- macro resource_sidebar(pid, resource_label, resource_icon, resource_title, all_projects, resource_id=None, actions=[]) -%}
+{%- macro resource_sidebar(pid, resource_label, resource_icon, resource_title, resource_id=None, actions=[]) -%}
 <div id="resourceSidebar" class="cg-sidebar d-none d-md-block">
 <script>if(localStorage.getItem('cg_sidebar_collapsed'))document.getElementById('resourceSidebar').classList.add('collapsed');</script>
   <button class="cg-sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
-    <i class="bi bi-chevron-left" id="sidebarToggleIcon"></i>
+    <i class="bi bi-chevron-left"></i>
   </button>
-  <div class="cg-sidebar-content" id="sidebarContent">
+  <div class="cg-sidebar-content">
 
-    <!-- ── project back strip ──────────────────────────────────────── -->
-    <div class="cg-sidebar-back px-2 py-2" onclick="goBackToProject()" title="Back to project"
-         style="cursor:pointer;">
-      <div class="d-flex align-items-center gap-2">
-        <div id="projectAvatar" style="flex-shrink:0;"></div>
-        <div style="min-width:0; flex:1;">
-          <div style="font-size:0.58rem; text-transform:uppercase; letter-spacing:0.07em;
-                      color:var(--bs-secondary-color); font-weight:600;">Project</div>
-          <div class="fw-semibold text-truncate mfid" style="font-size:0.8rem;">{{pid}}</div>
-        </div>
-        <i class="bi bi-arrow-right flex-shrink-0" style="font-size:0.7rem; color:var(--bs-secondary-color);"></i>
+    <!-- ── navigation zone ─────────────────────────────────────────── -->
+    <a href="/" class="cg-sidebar-action">
+      <i class="bi bi-house"></i>
+      <span>Dashboard</span>
+    </a>
+    <div class="cg-sidebar-back cg-sidebar-action" onclick="goBackToProject()" title="Back to project">
+      <i class="bi bi-collection" style="font-size: var(--fs-lg); flex-shrink:0;"></i>
+      <div style="min-width:0; flex:1;">
+        <div style="font-size: var(--fs-2xs); text-transform:uppercase; letter-spacing:0.07em;
+                    color:var(--bs-secondary-color); font-weight:600; line-height:1.2;">Project</div>
+        <div class="fw-semibold text-truncate mfid" style="font-size: var(--fs-sm);">{{pid}}</div>
       </div>
+      <i class="bi bi-arrow-right flex-shrink-0" style="font-size: var(--fs-xs); color:var(--bs-secondary-color);"></i>
     </div>
 
-    <!-- ── actions ─────────────────────────────────────────────────── -->
+    <!-- ── actions zone ────────────────────────────────────────────── -->
     {% if actions %}
-    <div style="border-top:1px solid var(--bs-border-color);">
+    <div class="cg-sidebar-section">
       {% for action in actions %}
       <a href="{{ action.url }}"
          {% if action.get('section') %}onclick="event.preventDefault();document.getElementById('{{ action.section }}')?.scrollIntoView({behavior:'smooth',block:'start'})"{% endif %}
-         class="d-flex align-items-center gap-2 px-3 py-2 text-decoration-none"
-         style="font-size:0.82rem; color:var(--bs-body-color); transition:background 0.12s;
-                border-bottom:1px solid var(--bs-border-color);"
-         onmouseover="this.style.background='var(--cg-hover-bg)'"
-         onmouseout="this.style.background=''">
-        <i class="bi {{ action.icon }}"
-           style="color:var(--cg-accent-mid); font-size:0.85rem; flex-shrink:0; width:1rem; text-align:center;"></i>
-        {{ action.label }}
+         class="cg-sidebar-action">
+        <i class="bi {{ action.icon }}"></i>
+        <span>{{ action.label }}</span>
       </a>
       {% endfor %}
     </div>
     {% endif %}
 
-
   </div>
 
   <!-- collapsed icon rail -->
   <div class="cg-sidebar-icon-rail" id="sidebarIconRail">
-    <div id="projectAvatarRail" style="width:24px;height:24px;border-radius:50%;"></div>
-    <button class="cg-rail-btn" onclick="goBackToProject()" title="Back to project">
+    <button class="cg-rail-btn" onclick="window.location.href='/'" title="Dashboard">
       <i class="bi bi-house"></i>
+    </button>
+    <button class="cg-rail-btn" onclick="goBackToProject()" title="Back to project">
+      <i class="bi bi-collection"></i>
     </button>
     {% for action in actions %}
     <a class="cg-rail-btn" href="{{ action.url }}" title="{{ action.label }}">
@@ -59,6 +56,12 @@
   </div>
 </div>
 <script>
+function toggleSidebar() {
+  var sb = document.getElementById('resourceSidebar');
+  var collapsed = sb.classList.toggle('collapsed');
+  document.documentElement.classList.toggle('sidebar-collapsed', collapsed);
+  localStorage.setItem('cg_sidebar_collapsed', collapsed ? '1' : '');
+}
 document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('.rel-item').forEach(function(item) {
     const mfidEl = item.querySelector('.rel-item-sub.mfid');
@@ -81,10 +84,10 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 {%- endmacro -%}
 
-{# ── resource_card_identity: avatar + title + uuid + badges + QR ─────────────── #}
-{%- macro resource_card_identity(avatar_id, title, uuid, keywords=none, type_badge=none) -%}
+{# ── resource_card_identity: icon + title + uuid + badges + QR ──────────────── #}
+{%- macro resource_card_identity(title, uuid, icon='bi-dot', keywords=none, type_badge=none) -%}
 <div class="cg-card-identity">
-  <div id="{{ avatar_id }}" class="cg-card-avatar"></div>
+  <i class="bi {{ icon }}" style="font-size: var(--fs-2xl); color:var(--cg-accent-mid); flex-shrink:0;"></i>
   <div class="cg-card-names">
     <h1 class="cg-card-title">{{ title }}</h1>
     <div class="mfid cg-card-uuid">{{ uuid }}</div>
@@ -92,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="d-flex flex-wrap gap-1 mt-1">
       {% set kw_list = keywords if (keywords is sequence and keywords is not string) else [keywords] %}
       {% for kw in kw_list %}
-      <span class="badge fw-normal border text-body-secondary" style="background:var(--bs-tertiary-bg); font-size:0.7rem;">{{ kw }}</span>
+      <span class="badge fw-normal border text-body-secondary" style="background:var(--bs-tertiary-bg); font-size: var(--fs-xs);">{{ kw }}</span>
       {% endfor %}
     </div>
     {% endif %}

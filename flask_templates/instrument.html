@@ -30,7 +30,7 @@
 
             <div style="min-width:0; flex:1;">
                 <div class="small fw-semibold text-uppercase mb-1"
-                     style="font-size:0.7rem; letter-spacing:0.05em; color:var(--bs-secondary-color);">
+                     style="font-size: var(--fs-xs); letter-spacing:0.05em; color:var(--bs-secondary-color);">
                     <i class="bi bi-cpu me-1"></i>Instrument
                 </div>
                 <h1 class="fs-4 fw-semibold mb-0 lh-sm">
@@ -40,26 +40,26 @@
                 <div class="d-flex flex-wrap gap-2 mt-2">
                     {% if instrument.get('instrument_type') %}
                     <span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
-                          style="background:var(--bs-tertiary-bg); font-size:0.78rem;">
+                          style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
                         <i class="bi bi-tag"></i>{{ instrument['instrument_type'] }}
                     </span>
                     {% endif %}
                     {% if instrument.get('location') %}
                     <span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
-                          style="background:var(--bs-tertiary-bg); font-size:0.78rem;">
+                          style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
                         <i class="bi bi-geo-alt"></i>{{ instrument['location'] }}
                     </span>
                     {% endif %}
                     {% if instrument.get('manufacturer') %}
                     <span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
-                          style="background:var(--bs-tertiary-bg); font-size:0.78rem;">
+                          style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
                         <i class="bi bi-building"></i>{{ instrument['manufacturer'] }}
                     </span>
                     {% endif %}
                 </div>
 
                 {% if instrument.get('description') %}
-                <p class="mt-2 mb-0 text-secondary" style="font-size:0.875rem;">
+                <p class="mt-2 mb-0 text-secondary" style="font-size: var(--fs-md);">
                     {{ instrument['description'] }}
                 </p>
                 {% endif %}
@@ -125,7 +125,7 @@
             <i class="bi bi-database text-muted"></i>
             <span>Recent Datasets</span>
             <span class="badge fw-normal border text-muted ms-1"
-                  style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
+                  style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
                 {{ recent_datasets | length }}
             </span>
             <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>

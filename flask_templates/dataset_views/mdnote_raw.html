@@ -30,7 +30,7 @@
     </div>
     {% elif raw_content %}
     <pre class="p-3 rounded border"
-         style="background: var(--bs-tertiary-bg); font-size: 0.875rem;
+         style="background: var(--bs-tertiary-bg); font-size: var(--fs-md);
                 white-space: pre-wrap; word-break: break-word; overflow-x: auto;">{{ raw_content | e }}</pre>
     {% else %}
     <div class="text-muted fst-italic">This note is empty.</div>

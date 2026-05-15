@@ -12,10 +12,10 @@
 <div style="max-width:480px; margin:3rem auto;">
 
     <div class="mb-4">
-        <h1 class="fw-semibold mb-1" style="font-size:1.5rem; letter-spacing:-0.02em;">
+        <h1 class="fw-semibold mb-1" style="font-size: var(--fs-2xl); letter-spacing:-0.02em;">
             Create your Crucible account
         </h1>
-        <p class="text-muted mb-0" style="font-size:0.9rem;">
+        <p class="text-muted mb-0" style="font-size: var(--fs-md);">
             You're signed in with ORCID. Fill in your details to continue.
         </p>
     </div>
@@ -23,7 +23,7 @@
     {% if error %}
     <div class="d-flex align-items-center gap-2 rounded border px-3 py-2 mb-4"
          style="background:rgba(220,53,69,0.06); border-color:rgba(220,53,69,0.3) !important;
-                font-size:0.875rem; color:#b02a37;">
+                font-size: var(--fs-md); color:#b02a37;">
         <i class="bi bi-exclamation-circle-fill flex-shrink-0"></i>
         <span>{{ error }}</span>
     </div>
@@ -31,14 +31,14 @@
 
     <!-- ORCID identity display -->
     <div class="d-flex align-items-center gap-3 rounded border px-3 py-2 mb-4"
-         style="background:var(--bs-tertiary-bg); font-size:0.875rem;">
+         style="background:var(--bs-tertiary-bg); font-size: var(--fs-md);">
         <svg width="22" height="22" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="flex-shrink:0;">
             <circle cx="128" cy="128" r="128" fill="#3a7a87" opacity="0.25"/>
             <path d="M86.3 186.2H70.9V79.1h15.4v107.1zM108.9 79.1h41.6c39.6 0 57 28.3 57 53.6 0 27.5-21.5 53.6-56.8 53.6h-41.8V79.1zm15.4 93.3h24.5c34.9 0 42.9-26.5 42.9-39.7C191.7 111.2 178 93 148 93h-23.7v79.4zM88.7 56.8c0 5.5-4.5 10.1-10.1 10.1s-10.1-4.6-10.1-10.1c0-5.6 4.5-10.1 10.1-10.1s10.1 4.6 10.1 10.1z" fill="var(--cg-accent-mid)"/>
         </svg>
         <div style="min-width:0; flex:1;">
-            <div class="text-muted" style="font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Signed in via ORCID</div>
-            <div class="mfid" style="font-size:0.82rem;">{{ orcid }}</div>
+            <div class="text-muted" style="font-size: var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Signed in via ORCID</div>
+            <div class="mfid" style="font-size: var(--fs-sm);">{{ orcid }}</div>
         </div>
     </div>
 
@@ -67,7 +67,7 @@
         </button>
     </form>
 
-    <div class="mt-4 d-flex align-items-start gap-2 text-muted" style="font-size:0.8rem;">
+    <div class="mt-4 d-flex align-items-start gap-2 text-muted" style="font-size: var(--fs-sm);">
         <i class="bi bi-info-circle flex-shrink-0 mt-1" style="color:var(--cg-accent-mid);"></i>
         <span>Your account will have no project access by default. Contact your project administrator to be added to projects.</span>
     </div>

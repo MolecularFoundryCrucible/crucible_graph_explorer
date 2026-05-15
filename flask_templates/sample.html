@@ -5,7 +5,7 @@
 {% set res_type = s.get('sample_type', '') %}
 {% set res_url_seg = 'samples' %}
 {% set res_card_id = 'sampleCard' %}
-{% set res_avatar_id = 'sampleAvatar' %}
+{% set res_icon = 'bi-flask' %}
 {% set graph_fetch_url = '/' ~ pid ~ '/api/entity-graph-data/sample/' ~ s['unique_id'] %}
 {% set has_dataset_toggle = true %}
 {% set groupby_param = 'sgb' %}
@@ -35,7 +35,7 @@
     {'label': 'Edit sample',    'url': '/' ~ pid ~ '/samples/' ~ s['unique_id'] ~ '/edit',         'icon': 'bi-pencil'},
     {'label': 'Upload photo',   'url': '/' ~ pid ~ '/samples/' ~ s['unique_id'] ~ '/upload-photo', 'icon': 'bi-camera'},
 ] %}
-{{ resource_sidebar(pid, 'sample', 'bi-flask', s['sample_name'], all_projects, s['unique_id'], sidebar_actions) }}
+{{ resource_sidebar(pid, 'sample', 'bi-flask', s['sample_name'], resource_id=s['unique_id'], actions=sidebar_actions) }}
 {% endblock %}
 
 {% block sibling_groupby_options %}
@@ -55,9 +55,9 @@
 <div class="mt-3 pt-2" style="border-top: 1px solid var(--bs-border-color);">
     <button onclick="toggleDetailsAdv()"
             class="btn btn-sm d-inline-flex align-items-center gap-1 text-muted border-0 bg-transparent px-0 py-0"
-            style="font-size:0.78rem;">
+            style="font-size: var(--fs-sm);">
         <i class="bi bi-chevron-right" id="details-adv-chevron"
-           style="font-size:0.65rem; transition:transform 0.2s;"></i>
+           style="font-size: var(--fs-2xs); transition:transform 0.2s;"></i>
         Advanced
     </button>
 </div>
@@ -84,8 +84,8 @@
 {% block graph_section_title %}Sample Graph{% endblock %}
 
 {% block extra_graph_buttons %}
-<button id="toggleDatasetsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
-    <i class="bi bi-database me-1"></i>Hide Datasets
+<button id="toggleDatasetsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);">
+    <i class="bi bi-database me-1"></i>Show Datasets
 </button>
 {% endblock %}
 
@@ -95,7 +95,7 @@
     <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-images text-muted"></i>
         <span>Thumbnails</span>
-        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
+        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
             {{img_datasets|length}}
         </span>
         <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
@@ -129,7 +129,7 @@
     <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-database text-muted"></i>
         <span>Linked Datasets</span>
-        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
+        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
             {{s['datasets']|length}}
         </span>
         <i class="bi bi-chevron-right res-section-chevron"></i>
@@ -140,7 +140,7 @@
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{ds['dataset_name']}}</span>
             {% if ds.get('measurement') %}
             <span class="badge fw-normal border text-body-secondary flex-shrink-0 me-2"
-                  style="background:var(--bs-tertiary-bg); font-size:0.7rem;">{{ds['measurement']}}</span>
+                  style="background:var(--bs-tertiary-bg); font-size: var(--fs-xs);">{{ds['measurement']}}</span>
             {% endif %}
             <span class="mfid small ms-auto">{{ds['unique_id']}}</span>
         </a>
@@ -155,7 +155,7 @@
     <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-arrow-up-short text-muted"></i>
         <span>Ancestors</span>
-        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
+        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
             {{ancestors_info|length}}
         </span>
         <i class="bi bi-chevron-right res-section-chevron"></i>
@@ -177,7 +177,7 @@
         {% if indirect_ancestors %}
         <div class="px-3 py-1 small fw-semibold text-muted"
              style="background:var(--bs-tertiary-bg); border-top:1px solid var(--bs-border-color); border-bottom:1px solid var(--bs-border-color);">
-            <i class="bi bi-arrow-up text-muted me-1" style="font-size:0.7rem;"></i>Further ancestors
+            <i class="bi bi-arrow-up text-muted me-1" style="font-size: var(--fs-xs);"></i>Further ancestors
         </div>
         {% for anc in indirect_ancestors %}{{ anc_row(anc) }}{% endfor %}
         {% endif %}
@@ -191,7 +191,7 @@
     <div class="res-section-header" onclick="toggleSection(this)">
         <i class="bi bi-arrow-down-short text-muted"></i>
         <span>Descendants</span>
-        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
+        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
             {{descendants_info|length}}
         </span>
         <i class="bi bi-chevron-right res-section-chevron"></i>
@@ -213,7 +213,7 @@
         {% if indirect_descendants %}
         <div class="px-3 py-1 small fw-semibold text-muted"
              style="background:var(--bs-tertiary-bg); border-top:1px solid var(--bs-border-color); border-bottom:1px solid var(--bs-border-color);">
-            <i class="bi bi-arrow-down text-muted me-1" style="font-size:0.7rem;"></i>Further descendants
+            <i class="bi bi-arrow-down text-muted me-1" style="font-size: var(--fs-xs);"></i>Further descendants
         </div>
         {% for desc in indirect_descendants %}{{ desc_row(desc) }}{% endfor %}
         {% endif %}

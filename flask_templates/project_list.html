@@ -23,7 +23,7 @@
     #listHeader {
         position: sticky; z-index: 10;
         padding: 0.3rem 1rem;
-        font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+        font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
         color: var(--bs-secondary-color);
         background: color-mix(in srgb, var(--cg-accent) 8%, var(--bs-tertiary-bg));
         border-top: 1px solid var(--bs-border-color);
@@ -100,8 +100,8 @@
                onmouseout="this.style.background=''; this.style.borderColor='';">
                 <i class="bi {{ icon }} fs-4 flex-shrink-0" style="color: var(--cg-accent-mid);"></i>
                 <div>
-                    <div class="fw-semibold" style="font-size:0.95rem;">{{ label }}</div>
-                    <div class="text-muted" style="font-size:0.78rem;">{{ desc }}</div>
+                    <div class="fw-semibold" style="font-size: var(--fs-lg);">{{ label }}</div>
+                    <div class="text-muted" style="font-size: var(--fs-sm);">{{ desc }}</div>
                 </div>
             </a>
         </div>
@@ -146,8 +146,8 @@
         <span id="lhdr-id" onclick="sortBy('id')">ID <span class="lsort-icon">▲</span></span>
         <span id="lhdr-org" onclick="sortBy('org')" class="col-org">Org <span class="lsort-icon opacity-25">⇅</span></span>
         <span id="lhdr-lead" onclick="sortBy('lead')" class="col-lead">Lead <span class="lsort-icon opacity-25">⇅</span></span>
-        <span title="Samples" style="text-align:right;"><i class="bi bi-flask" style="font-size:0.75rem; opacity:0.6;"></i></span>
-        <span title="Datasets" style="text-align:right;"><i class="bi bi-database" style="font-size:0.75rem; opacity:0.6;"></i></span>
+        <span title="Samples" style="justify-content:flex-end;"><i class="bi bi-flask" style="font-size: var(--fs-sm); opacity:0.6;"></i></span>
+        <span title="Datasets" style="justify-content:flex-end;"><i class="bi bi-database" style="font-size: var(--fs-sm); opacity:0.6;"></i></span>
         <span></span>
     </div>
 
@@ -157,9 +157,9 @@
     <!-- ── hidden projects section ──────────────────────────────────────── -->
     <div id="hiddenSection" style="display:none;" class="mt-3 pt-3">
         <div class="d-flex align-items-center gap-2 mb-2 px-1" style="cursor:pointer;" onclick="toggleHiddenView()">
-            <i class="bi bi-eye-slash text-muted" style="font-size:0.85rem;"></i>
+            <i class="bi bi-eye-slash text-muted" style="font-size: var(--fs-sm);"></i>
             <span class="text-muted small fw-semibold">Hidden projects</span>
-            <span class="badge rounded-pill text-bg-secondary fw-normal" id="hiddenCount" style="font-size:0.7rem;"></span>
+            <span class="badge rounded-pill text-bg-secondary fw-normal" id="hiddenCount" style="font-size: var(--fs-xs);"></span>
             <span class="text-muted small ms-1" id="hiddenToggleLabel">Show</span>
         </div>
         <div id="hiddenList" style="display:none;" class="mb-4"></div>
@@ -230,7 +230,7 @@
         function starBtn(id, starred) {
             return `<button class="btn btn-sm btn-link p-0 ${starred ? 'text-warning' : 'text-muted'}"
                             onclick="toggleStar('${esc(id)}', event)" title="${starred ? 'Unstar' : 'Star'}"
-                            style="line-height:1; font-size:0.9rem;">
+                            style="line-height:1; font-size: var(--fs-md);">
                         <i class="bi ${starred ? 'bi-star-fill' : 'bi-star'}"></i>
                     </button>`;
         }
@@ -238,7 +238,7 @@
         function hideBtn(id) {
             return `<button class="btn btn-sm btn-link text-muted p-0"
                             onclick="hideProject('${esc(id)}', event)" title="Hide project"
-                            style="line-height:1; font-size:0.85rem;">
+                            style="line-height:1; font-size: var(--fs-sm);">
                         <i class="bi bi-eye-slash"></i>
                     </button>`;
         }
@@ -250,7 +250,7 @@
             return s ? (s[key] ?? '—') : `<span class="stat-placeholder"></span>`;
         }
         function statCell(pid, key) {
-            return `<div style="font-size:0.78rem;color:var(--bs-secondary-color);text-align:right;font-variant-numeric:tabular-nums;">${statVal(pid, key)}</div>`;
+            return `<div style="font-size: var(--fs-sm);color:var(--bs-secondary-color);text-align:right;font-variant-numeric:tabular-nums;">${statVal(pid, key)}</div>`;
         }
 
         // ── card HTML ─────────────────────────────────────────────────────────
@@ -260,8 +260,8 @@
             const color     = hashColor(p.project_id);
             const borderCol = starred ? '#ffc107' : color;
             const url       = `/${esc(p.project_id)}/`;
-            const org       = p.organization ? `<span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1" style="background:var(--bs-tertiary-bg);font-size:0.72rem;max-width:100%;"><i class="bi bi-building"></i><span class="text-truncate">${esc(p.organization)}</span></span>` : '';
-            const lead      = (p.project_lead_name || p.project_lead_email) ? `<span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1" style="background:var(--bs-tertiary-bg);font-size:0.72rem;max-width:100%;"><i class="bi bi-person"></i><span class="text-truncate">${esc(p.project_lead_name || p.project_lead_email)}</span></span>` : '';
+            const org       = p.organization ? `<span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1" style="background:var(--bs-tertiary-bg);font-size: var(--fs-xs);max-width:100%;"><i class="bi bi-building"></i><span class="text-truncate">${esc(p.organization)}</span></span>` : '';
+            const lead      = (p.project_lead_name || p.project_lead_email) ? `<span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1" style="background:var(--bs-tertiary-bg);font-size: var(--fs-xs);max-width:100%;"><i class="bi bi-person"></i><span class="text-truncate">${esc(p.project_lead_name || p.project_lead_email)}</span></span>` : '';
             return `
             <div class="col">
               <div class="card h-100" style="border-left:4px solid ${borderCol}; cursor:pointer;"
@@ -274,17 +274,17 @@
                   <div class="d-flex align-items-center gap-2 mb-2">
                     ${avatarHTML(p.project_id)}
                     <div style="min-width:0;">
-                      <div class="fw-semibold text-truncate" style="font-family:'IBM Plex Mono',monospace; font-size:0.9rem;">
+                      <div class="fw-semibold text-truncate" style="font-family:'IBM Plex Mono',monospace; font-size: var(--fs-md);">
                         ${esc(p.project_id)}
                       </div>
-                      <div class="text-truncate text-muted" style="font-size:0.78rem;" title="${esc(p.title)}">${esc(p.title) || DASH}</div>
+                      <div class="text-truncate text-muted" style="font-size: var(--fs-sm);" title="${esc(p.title)}">${esc(p.title) || DASH}</div>
                     </div>
                   </div>
                   ${org || lead ? `<div class="d-flex flex-wrap gap-1">${org}${lead}</div>` : ''}
                 </div>
                 <div class="card-footer d-flex align-items-center gap-2 py-2" style="background:var(--bs-tertiary-bg);">
-                  <span style="font-size:0.78rem;color:var(--bs-secondary-color);display:flex;align-items:center;gap:0.25rem;"><i class="bi bi-flask" style="font-size:0.7rem;opacity:0.7;"></i>${statVal(p.project_id,'samples')}</span>
-                  <span style="font-size:0.78rem;color:var(--bs-secondary-color);display:flex;align-items:center;gap:0.25rem;"><i class="bi bi-database" style="font-size:0.7rem;opacity:0.7;"></i>${statVal(p.project_id,'datasets')}</span>
+                  <span style="font-size: var(--fs-sm);color:var(--bs-secondary-color);display:flex;align-items:center;gap:0.25rem;"><i class="bi bi-flask" style="font-size: var(--fs-xs);opacity:0.7;"></i>${statVal(p.project_id,'samples')}</span>
+                  <span style="font-size: var(--fs-sm);color:var(--bs-secondary-color);display:flex;align-items:center;gap:0.25rem;"><i class="bi bi-database" style="font-size: var(--fs-xs);opacity:0.7;"></i>${statVal(p.project_id,'datasets')}</span>
                   <div class="ms-auto d-flex gap-1">
                     <a href="${url}search" class="btn btn-sm btn-outline-secondary px-2" onclick="event.stopPropagation()">
                         <i class="bi bi-search"></i>
@@ -305,12 +305,12 @@
             const url     = `/${esc(p.project_id)}/`;
             const color   = starred ? '#ffc107' : hashColor(p.project_id);
             const title   = p.title && p.title !== p.project_id
-                ? `<div class="text-muted text-truncate" style="font-size:0.78rem;">${esc(p.title)}</div>` : '';
+                ? `<div class="text-muted text-truncate" style="font-size: var(--fs-sm);">${esc(p.title)}</div>` : '';
             const orgText  = p.organization
-                ? `<span class="text-truncate" style="font-size:0.78rem; color:var(--bs-secondary-color);"><i class="bi bi-building me-1" style="font-size:0.7rem; opacity:0.7;"></i>${esc(p.organization)}</span>`
+                ? `<span class="text-truncate" style="font-size: var(--fs-sm); color:var(--bs-secondary-color);"><i class="bi bi-building me-1" style="font-size: var(--fs-xs); opacity:0.7;"></i>${esc(p.organization)}</span>`
                 : DASH;
             const leadText = (p.project_lead_name || p.project_lead_email)
-                ? `<span class="text-truncate" style="font-size:0.78rem; color:var(--bs-secondary-color);"><i class="bi bi-person me-1" style="font-size:0.7rem; opacity:0.7;"></i>${esc(p.project_lead_name || p.project_lead_email)}</span>`
+                ? `<span class="text-truncate" style="font-size: var(--fs-sm); color:var(--bs-secondary-color);"><i class="bi bi-person me-1" style="font-size: var(--fs-xs); opacity:0.7;"></i>${esc(p.project_lead_name || p.project_lead_email)}</span>`
                 : DASH;
             return `
             <div class="proj-grid proj-list-row" style="box-shadow: inset 4px 0 0 ${color};"
@@ -318,7 +318,7 @@
               <div>${starBtn(p.project_id, starred)}</div>
               <div style="min-width:0;">
                 <a href="${url}" class="fw-semibold text-decoration-none"
-                   style="font-family:'IBM Plex Mono',monospace; font-size:0.9rem; color:var(--cg-link);">${esc(p.project_id)}</a>
+                   style="font-family:'IBM Plex Mono',monospace; font-size: var(--fs-md); color:var(--cg-link);">${esc(p.project_id)}</a>
                 ${title}
               </div>
               <div class="col-org" style="min-width:0; overflow:hidden;">${orgText}</div>
@@ -343,10 +343,10 @@
             const url   = `/${esc(p.project_id)}/`;
             const color = hashColor(p.project_id);
             const orgText  = p.organization
-                ? `<span class="text-truncate" style="font-size:0.78rem; color:var(--bs-secondary-color);"><i class="bi bi-building me-1" style="font-size:0.7rem; opacity:0.7;"></i>${esc(p.organization)}</span>`
+                ? `<span class="text-truncate" style="font-size: var(--fs-sm); color:var(--bs-secondary-color);"><i class="bi bi-building me-1" style="font-size: var(--fs-xs); opacity:0.7;"></i>${esc(p.organization)}</span>`
                 : DASH;
             const leadText = (p.project_lead_name || p.project_lead_email)
-                ? `<span class="text-truncate" style="font-size:0.78rem; color:var(--bs-secondary-color);"><i class="bi bi-person me-1" style="font-size:0.7rem; opacity:0.7;"></i>${esc(p.project_lead_name || p.project_lead_email)}</span>`
+                ? `<span class="text-truncate" style="font-size: var(--fs-sm); color:var(--bs-secondary-color);"><i class="bi bi-person me-1" style="font-size: var(--fs-xs); opacity:0.7;"></i>${esc(p.project_lead_name || p.project_lead_email)}</span>`
                 : DASH;
             return `
             <div class="proj-grid proj-list-row opacity-50" style="box-shadow: inset 4px 0 0 ${color};"
@@ -354,8 +354,8 @@
               <div></div>
               <div style="min-width:0;">
                 <a href="${url}" class="fw-semibold text-decoration-none"
-                   style="font-family:'IBM Plex Mono',monospace; font-size:0.9rem; color:var(--cg-link);">${esc(p.project_id)}</a>
-                ${p.title && p.title !== p.project_id ? `<div class="text-muted text-truncate" style="font-size:0.78rem;">${esc(p.title)}</div>` : ''}
+                   style="font-family:'IBM Plex Mono',monospace; font-size: var(--fs-md); color:var(--cg-link);">${esc(p.project_id)}</a>
+                ${p.title && p.title !== p.project_id ? `<div class="text-muted text-truncate" style="font-size: var(--fs-sm);">${esc(p.title)}</div>` : ''}
               </div>
               <div class="col-org" style="min-width:0; overflow:hidden;">${orgText}</div>
               <div class="col-lead" style="min-width:0; overflow:hidden;">${leadText}</div>

@@ -13,12 +13,12 @@
     .user-avatar {
         width: 2.25rem; height: 2.25rem; min-width: 2.25rem; border-radius: 50%;
         display: flex; align-items: center; justify-content: center;
-        font-size: 0.72rem; font-weight: 700; color: #fff; flex-shrink: 0;
+        font-size: var(--fs-xs); font-weight: 700; color: #fff; flex-shrink: 0;
     }
     .proj-header {
         display: flex; align-items: center; gap: 0.5rem;
         padding: 0.55rem 0.75rem;
-        font-size: 0.875rem; font-weight: 600;
+        font-size: var(--fs-md); font-weight: 600;
         background: var(--bs-tertiary-bg);
         border: 1px solid var(--bs-border-color);
         border-left-width: 4px;
@@ -33,7 +33,7 @@
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h1 class="fs-4 fw-semibold mb-0">
         <i class="bi bi-people me-2 text-secondary"></i>Users
-        <span id="userVisibleCount" class="text-muted fw-normal ms-1" style="font-size:0.85rem;"></span>
+        <span id="userVisibleCount" class="text-muted fw-normal ms-1" style="font-size: var(--fs-sm);"></span>
     </h1>
 </div>
 
@@ -60,15 +60,15 @@
 
 <div class="mb-4 proj-section">
     <div class="proj-header" data-hash-color="{{ p['project_id'] }}">
-        <i class="bi bi-collection text-muted" style="font-size:0.85rem;"></i>
+        <i class="bi bi-collection text-muted" style="font-size: var(--fs-sm);"></i>
         <a href="/{{ p['project_id'] }}/" class="text-decoration-none text-body fw-semibold">
             {{ title if title and title != p['project_id'] else p['project_id'] }}
         </a>
         {% if title and title != p['project_id'] %}
-        <span class="mfid fw-normal" style="font-size:0.78rem; color:var(--bs-secondary-color);">{{ p['project_id'] }}</span>
+        <span class="mfid fw-normal" style="font-size: var(--fs-sm); color:var(--bs-secondary-color);">{{ p['project_id'] }}</span>
         {% endif %}
         <span class="badge fw-normal border text-muted ms-auto member-count"
-              style="background:var(--bs-body-bg); font-size:0.72rem;"
+              style="background:var(--bs-body-bg); font-size: var(--fs-xs);"
               data-total="{{ members | length }}">
             {{ members | length }} member{{ '' if members | length == 1 else 's' }}
         </span>
