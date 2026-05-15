@@ -37,8 +37,9 @@
 
 {% block sidebar %}
 {% set sidebar_actions = [] %}
+{% set _ = sidebar_actions.append({'label': 'Edit dataset', 'onclick': 'cgOpenDatasetPanel(DATASET_DATA)', 'icon': 'bi-pencil'}) %}
 {% if ds['measurement'] == 'MDNote' %}
-  {% set _ = sidebar_actions.append({'label': 'Edit note', 'url': '/' ~ project_id ~ '/datasets/' ~ ds['unique_id'] ~ '/mdnote-edit', 'icon': 'bi-pencil'}) %}
+  {% set _ = sidebar_actions.append({'label': 'Edit note', 'url': '/' ~ project_id ~ '/datasets/' ~ ds['unique_id'] ~ '/mdnote-edit', 'icon': 'bi-file-text'}) %}
 {% endif %}
 {% for cv in custom_views %}
   {% set _ = sidebar_actions.append({'label': cv['label'], 'url': cv['url'], 'icon': cv.get('icon', 'bi-journal-text')}) %}
@@ -280,6 +281,8 @@
 
 {% block resource_scripts %}
 <script>
+    const DATASET_DATA = {{ ds | tojson }};
+
     async function shareFile(event, mfid) {
         const btn = event.currentTarget;
         const icon = btn.querySelector('i');
@@ -324,3 +327,5 @@
     }
 </script>
 {% endblock %}
+
+{% block panels %}{% include '_create_panels.html' %}{% endblock %}
