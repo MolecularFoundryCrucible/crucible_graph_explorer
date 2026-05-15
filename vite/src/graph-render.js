@@ -168,6 +168,4 @@ export async function mountGraph({ fetchUrl, showDatasetToggle = false }) {
     }
   };
 
-  graphLoaded = true;
-  renderGraph();
 }
