@@ -767,6 +767,18 @@
         });
     });
     </script>
+    <script>
+    (function() {
+        function applyNavbarHeight() {
+            const nav = document.querySelector('.cg-navbar');
+            if (!nav) return;
+            const h = nav.getBoundingClientRect().height;
+            document.documentElement.style.setProperty('--cg-navbar-height', h + 'px');
+        }
+        applyNavbarHeight();
+        window.addEventListener('resize', applyNavbarHeight);
+    })();
+    </script>
 {% block panels %}{% endblock %}
 </body>
 </html>
