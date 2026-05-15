@@ -6,16 +6,16 @@
     /* ── grid layout for list view (header + rows share identical columns) ── */
     .proj-grid {
         display: grid;
-        grid-template-columns: 1.4rem 1fr 10rem 13rem 5.5rem 12rem;
+        grid-template-columns: 1.4rem 1fr 10rem 13rem 2.75rem 2.75rem 12rem;
         align-items: center;
         column-gap: 0.75rem;
     }
     @media (max-width: 1199px) {
-        .proj-grid { grid-template-columns: 1.4rem 1fr 9rem 0 5.5rem 12rem; }
+        .proj-grid { grid-template-columns: 1.4rem 1fr 9rem 0 2.75rem 2.75rem 12rem; }
         .proj-grid .col-lead { display: none; }
     }
     @media (max-width: 991px) {
-        .proj-grid { grid-template-columns: 1.4rem 1fr 0 0 5.5rem 10rem; }
+        .proj-grid { grid-template-columns: 1.4rem 1fr 0 0 2.75rem 2.75rem 10rem; }
         .proj-grid .col-org { display: none; }
     }
 
@@ -146,7 +146,8 @@
         <span id="lhdr-id" onclick="sortBy('id')">ID <span class="lsort-icon">▲</span></span>
         <span id="lhdr-org" onclick="sortBy('org')" class="col-org">Org <span class="lsort-icon opacity-25">⇅</span></span>
         <span id="lhdr-lead" onclick="sortBy('lead')" class="col-lead">Lead <span class="lsort-icon opacity-25">⇅</span></span>
-        <span>Counts</span>
+        <span title="Samples" style="text-align:right;"><i class="bi bi-flask" style="font-size:0.75rem; opacity:0.6;"></i></span>
+        <span title="Datasets" style="text-align:right;"><i class="bi bi-database" style="font-size:0.75rem; opacity:0.6;"></i></span>
         <span></span>
     </div>
 
@@ -244,19 +245,12 @@
 
         // ── stats HTML ────────────────────────────────────────────────────────
 
-        function statsHTML(pid) {
-            const s   = projectStats[pid];
-            const ph  = `<span class="stat-placeholder"></span>`;
-            const sp  = s ? (s.samples  ?? '—') : ph;
-            const ds  = s ? (s.datasets ?? '—') : ph;
-            return `<div style="display:flex; align-items:center; gap:0.75rem; font-size:0.78rem; color:var(--bs-secondary-color);">
-                <span style="display:flex;align-items:center;gap:0.3rem;">
-                    <i class="bi bi-flask" style="font-size:0.7rem; opacity:0.7;"></i>${sp}
-                </span>
-                <span style="display:flex;align-items:center;gap:0.3rem;">
-                    <i class="bi bi-database" style="font-size:0.7rem; opacity:0.7;"></i>${ds}
-                </span>
-            </div>`;
+        function statVal(pid, key) {
+            const s  = projectStats[pid];
+            return s ? (s[key] ?? '—') : `<span class="stat-placeholder"></span>`;
+        }
+        function statCell(pid, key) {
+            return `<div style="font-size:0.78rem;color:var(--bs-secondary-color);text-align:right;font-variant-numeric:tabular-nums;">${statVal(pid, key)}</div>`;
         }
 
         // ── card HTML ─────────────────────────────────────────────────────────
@@ -289,7 +283,8 @@
                   ${org || lead ? `<div class="d-flex flex-wrap gap-1">${org}${lead}</div>` : ''}
                 </div>
                 <div class="card-footer d-flex align-items-center gap-2 py-2" style="background:var(--bs-tertiary-bg);">
-                  ${statsHTML(p.project_id)}
+                  <span style="font-size:0.78rem;color:var(--bs-secondary-color);display:flex;align-items:center;gap:0.25rem;"><i class="bi bi-flask" style="font-size:0.7rem;opacity:0.7;"></i>${statVal(p.project_id,'samples')}</span>
+                  <span style="font-size:0.78rem;color:var(--bs-secondary-color);display:flex;align-items:center;gap:0.25rem;"><i class="bi bi-database" style="font-size:0.7rem;opacity:0.7;"></i>${statVal(p.project_id,'datasets')}</span>
                   <div class="ms-auto d-flex gap-1">
                     <a href="${url}search" class="btn btn-sm btn-outline-secondary px-2" onclick="event.stopPropagation()">
                         <i class="bi bi-search"></i>
@@ -328,7 +323,8 @@
               </div>
               <div class="col-org" style="min-width:0; overflow:hidden;">${orgText}</div>
               <div class="col-lead" style="min-width:0; overflow:hidden;">${leadText}</div>
-              <div>${statsHTML(p.project_id)}</div>
+              ${statCell(p.project_id, 'samples')}
+              ${statCell(p.project_id, 'datasets')}
               <div class="d-flex align-items-center justify-content-end gap-1">
                 <a href="${url}search" class="btn btn-sm btn-outline-secondary px-2" onclick="event.stopPropagation()" title="Search">
                     <i class="bi bi-search"></i>
@@ -363,7 +359,8 @@
               </div>
               <div class="col-org" style="min-width:0; overflow:hidden;">${orgText}</div>
               <div class="col-lead" style="min-width:0; overflow:hidden;">${leadText}</div>
-              <div>${statsHTML(p.project_id)}</div>
+              ${statCell(p.project_id, 'samples')}
+              ${statCell(p.project_id, 'datasets')}
               <div class="d-flex align-items-center justify-content-end">
                 <button class="btn btn-sm btn-outline-secondary px-2"
                         onclick="unhideProject('${esc(p.project_id)}', event)" title="Show again">
