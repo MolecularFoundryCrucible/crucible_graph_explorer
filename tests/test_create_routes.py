@@ -31,3 +31,10 @@ def test_create_sample_route_exists(app, client):
     resp = client.post('/proj-x/api/samples/create',
                        json={'sample_name': 'Test'})
     assert resp.status_code != 404
+
+
+def test_create_dataset_route_exists(app, client):
+    """Route must exist (not 404)."""
+    resp = client.post('/proj-x/api/datasets/create',
+                       json={'dataset_name': 'My DS'})
+    assert resp.status_code != 404

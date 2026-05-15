@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 import flask
 from flask import Blueprint, abort, jsonify, render_template, request
 from flask_pyoidc.user_session import UserSession
+from crucible.models import Dataset
 
 from utils.auth import get_user_client
 from utils.cache import (
@@ -244,6 +245,54 @@ def create_blueprint(auth):
             'id':   uid,
             'name': result.get('sample_name', sample_name),
             'url':  f'/{project_id}/samples/{uid}',
+        })
+
+    @bp.route("/<project_id>/api/datasets/create", methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def api_dataset_create(project_id):
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        data = request.get_json(silent=True) or {}
+
+        dataset_name = (data.get('dataset_name') or '').strip()
+        if not dataset_name:
+            return jsonify({'error': 'dataset_name is required'}), 400
+
+        measurement   = (data.get('measurement')     or '').strip() or None
+        session_name  = (data.get('session_name')    or '').strip() or None
+        instrument    = (data.get('instrument_name') or '').strip() or None
+        data_type     = (data.get('data_type')       or '').strip() or None
+        sample_ids    = [s for s in (data.get('sample_ids')  or []) if s]
+        parent_ids    = [p for p in (data.get('parent_ids')  or []) if p]
+
+        ds = Dataset(
+            dataset_name=dataset_name,
+            project_id=project_id,
+            measurement=measurement,
+            session_name=session_name,
+            instrument_name=instrument,
+            data_type=data_type,
+            owner_orcid=orcid,
+        )
+
+        try:
+            client = get_user_client()
+            result = client.datasets.create(ds)
+            uid = result['dsid']
+
+            for sid in sample_ids:
+                client.datasets.add_sample(uid, sid)
+            for pid in parent_ids:
+                client.datasets.link_parent_child(pid, uid)
+
+        except Exception as exc:
+            return jsonify({'error': str(exc)}), 500
+
+        clear_project_cache(project_id, orcid)
+        return jsonify({
+            'id':   uid,
+            'name': dataset_name,
+            'url':  f'/{project_id}/datasets/{uid}',
         })
 
     return bp
