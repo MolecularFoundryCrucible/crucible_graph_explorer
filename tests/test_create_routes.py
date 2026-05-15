@@ -18,3 +18,9 @@ def test_measurements_route_exists(app, client):
     """Route must exist (not 404) — auth redirect (302) or 200 is acceptable."""
     resp = client.get('/proj-x/api/measurements')
     assert resp.status_code != 404
+
+
+def test_instruments_json_route_exists(app, client):
+    """Route must exist (not 404)."""
+    resp = client.get('/api/instruments')
+    assert resp.status_code != 404

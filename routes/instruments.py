@@ -1,7 +1,7 @@
 import logging
 
 import flask
-from flask import Blueprint, abort, render_template
+from flask import Blueprint, abort, render_template, jsonify
 
 from utils.auth import get_user_client
 
@@ -36,5 +36,15 @@ def create_blueprint(auth):
                 recent_datasets = []
         return render_template('instrument.html', instrument=instrument,
                                custom_views=custom_views, recent_datasets=recent_datasets)
+
+    @bp.route("/api/instruments")
+    @auth.oidc_auth('orcid')
+    def api_instruments_json():
+        instruments = get_user_client().instruments.list()
+        return jsonify([
+            {'name': i.get('instrument_name', ''), 'id': i.get('unique_id', '')}
+            for i in instruments
+            if i.get('instrument_name')
+        ])
 
     return bp
