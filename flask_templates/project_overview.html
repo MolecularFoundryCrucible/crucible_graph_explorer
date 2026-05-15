@@ -21,10 +21,28 @@
   <div class="cg-sidebar-content">
 
     <!-- ── navigation zone ─────────────────────────────────────────── -->
-    <a href="/" class="cg-sidebar-action">
-      <i class="bi bi-house"></i>
+    <a href="/" class="cg-sidebar-action" style="font-size:var(--fs-md); padding:0.55rem 0.85rem;">
+      <i class="bi bi-house" style="font-size:var(--fs-lg);"></i>
       <span>Dashboard</span>
     </a>
+
+    <!-- ── project actions zone ────────────────────────────────────── -->
+    <div class="cg-sidebar-section">
+      <a href="/{{pc['project_id']}}/search" class="cg-sidebar-action">
+        <i class="bi bi-search"></i><span>Search</span>
+      </a>
+      <a href="/{{pc['project_id']}}/chat" class="cg-sidebar-action">
+        <i class="bi bi-chat-dots"></i><span>Chat</span>
+      </a>
+      {% if custom_views %}
+      {% for view in custom_views %}
+      <a href="{{ view.url }}" class="cg-sidebar-action">
+        {% if view.icon %}<i class="bi {{ view.icon }}"></i>{% endif %}
+        <span>{{ view.label }}</span>
+      </a>
+      {% endfor %}
+      {% endif %}
+    </div>
 
     <!-- ── browse zone ─────────────────────────────────────────────── -->
     <div class="cg-sidebar-section px-2 pt-2">
@@ -61,6 +79,9 @@
   <div class="cg-sidebar-icon-rail" id="sidebarIconRail">
     <button class="cg-rail-btn" onclick="window.location.href='/'" title="Dashboard">
       <i class="bi bi-house"></i>
+    </button>
+    <button class="cg-rail-btn" onclick="window.location.href='/{{pc[&quot;project_id&quot;]}}/search'" title="Search">
+      <i class="bi bi-search"></i>
     </button>
     <button class="cg-rail-btn" onclick="toggleSidebar()" title="Browse samples &amp; datasets">
       <i class="bi bi-funnel"></i>
@@ -237,24 +258,6 @@ function toggleSidebar() {
             </div>
         </div>
 
-        <div class="d-flex cg-card-actions" style="padding:0;">
-            <a href="/{{pid}}/search" class="action-link flex-fill py-2 border-end text-secondary">
-                <i class="bi bi-search"></i> Search
-            </a>
-            <a href="/{{pid}}/chat" class="action-link flex-fill py-2 text-primary">
-                <i class="bi bi-chat-dots"></i> Chat
-            </a>
-        </div>
-        {% if custom_views %}
-        <div class="d-flex flex-wrap gap-2 border-top px-3 py-2"
-             style="background:var(--bs-tertiary-bg);">
-            {% for view in custom_views %}
-            <a href="{{ view.url }}" class="btn btn-sm btn-outline-secondary">
-                {% if view.icon %}<i class="bi {{ view.icon }} me-1"></i>{% endif %}{{ view.label }}
-            </a>
-            {% endfor %}
-        </div>
-        {% endif %}
     </div>
 
     <!-- ── tab switcher + controls (sticky) ─────────────────────────────── -->
