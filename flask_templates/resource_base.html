@@ -1,0 +1,457 @@
+{% from 'macros.html' import mrow, mrow_link, section_metadata, deletion_banner, resource_sidebar, resource_card_identity %}
+{% extends "base.html" %}
+{% block title %}{{ res_name }}{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    /* ── graph containers ───────────────────────────────────────────────── */
+    #cy {
+        width: 100%; height: 40vh; min-height: 280px;
+        border-top: 1px solid var(--bs-border-color);
+    }
+    #section-graph:fullscreen {
+        background: var(--bs-body-bg);
+        display: flex !important;
+        flex-direction: column;
+        height: 100vh;
+    }
+    #section-graph:fullscreen .res-section-body {
+        flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    }
+    #section-graph:fullscreen #cy {
+        flex: 1; height: unset !important; min-height: unset !important;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="/{{pid}}/">{{pid}}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{res_name}}</li>
+{% endblock %}
+
+{% block main_col_class %}col-12 col-md{% endblock %}
+
+{% block content %}
+
+{{ deletion_banner(res) }}
+
+<div class="d-flex gap-3 align-items-start">
+<div style="flex: 1; min-width: 0; max-width: 680px;">
+
+<!-- ── compact resource card ────────────────────────────────────────────── -->
+<div class="cg-resource-card mb-3" id="{{ res_card_id }}" style="max-width:680px;">
+
+  <!-- Identity strip -->
+  {{ resource_card_identity(res_avatar_id, res_name, res['unique_id'],
+                            keywords=res.get('keywords'), type_badge=res_type) }}
+
+  <!-- Action strip -->
+  <div class="cg-card-actions">
+    <div class="cg-sibling-nav">
+      {% if sibling_count > 1 %}
+        {% if prev_sibling %}
+        <a class="cg-sib-btn" href="/{{pid}}/{{res_url_seg}}/{{prev_sibling['unique_id']}}" title="{{prev_sibling[rel_item_name_field]}}"><i class="bi bi-chevron-left"></i></a>
+        {% else %}
+        <button class="cg-sib-btn" disabled><i class="bi bi-chevron-left"></i></button>
+        {% endif %}
+        <span class="cg-sib-label">{{sibling_index}}&thinsp;/&thinsp;{{sibling_count}}{% if sibling_label %}<span class="cg-sib-type">{{sibling_label}}</span>{% endif %}</span>
+        {% if next_sibling %}
+        <a class="cg-sib-btn" href="/{{pid}}/{{res_url_seg}}/{{next_sibling['unique_id']}}" title="{{next_sibling[rel_item_name_field]}}"><i class="bi bi-chevron-right"></i></a>
+        {% else %}
+        <button class="cg-sib-btn" disabled><i class="bi bi-chevron-right"></i></button>
+        {% endif %}
+        <button class="cg-sib-jump-btn" onclick="toggleSibJump(event)">Jump <i class="bi bi-chevron-down" style="font-size:0.7em;"></i></button>
+        <div id="sibJumpDropdown" class="cg-sib-dropdown" style="display:none;">
+          {% for sib in siblings %}
+          <a class="cg-sib-item {% if sib['unique_id'] == res['unique_id'] %}active{% endif %}"
+             href="/{{pid}}/{{res_url_seg}}/{{sib['unique_id']}}">{{sib[rel_item_name_field]}}</a>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <select class="cg-sib-groupby" onchange="changeSiblingGroup(this)" title="Group by">
+        {% block sibling_groupby_options %}{% endblock %}
+      </select>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── section controls ─────────────────────────────────────────────── -->
+<div class="d-flex align-items-center gap-1 mb-2" style="max-width:680px;">
+  <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
+          style="font-size:0.75rem; text-decoration:none;" onclick="setAllSections(true)">
+    <i class="bi bi-chevron-expand"></i><span>Expand all</span>
+  </button>
+  <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
+          style="font-size:0.75rem; text-decoration:none;" onclick="setAllSections(false)">
+    <i class="bi bi-chevron-contract"></i><span>Collapse all</span>
+  </button>
+</div>
+
+<!-- ── details section — expanded by default ────────────────────────────────── -->
+<div class="res-section" id="section-details">
+    <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-card-list text-muted"></i>
+        <span>Details</span>
+        <i class="bi bi-chevron-right res-section-chevron" style="transform: rotate(90deg);"></i>
+    </div>
+    <div class="res-section-body">
+        <div class="px-3 pt-2 pb-3">
+            {% block details_section %}{% endblock %}
+        </div>
+    </div>
+</div>
+
+{% block resource_sections %}{% endblock %}
+
+<!-- ── entity graph ──────────────────────────────────────────────────── -->
+<div class="res-section" id="section-graph">
+    <div class="res-section-header" onclick="toggleGraphSection(this)">
+        <i class="bi bi-diagram-3 text-muted"></i>
+        <span>{% block graph_section_title %}Entity Graph{% endblock %}</span>
+        <div class="d-flex gap-2 ms-auto me-2" onclick="event.stopPropagation()">
+            {% block extra_graph_buttons %}{% endblock %}
+            <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                <i class="bi bi-arrow-left-right me-1"></i>Vertical
+            </button>
+            <button id="fitBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                <i class="bi bi-bounding-box me-1"></i>Fit
+            </button>
+            <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                <i class="bi bi-image me-1"></i>Thumbnails
+            </button>
+            <button id="fullscreenBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.75rem;">
+                <i class="bi bi-fullscreen me-1"></i>Fullscreen
+            </button>
+        </div>
+        <i class="bi bi-chevron-right res-section-chevron" style="margin-left: 0;"></i>
+    </div>
+    <div class="res-section-body" style="position:relative; display:none;">
+        <div id="cy-spinner" style="position:absolute;inset:0;display:none;align-items:center;
+                                    justify-content:center;z-index:5;background:var(--bs-body-bg);">
+            <div class="spinner-border text-secondary" role="status">
+                <span class="visually-hidden">Loading…</span>
+            </div>
+        </div>
+        <div id="cy-error" style="position:absolute;inset:0;display:none;align-items:center;
+                                   justify-content:center;z-index:5;background:var(--bs-body-bg);
+                                   flex-direction:column;text-align:center;
+                                   color:var(--bs-secondary-color);padding:2rem;gap:0.5rem;"></div>
+        <div id="cy" data-project-id="{{pid}}"></div>
+        <div id="zoomHint" style="position:absolute; bottom:0.5rem; right:0.75rem;
+                                   font-size:0.72rem; color:var(--bs-secondary-color);
+                                   pointer-events:none; transition:opacity 1s; opacity:1;">
+            <i class="bi bi-keyboard me-1"></i>Ctrl + scroll to zoom
+        </div>
+    </div>
+</div>
+
+{% block bottom_sections %}{% endblock %}
+
+<script type="module">
+  let cyInstance  = null;
+  let graphData   = null;
+  let graphLoaded = false;
+
+  function _graphError(msg) {
+    const el = document.getElementById('cy-error');
+    if (!el) return;
+    el.innerHTML = `<i class="bi bi-exclamation-circle mb-2" style="font-size:1.5rem;color:var(--bs-warning);"></i>`
+                 + `<span style="font-size:0.85rem;">${msg}</span>`;
+    el.style.display = 'flex';
+  }
+
+  async function renderGraph() {
+    const spinner = document.getElementById('cy-spinner');
+    const errorEl = document.getElementById('cy-error');
+    if (spinner) spinner.style.display = 'flex';
+    if (errorEl) errorEl.style.display = 'none';
+    if (cyInstance) { cyInstance.destroy(); cyInstance = null; }
+
+    try {
+      if (!graphData) {
+        const r = await fetch('{{ graph_fetch_url }}');
+        if (!r.ok) throw new Error(`Graph API returned ${r.status}`);
+        graphData = await r.json();
+      }
+
+      const initGraph = await window.loadEntityGraph();
+
+      if (!graphData.nodes || graphData.nodes.length === 0) {
+        _graphError('No graph data available.');
+        return;
+      }
+
+      cyInstance = initGraph('cy', graphData);
+
+      const hint = document.getElementById('zoomHint');
+      if (hint) {
+        hint.style.transition = 'none';
+        hint.style.opacity = '1';
+        setTimeout(() => { hint.style.transition = 'opacity 1.5s'; hint.style.opacity = '0'; }, 2500);
+      }
+    } catch (err) {
+      console.error('Graph render failed:', err);
+      _graphError(err.message || 'Could not load graph');
+    } finally {
+      if (spinner) spinner.style.display = 'none';
+    }
+  }
+
+  document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
+    if (cyInstance && cyInstance.toggleLayout) {
+      const newLayout = cyInstance.toggleLayout();
+      this.innerHTML = newLayout === 'LR'
+        ? '<i class="bi bi-arrow-left-right me-1"></i>Vertical'
+        : '<i class="bi bi-arrow-down me-1"></i>Horizontal';
+      setTimeout(() => { if (cyInstance) { cyInstance.resize(); cyInstance.fit(); } }, 550);
+    }
+  });
+
+  document.getElementById('fitBtn').addEventListener('click', () => {
+    if (cyInstance) cyInstance.fit();
+  });
+
+  document.getElementById('toggleThumbnailsBtn').addEventListener('click', function() {
+    if (cyInstance && cyInstance.toggleThumbnails) {
+      const visible = cyInstance.toggleThumbnails();
+      this.innerHTML = visible
+        ? '<i class="bi bi-image me-1"></i>Thumbnails'
+        : '<i class="bi bi-image-fill me-1"></i>No Thumbnails';
+    }
+  });
+
+  document.getElementById('fullscreenBtn').addEventListener('click', async () => {
+    const section = document.getElementById('section-graph');
+    const body    = section.querySelector('.res-section-body');
+    if (!document.fullscreenElement) {
+      if (body.style.display === 'none') toggleSection(section.querySelector('.res-section-header'));
+      if (!graphLoaded) {
+        graphLoaded = true;
+        await renderGraph();
+      } else if (cyInstance) {
+        cyInstance.resize(); cyInstance.fit();
+      }
+      section.requestFullscreen().catch(err => console.error(err));
+    } else {
+      document.exitFullscreen();
+    }
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    const btn = document.getElementById('fullscreenBtn');
+    btn.innerHTML = document.fullscreenElement
+      ? '<i class="bi bi-fullscreen-exit me-1"></i>Exit'
+      : '<i class="bi bi-fullscreen me-1"></i>Fullscreen';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (cyInstance) { cyInstance.resize(); cyInstance.fit(); }
+    }));
+  });
+
+  window.toggleGraphSection = function(header) {
+    toggleSection(header);
+    const body = header.nextElementSibling;
+    if (body.style.display !== 'none') {
+      if (!graphLoaded) {
+        graphLoaded = true;
+        renderGraph();
+      } else if (cyInstance) {
+        cyInstance.resize(); cyInstance.fit();
+      }
+    }
+  };
+</script>
+
+<script>
+    const _SIDEBAR_KEY = 'cg_sidebar_collapsed';
+    const _PID = {{ pid | tojson }};
+
+    function goBackToProject() {
+        const stored = localStorage.getItem('cg_overview_state_' + _PID);
+        window.location.href = '/' + _PID + '/' + (stored || '');
+    }
+
+    function toggleSidebar() {
+        const sb = document.getElementById('resourceSidebar');
+        const collapsed = sb.classList.toggle('collapsed');
+        document.documentElement.classList.toggle('sidebar-collapsed', collapsed);
+        localStorage.setItem(_SIDEBAR_KEY, collapsed ? '1' : '');
+    }
+
+    // Render small project avatar in icon rail
+    (function() {
+        const railAv = document.getElementById('projectAvatarRail');
+        if (railAv) makeAvatar(railAv, _PID, '24px', '0.65rem');
+    })();
+
+    const projAv = document.getElementById('projectAvatar');
+    if (projAv) makeAvatar(projAv, {{ pid | tojson }}, '1.5rem', '0.6rem');
+
+    const resColor = hashColor({{ (res_type or res_name) | tojson }});
+    makeAvatar(document.getElementById('{{ res_avatar_id }}'), {{ res_name | tojson }});
+    document.getElementById('{{ res_card_id }}').style.borderLeftColor = resColor;
+
+    function toggleSibJump(event) {
+        event.stopPropagation();
+        const dd = document.getElementById('sibJumpDropdown');
+        if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+    }
+    document.addEventListener('click', () => {
+        const dd = document.getElementById('sibJumpDropdown');
+        if (dd) dd.style.display = 'none';
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            const dd = document.getElementById('sibJumpDropdown');
+            if (dd) dd.style.display = 'none';
+        }
+    });
+
+    function changeSiblingGroup(sel) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('{{ groupby_param }}', sel.value);
+        window.location.href = url.toString();
+    }
+    (function() {
+        const gbParam = new URLSearchParams(window.location.search).get('{{ groupby_param }}') || '{{ groupby_default }}';
+        const sel = document.querySelector('.cg-sib-groupby');
+        if (sel) sel.value = gbParam;
+    })();
+</script>
+
+{% block resource_scripts %}{% endblock %}
+
+</div>{# end flex-1 content column #}
+
+<!-- ── right panel: relationships (xl+ only) ─────────────────────────── -->
+<div class="rel-panel d-none d-xl-flex flex-column flex-shrink-0">
+  <div style="position: sticky; top: 3.25rem; max-height: calc(100vh - 3.5rem); overflow-y: auto;">
+
+    <!-- panel title -->
+    <div class="rel-panel-title">
+      <i class="bi bi-diagram-3"></i>
+      Relationships
+      {% set total = (rel_parents|length) + (rel_children|length) + (rel_associated|length) %}
+      {% if total %}<span class="ms-auto" style="font-family:'IBM Plex Mono',monospace; font-size:0.72rem;">{{ total }}</span>{% endif %}
+    </div>
+
+    {% if not rel_parents and not rel_children and not rel_associated %}
+    <div class="rel-panel-empty">
+      <i class="bi bi-diagram-3 d-block mb-2 opacity-40" style="font-size:1.5rem;"></i>
+      No relationships
+    </div>
+    {% endif %}
+
+    <!-- Parents -->
+    {% if rel_parents %}
+    <div class="res-section">
+      <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-arrow-up-short" style="color:var(--cg-accent-mid);"></i>
+        <span>Parents</span>
+        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ rel_parents|length }}</span>
+        <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
+      </div>
+      <div class="res-section-body">
+        {% for item in rel_parents %}
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')">
+          <i class="bi {{ rel_item_icon }}" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
+          <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Children -->
+    {% if rel_children %}
+    <div class="res-section">
+      <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-arrow-down-short" style="color:var(--cg-accent-mid);"></i>
+        <span>Children</span>
+        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ rel_children|length }}</span>
+        <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
+      </div>
+      <div class="res-section-body">
+        {% for item in rel_children %}
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')">
+          <i class="bi {{ rel_item_icon }}" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
+          <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Associated items (cross-type) -->
+    {% if rel_associated %}
+    <div class="res-section">
+      <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi {{ rel_assoc_icon }}" style="color:var(--cg-accent-mid); font-size:0.8rem;"></i>
+        <span>{{ rel_assoc_label }}</span>
+        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ rel_associated|length }}</span>
+        <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
+      </div>
+      <div class="res-section-body">
+        {% for item in rel_associated %}
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_assoc_url_seg}}/{{item['unique_id']}}')">
+          <i class="bi {{ rel_assoc_icon }}" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0;"></i>
+          <span class="rel-item-name">
+            <span class="rel-item-name-text">{{item[rel_assoc_name_field]}}</span>
+            <span class="rel-item-sub mfid">{{item['unique_id']}}</span>
+            {% if item.get(rel_assoc_sub_field) %}<span class="rel-item-sub">{{item[rel_assoc_sub_field]}}</span>{% endif %}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Further ancestors (collapsed) -->
+    {% if rel_indirect_parents %}
+    <div class="res-section">
+      <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-arrow-up" style="color:var(--cg-accent-mid); font-size:0.75rem;"></i>
+        <span>Further ancestors</span>
+        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ rel_indirect_parents|length }}</span>
+        <i class="bi bi-chevron-right res-section-chevron"></i>
+      </div>
+      <div class="res-section-body" style="display:none;">
+        {% for item in rel_indirect_parents %}
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')">
+          <i class="bi {{ rel_item_icon }}" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0; opacity:0.6;"></i>
+          <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Further descendants (collapsed) -->
+    {% if rel_indirect_children %}
+    <div class="res-section">
+      <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-arrow-down" style="color:var(--cg-accent-mid); font-size:0.75rem;"></i>
+        <span>Further descendants</span>
+        <span class="badge fw-normal border text-muted ms-1" style="background:var(--bs-body-bg); font-size:0.72rem;">{{ rel_indirect_children|length }}</span>
+        <i class="bi bi-chevron-right res-section-chevron"></i>
+      </div>
+      <div class="res-section-body" style="display:none;">
+        {% for item in rel_indirect_children %}
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')">
+          <i class="bi {{ rel_item_icon }}" style="font-size:0.7rem; color:var(--cg-accent-mid); flex-shrink:0; opacity:0.6;"></i>
+          <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% block rel_panel_extra %}{% endblock %}
+
+  </div>
+</div>
+
+</div>{# end outer flex row #}
+
+{% endblock %}
