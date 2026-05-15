@@ -193,4 +193,20 @@ def create_blueprint(auth):
                         or q in (d.get('unique_id') or '').lower()]
         return jsonify([{'id': d['unique_id'], 'name': d['dataset_name']} for d in datasets[:20]])
 
+    @bp.route("/<project_id>/api/measurements")
+    @auth.oidc_auth('orcid')
+    def project_api_measurements(project_id):
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        q = request.args.get('q', '').lower()
+        pc = get_project(project_id, orcid)
+        types = sorted({
+            ds.get('measurement')
+            for ds in pc['datasets']
+            if ds.get('measurement')
+        })
+        if q:
+            types = [t for t in types if q in t.lower()]
+        return jsonify(types)
+
     return bp
