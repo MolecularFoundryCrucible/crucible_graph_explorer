@@ -12,7 +12,7 @@ from flask_qrcode import QRcode
 from flask_vite import Vite
 from crucible import CrucibleClient
 
-from utils.cache import clear_project_cache, get_project
+from utils.cache import clear_project_cache, get_project, is_user_in_project
 from utils.graph import get_entity_graph_nx, get_project_graph
 from utils.helpers import abbrev_name, humanize_size
 
@@ -326,6 +326,7 @@ _plugin_helpers = {
     'get_entity_graph_nx':      get_entity_graph_nx,
     'get_project_graph':        get_project_graph,
     'clear_project_cache':      clear_project_cache,
+    'is_user_in_project':       is_user_in_project,
 }
 
 # ── Route blueprints ──────────────────────────────────────────────────────────
