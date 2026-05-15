@@ -129,6 +129,15 @@
       <input type="text" id="ds-datatype" class="form-control" autocomplete="off">
     </div>
     <div class="mb-3">
+      <label class="form-label fw-semibold">Files</label>
+      <div id="ds-drop-zone" class="cg-drop-zone" onclick="document.getElementById('ds-file-input').click()">
+        <i class="bi bi-upload d-block mb-1" style="font-size:var(--fs-xl);"></i>
+        Click or drag &amp; drop files here
+      </div>
+      <input type="file" id="ds-file-input" multiple style="display:none;">
+      <ul class="cg-drop-file-list" id="ds-file-list"></ul>
+    </div>
+    <div class="mb-3">
       <label class="form-label fw-semibold">Relationships</label>
       <div id="ds-links-container"></div>
       <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="dsLinks.openPicker()">
@@ -409,6 +418,50 @@ const NOTE_LINK_TYPES = [
     { type: 'linked_dataset',  label: 'Linked Dataset',  icon: 'bi-database', endpoint: 'datasets' },
 ];
 
+// ── File drop zone ────────────────────────────────────────────────────────────
+const _dsFiles = [];  // DataTransfer-like list of File objects
+
+function _dsRenderFileList() {
+    const ul = document.getElementById('ds-file-list');
+    ul.innerHTML = _dsFiles.map((f, i) =>
+        `<li>
+            <i class="bi bi-file-earmark" style="font-size:var(--fs-xs); flex-shrink:0;"></i>
+            <span class="cg-file-name">${escHtml(f.name)}</span>
+            <span class="text-muted" style="font-size:var(--fs-xs); flex-shrink:0;">${(f.size/1024).toFixed(0)} KB</span>
+            <button type="button" class="btn-close ms-1" style="font-size:var(--fs-2xs);"
+                    onclick="_dsRemoveFile(${i})"></button>
+        </li>`
+    ).join('');
+}
+
+function _dsRemoveFile(idx) {
+    _dsFiles.splice(idx, 1);
+    _dsRenderFileList();
+}
+
+function _dsAddFiles(fileList) {
+    for (const f of fileList) {
+        if (!_dsFiles.some(e => e.name === f.name && e.size === f.size)) {
+            _dsFiles.push(f);
+        }
+    }
+    _dsRenderFileList();
+}
+
+(function() {
+    const zone  = document.getElementById('ds-drop-zone');
+    const input = document.getElementById('ds-file-input');
+    if (!zone || !input) return;
+    zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        _dsAddFiles(e.dataTransfer.files);
+    });
+    input.addEventListener('change', () => { _dsAddFiles(input.files); input.value = ''; });
+})();
+
 // ── Instantiate link builders ─────────────────────────────────────────────────
 const spLinks = new CgLinkBuilder('sp-links-container', '{{ pid }}', SAMPLE_LINK_TYPES);
 const dsLinks = new CgLinkBuilder('ds-links-container', '{{ pid }}', DATASET_LINK_TYPES);
@@ -477,6 +530,25 @@ async function cgSubmitDataset(pid) {
         errEl.style.display = '';
         return;
     }
+    if (_dsFiles.length) {
+        const btn = document.getElementById('ds-submit');
+        for (let i = 0; i < _dsFiles.length; i++) {
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Uploading ${i+1}/${_dsFiles.length}…`;
+            const fd = new FormData();
+            fd.append('file', _dsFiles[i]);
+            const ur = await fetch(`/${selectedPid}/api/datasets/${data.id}/upload-file`, {
+                method: 'POST', body: fd,
+            });
+            if (!ur.ok) {
+                const ud = await ur.json().catch(() => ({}));
+                errEl.textContent = `File "${_dsFiles[i].name}" upload failed: ${ud.error || ur.status}`;
+                errEl.style.display = '';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Create Dataset';
+                return;
+            }
+        }
+    }
     window.location.href = data.url;
 }
 
@@ -535,6 +607,8 @@ function cgOpenDatasetPanel() {
     document.getElementById('ds-measurement-results').style.display = 'none';
     document.getElementById('ds-meta-error').style.display = 'none';
     document.getElementById('ds-error').style.display      = 'none';
+    _dsFiles.length = 0;
+    _dsRenderFileList();
     dsLinks.reset();
     cgOpenPanel('cgDatasetPanel');
     if (!_instrumentsLoaded) {

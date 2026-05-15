@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -146,6 +147,28 @@ def create_blueprint(auth):
 
         return render_template('mdnote_edit.html',
                                project_id=project_id, ds=ds, md_content=md_content)
+
+    @bp.route("/<project_id>/api/datasets/<dsid>/upload-file", methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def api_dataset_upload_file(project_id, dsid):
+        f = request.files.get('file')
+        if not f or not f.filename:
+            return jsonify({'error': 'No file received'}), 400
+        filename = os.path.basename(f.filename) or 'upload'
+        tmpdir = tempfile.mkdtemp()
+        tmpfile = os.path.join(tmpdir, filename)
+        f.save(tmpfile)
+        try:
+            get_user_client().datasets.add_file_to_dataset(
+                dsid, tmpfile,
+                ingestion_class='ApiUploadIngestor',
+                wait_for_ingestion_response=False,
+            )
+        except Exception as exc:
+            return jsonify({'error': str(exc)}), 500
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        return jsonify({'ok': True, 'filename': filename})
 
     @bp.route("/<project_id>/datasets/<dsid>/files/<file_id>/download_link")
     @auth.oidc_auth('orcid')
