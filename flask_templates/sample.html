@@ -138,7 +138,7 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for ds in s['datasets'] %}
-        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{pid}}/datasets/{{ds[\'unique_id\']}}')">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{pid}}/datasets/{{ds["unique_id"]}}')">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{ds['dataset_name']}}</span>
             {% if ds.get('measurement') %}
             <span class="badge fw-normal border text-body-secondary flex-shrink-0 me-2"
@@ -165,7 +165,7 @@
     <div class="res-section-body" style="display:none;">
         {%- macro anc_row(anc) -%}
         {%- set aname = anc['sample_name'] -%}
-        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{pid}}/samples/{{anc[\'unique_id\']}}')">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{pid}}/samples/{{anc["unique_id"]}}')">
             <div style="flex:1; min-width:8rem;">
                 <div class="fw-medium">{{aname}}</div>
                 <div class="small text-muted text-truncate">
@@ -201,7 +201,7 @@
     <div class="res-section-body" style="display:none;">
         {%- macro desc_row(desc) -%}
         {%- set dname = desc['sample_name'] -%}
-        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{pid}}/samples/{{desc[\'unique_id\']}}')">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{pid}}/samples/{{desc["unique_id"]}}')">
             <div style="flex:1; min-width:8rem;">
                 <div class="fw-medium">{{dname}}</div>
                 <div class="small text-muted text-truncate">
