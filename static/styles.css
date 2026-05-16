@@ -47,6 +47,18 @@
 }
 
 /* ── brand-tinted primary button ─────────────────────────────── */
+/* ── accent-teal outline button (Chat links in dashboard) ───────── */
+.btn-cg-accent {
+    --bs-btn-color:              var(--cg-link);
+    --bs-btn-bg:                 transparent;
+    --bs-btn-border-color:       var(--cg-accent-mid);
+    --bs-btn-hover-color:        var(--cg-link);
+    --bs-btn-hover-bg:           var(--cg-hover-bg);
+    --bs-btn-hover-border-color: var(--cg-accent-mid);
+    --bs-btn-active-bg:          var(--cg-hover-bg);
+    --bs-btn-active-border-color:var(--cg-accent-mid);
+}
+
 .btn-primary {
     --bs-btn-color:              #fff;
     --bs-btn-bg:                 #3a7a87;
