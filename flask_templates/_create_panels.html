@@ -73,7 +73,7 @@
     </button>
     <button class="btn btn-outline-secondary" onclick="cgCloseAllPanels()">Cancel</button>
     <span id="sp-error" class="text-danger small ms-auto align-self-center" style="display:none;"></span>
-    <button id="sp-del-btn" class="btn btn-sm btn-link text-danger ms-auto py-0" style="display:none; font-size:var(--fs-xs);"
+    <button id="sp-del-btn" class="btn btn-link text-danger ms-auto py-0" style="display:none; font-size:var(--fs-sm);"
             onclick="cgRequestDeletion('sp-del-btn','{{ pid }}')">
       <i class="bi bi-trash3 me-1"></i>Request deletion
     </button>
@@ -167,7 +167,7 @@
     </button>
     <button class="btn btn-outline-secondary" onclick="cgCloseAllPanels()">Cancel</button>
     <span id="ds-error" class="text-danger small ms-auto align-self-center" style="display:none;"></span>
-    <button id="ds-del-btn" class="btn btn-sm btn-link text-danger ms-auto py-0" style="display:none; font-size:var(--fs-xs);"
+    <button id="ds-del-btn" class="btn btn-link text-danger ms-auto py-0" style="display:none; font-size:var(--fs-sm);"
             onclick="cgRequestDeletion('ds-del-btn','{{ pid }}')">
       <i class="bi bi-trash3 me-1"></i>Request deletion
     </button>
@@ -740,8 +740,8 @@ function _cgCancelDeletion(btnId) {
     if (!wrap) return;
     const btn = document.createElement('button');
     btn.id = btnId;
-    btn.className = 'btn btn-sm btn-link text-danger ms-auto py-0';
-    btn.style.cssText = 'font-size:var(--fs-xs);';
+    btn.className = 'btn btn-link text-danger ms-auto py-0';
+    btn.style.cssText = 'font-size:var(--fs-sm);';
     btn.innerHTML = '<i class="bi bi-trash3 me-1"></i>Request deletion';
     const pid = btnId === 'sp-del-btn'
         ? document.getElementById('sp-submit').dataset.editPid

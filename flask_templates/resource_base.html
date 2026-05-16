@@ -211,7 +211,7 @@
       {% set total = (rel_parents|length) + (rel_children|length) + (rel_associated|length) %}
       <span class="ms-auto d-flex align-items-center gap-2">
         {% if total %}<span class="mfid" style="font-size: var(--fs-xs);">{{ total }}</span>{% endif %}
-        <button class="btn btn-sm py-0 px-2" style="font-size:var(--fs-xs); border:1px solid var(--cg-accent-mid); color:var(--cg-link);"
+        <button class="btn btn-sm px-2" style="font-size:var(--fs-sm); border:1px solid var(--cg-accent-mid); color:var(--cg-link); line-height:1.4;"
                 onclick="cgRelAddOpen(this)"
                 data-pid="{{pid}}"
                 data-source-id="{{res['unique_id']}}"
