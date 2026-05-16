@@ -793,6 +793,7 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 }
 .cg-create-panel-body {
     flex: 1; min-height: 0; overflow-y: auto; padding: 1.25rem 1.1rem;
+    font-size: var(--fs-md);
 }
 .cg-create-panel-footer {
     display: flex; gap: 0.5rem; padding: 0.85rem 1.1rem;
