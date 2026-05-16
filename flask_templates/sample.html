@@ -34,6 +34,7 @@
 {% set sidebar_actions = [
     {'label': 'Search',       'url': '/' ~ pid ~ '/search',                                        'icon': 'bi-search'},
     {'label': 'Chat',         'url': '/' ~ pid ~ '/chat',                                          'icon': 'bi-chat-dots'},
+    {'separator': true},
     {'label': 'Edit sample',  'onclick': 'cgOpenSamplePanel(SAMPLE_DATA)',                         'icon': 'bi-pencil'},
     {'label': 'Upload photo', 'url': '/' ~ pid ~ '/samples/' ~ s['unique_id'] ~ '/upload-photo',  'icon': 'bi-camera'},
 ] %}
