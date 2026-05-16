@@ -12,8 +12,8 @@
         }
         .list-row:last-child { border-bottom: none; }
         .list-row:hover { background: var(--cg-hover-bg); color: inherit; }
-        .result-meta { font-size: 0.8em; color: var(--bs-secondary-color); }
-        #results-summary { font-size: 0.85em; color: var(--bs-secondary-color); min-height: 1.4em; }
+        .result-meta { font-size: var(--fs-sm); color: var(--bs-secondary-color); }
+        #results-summary { font-size: var(--fs-md); color: var(--bs-secondary-color); min-height: 1.5rem; }
     </style>
 {% endblock %}
 
@@ -24,7 +24,7 @@
 
 {% block content %}
 
-<h1 class="fs-4 fw-semibold mb-3"><i class="bi bi-search me-2 text-secondary"></i>Search <span class="mfid">{{pc['project_id']}}</span></h1>
+<h1 class="fw-semibold mb-3" style="font-size:var(--fs-2xl);"><i class="bi bi-search me-2 text-secondary"></i>Search <span class="mfid">{{pc['project_id']}}</span></h1>
 
 <div class="mb-3">
     <input id="search-input" type="text" class="form-control form-control-lg"

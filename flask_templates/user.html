@@ -64,7 +64,7 @@
     }
     .profile-stat:last-child { border-right: none; }
     .profile-stat-num {
-        font-size: 1.15rem; font-weight: 700; line-height: 1;
+        font-size: var(--fs-xl); font-weight: 700; line-height: 1;
         color: var(--cg-accent-mid);
     }
     .profile-stat-label {
@@ -359,7 +359,7 @@
     <div class="res-section">
         <div class="res-section-header" onclick="toggleSection(this)">
             <i class="bi bi-database text-muted"></i>
-            <span>Recent Datasets <span class="text-muted fw-normal" style="font-size:0.75em;">(by creation date)</span></span>
+            <span>Recent Datasets <span class="text-muted fw-normal" (by creation date)>(by creation date)</span></span>
             <span class="badge fw-normal border text-muted ms-1"
                   style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
                 {{ recent_datasets | length }}
@@ -398,7 +398,7 @@
     <div class="res-section">
         <div class="res-section-header" onclick="toggleSection(this)">
             <i class="bi bi-flask text-muted"></i>
-            <span>Recent Samples <span class="text-muted fw-normal" style="font-size:0.75em;">(by creation date)</span></span>
+            <span>Recent Samples <span class="text-muted fw-normal" (by creation date)>(by creation date)</span></span>
             <span class="badge fw-normal border text-muted ms-1"
                   style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
                 {{ recent_samples | length }}

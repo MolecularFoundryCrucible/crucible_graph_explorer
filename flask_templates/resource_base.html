@@ -61,7 +61,7 @@
         {% else %}
         <button class="cg-sib-btn" disabled><i class="bi bi-chevron-right"></i></button>
         {% endif %}
-        <button class="cg-sib-jump-btn" onclick="toggleSibJump(event)">Jump <i class="bi bi-chevron-down" style="font-size:0.7em;"></i></button>
+        <button class="cg-sib-jump-btn" onclick="toggleSibJump(event)">Jump <i class="bi bi-chevron-down" style="font-size:var(--fs-xs);"></i></button>
         <div id="sibJumpDropdown" class="cg-sib-dropdown" style="display:none;">
           {% for sib in siblings %}
           <a class="cg-sib-item {% if sib['unique_id'] == res['unique_id'] %}active{% endif %}"

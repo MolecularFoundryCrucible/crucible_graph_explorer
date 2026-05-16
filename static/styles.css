@@ -66,7 +66,7 @@ body { font-family: 'IBM Plex Sans', sans-serif; }
 .mfid, .metadata-tree, code, pre, kbd, samp {
     font-family: 'IBM Plex Mono', monospace;
 }
-.mfid { color: var(--bs-secondary-color); white-space: nowrap; font-size: 0.85em; }
+.mfid { color: var(--bs-secondary-color); white-space: nowrap; font-size: var(--fs-xs); }
 
 /* ── links ──────────────────────────────────────────────────────── */
 a { color: var(--cg-link); }
@@ -116,7 +116,7 @@ a:hover { color: var(--cg-link-hover); }
     display: inline-flex; align-items: center; gap: 0.45rem;
     text-decoration: none; flex-shrink: 0;
     font-family: 'IBM Plex Mono', monospace;
-    font-weight: 500; font-size: 1rem;
+    font-weight: 500; font-size: var(--fs-lg);
     color: var(--cg-accent);
     transition: color 0.15s;
 }
@@ -271,7 +271,7 @@ a:hover { color: var(--cg-link-hover); }
     width: 2.5rem; height: 2.5rem; border-radius: 50%; border: none;
     background: var(--cg-navy); color: var(--cg-accent);
     box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer;
-    align-items: center; justify-content: center; font-size: 1rem;
+    align-items: center; justify-content: center; font-size: var(--fs-lg);
     opacity: 0; pointer-events: none;
     transition: background 0.15s, opacity 0.22s ease;
 }
