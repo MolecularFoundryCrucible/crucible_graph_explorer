@@ -389,6 +389,20 @@ def create_blueprint(auth):
             'url':  f'/{project_id}/datasets/{dataset_id}',
         })
 
+    @bp.route("/<project_id>/api/resources/<resource_id>/request-deletion", methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def api_request_deletion(project_id, resource_id):
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        data = request.get_json(silent=True) or {}
+        reason = (data.get('reason') or '').strip() or None
+        try:
+            get_user_client().deletions.request(resource_id, reason=reason)
+        except Exception as exc:
+            return jsonify({'error': str(exc)}), 500
+        clear_project_cache(project_id, orcid)
+        return jsonify({'ok': True})
+
     @bp.route("/<project_id>/api/relationships", methods=['POST'])
     @auth.oidc_auth('orcid')
     def api_relationship_add(project_id):

@@ -67,12 +67,16 @@
       <div id="sp-meta-error" class="text-danger mt-1" style="display:none; font-size:var(--fs-xs);"></div>
     </div>
   </div>
-  <div class="cg-create-panel-footer">
+  <div class="cg-create-panel-footer" style="flex-wrap:wrap; gap:0.4rem;">
     <button class="btn btn-primary" onclick="cgSubmitSample('{{ pid }}')" id="sp-submit">
       <i class="bi bi-plus-circle me-1"></i>Create Sample
     </button>
     <button class="btn btn-outline-secondary" onclick="cgCloseAllPanels()">Cancel</button>
     <span id="sp-error" class="text-danger small ms-auto align-self-center" style="display:none;"></span>
+    <button id="sp-del-btn" class="btn btn-sm btn-link text-danger ms-auto py-0" style="display:none; font-size:var(--fs-xs);"
+            onclick="cgRequestDeletion('sp-del-btn','{{ pid }}')">
+      <i class="bi bi-trash3 me-1"></i>Request deletion
+    </button>
   </div>
 </div>
 
@@ -157,12 +161,16 @@
       <div id="ds-meta-error" class="text-danger mt-1" style="display:none; font-size:var(--fs-xs);"></div>
     </div>
   </div>
-  <div class="cg-create-panel-footer">
+  <div class="cg-create-panel-footer" style="flex-wrap:wrap; gap:0.4rem;">
     <button class="btn btn-primary" onclick="cgSubmitDataset('{{ pid }}')" id="ds-submit">
       <i class="bi bi-plus-circle me-1"></i>Create Dataset
     </button>
     <button class="btn btn-outline-secondary" onclick="cgCloseAllPanels()">Cancel</button>
     <span id="ds-error" class="text-danger small ms-auto align-self-center" style="display:none;"></span>
+    <button id="ds-del-btn" class="btn btn-sm btn-link text-danger ms-auto py-0" style="display:none; font-size:var(--fs-xs);"
+            onclick="cgRequestDeletion('ds-del-btn','{{ pid }}')">
+      <i class="bi bi-trash3 me-1"></i>Request deletion
+    </button>
   </div>
 </div>
 
@@ -622,6 +630,8 @@ function cgOpenSamplePanel(editData) {
     submit.dataset.editId  = d.unique_id    || '';
     submit.dataset.editPid = d.project_id   || '';
 
+    document.getElementById('sp-del-btn').style.display = isEdit ? '' : 'none';
+    if (isEdit) document.getElementById('sp-del-btn').dataset.resourceId = d.unique_id;
     spLinks.reset();
     cgOpenPanel('cgSamplePanel');
 }
@@ -656,6 +666,8 @@ function cgOpenDatasetPanel(editData) {
     submit.dataset.editId  = d.unique_id  || '';
     submit.dataset.editPid = d.project_id || '';
 
+    document.getElementById('ds-del-btn').style.display = isEdit ? '' : 'none';
+    if (isEdit) document.getElementById('ds-del-btn').dataset.resourceId = d.unique_id;
     _dsFiles.length = 0;
     _dsRenderFileList();
     dsLinks.reset();
@@ -674,6 +686,71 @@ function cgOpenDatasetPanel(editData) {
             })
             .catch(() => {});
     }
+}
+
+// ── request deletion ──────────────────────────────────────────────────────────
+async function cgRequestDeletion(btnId, pid) {
+    const btn = document.getElementById(btnId);
+    const resourceId = btn.dataset.resourceId;
+    if (!resourceId) return;
+
+    // Inline reason prompt replaces the button
+    const orig = btn.outerHTML;
+    const wrap = document.createElement('div');
+    wrap.className = 'd-flex align-items-center gap-1 w-100 mt-1';
+    wrap.style.cssText = 'flex-basis:100%;';
+    wrap.innerHTML = `
+        <input id="${btnId}-reason" type="text" class="form-control form-control-sm"
+               placeholder="Reason (optional)" style="font-size:var(--fs-xs);">
+        <button class="btn btn-sm btn-danger py-0 px-2" style="font-size:var(--fs-xs); white-space:nowrap;"
+                onclick="_cgConfirmDeletion('${btnId}','${pid}','${resourceId}')">Confirm</button>
+        <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--fs-xs);"
+                onclick="_cgCancelDeletion('${btnId}')">Cancel</button>`;
+    btn.replaceWith(wrap);
+    wrap.querySelector('input').focus();
+}
+
+async function _cgConfirmDeletion(btnId, pid, resourceId) {
+    const wrap = document.getElementById(btnId + '-reason')?.closest('div');
+    const reason = document.getElementById(btnId + '-reason')?.value.trim() || null;
+    if (wrap) { wrap.innerHTML = '<span class="spinner-border spinner-border-sm text-danger"></span>'; }
+    try {
+        const resp = await fetch(`/${pid}/api/resources/${resourceId}/request-deletion`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ reason }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.error) {
+            cgToast('Request failed: ' + (data.error || resp.status), 'bi-exclamation-circle', 4000);
+            _cgCancelDeletion(btnId);
+        } else {
+            cgToast('Deletion requested', 'bi-trash3');
+            cgCloseAllPanels();
+            setTimeout(() => window.location.reload(), 800);
+        }
+    } catch(err) {
+        cgToast('Request failed: ' + err.message, 'bi-exclamation-circle', 4000);
+        _cgCancelDeletion(btnId);
+    }
+}
+
+function _cgCancelDeletion(btnId) {
+    const wrap = document.getElementById(btnId + '-reason')?.closest('div');
+    if (!wrap) return;
+    const btn = document.createElement('button');
+    btn.id = btnId;
+    btn.className = 'btn btn-sm btn-link text-danger ms-auto py-0';
+    btn.style.cssText = 'font-size:var(--fs-xs);';
+    btn.innerHTML = '<i class="bi bi-trash3 me-1"></i>Request deletion';
+    const pid = btnId === 'sp-del-btn'
+        ? document.getElementById('sp-submit').dataset.editPid
+        : document.getElementById('ds-submit').dataset.editPid;
+    btn.dataset.resourceId = btnId === 'sp-del-btn'
+        ? document.getElementById('sp-submit').dataset.editId
+        : document.getElementById('ds-submit').dataset.editId;
+    btn.setAttribute('onclick', `cgRequestDeletion('${btnId}','${pid}')`);
+    wrap.replaceWith(btn);
 }
 
 function cgOpenNotePanel() {
