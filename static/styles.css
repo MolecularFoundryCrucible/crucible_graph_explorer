@@ -414,10 +414,7 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
     background: rgba(58,122,135,0.08); color: var(--cg-link); font-weight: 600;
     box-shadow: inset 3px 0 0 var(--cg-accent-mid);
 }
-.cg-sidebar-back {
-    border-radius: 0.25rem; cursor: pointer; transition: background 0.12s;
-}
-.cg-sidebar-back:hover { background: var(--cg-hover-bg); }
+.cg-sidebar-back { cursor: pointer; font-weight: 500; }
 
 /* ── right-panel relationship rows ──────────────────────────────── */
 .cg-panel-row { transition: background 0.12s, color 0.12s; }

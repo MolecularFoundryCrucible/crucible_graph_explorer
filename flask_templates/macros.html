@@ -14,13 +14,15 @@
       <i class="bi bi-house"></i>
       <span>Dashboard</span>
     </a>
-    <div class="cg-sidebar-back cg-sidebar-action" onclick="goBackToProject()" title="Back to project">
-      <i class="bi bi-collection"></i>
-      <span class="text-truncate fw-medium" style="flex:1; min-width:0;">{{pid}}</span>
-      <i class="bi bi-arrow-right flex-shrink-0" style="font-size: var(--fs-xs); color:var(--bs-secondary-color); margin-left:auto;"></i>
+    <!-- ── project + actions zone ─────────────────────────────────── -->
+    <div class="cg-sidebar-section">
+      <div class="cg-sidebar-back cg-sidebar-action" onclick="goBackToProject()" title="Back to project">
+        <i class="bi bi-collection"></i>
+        <span class="text-truncate" style="flex:1; min-width:0;">{{pid}}</span>
+        <i class="bi bi-arrow-right" style="font-size:var(--fs-xs); color:var(--bs-secondary-color); flex-shrink:0;"></i>
+      </div>
     </div>
 
-    <!-- ── actions zone ────────────────────────────────────────────── -->
     {% if actions %}
     <div class="cg-sidebar-section">
       {% for action in actions %}
