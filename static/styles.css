@@ -731,8 +731,8 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 .rel-copy-btn:hover { opacity: 1 !important; color: var(--cg-accent-mid); }
 .rel-remove-btn {
     opacity: 0; flex-shrink: 0; border: none; background: none;
-    padding: 0.1rem 0.3rem; border-radius: 3px;
-    color: var(--bs-secondary-color); cursor: pointer; font-size: var(--fs-sm);
+    padding: 0.15rem 0.35rem; border-radius: 3px;
+    color: var(--bs-secondary-color); cursor: pointer; font-size: var(--fs-md);
     transition: opacity 0.15s, background 0.12s, color 0.12s; line-height: 1;
 }
 .rel-item:hover .rel-remove-btn { opacity: 0.6; }
