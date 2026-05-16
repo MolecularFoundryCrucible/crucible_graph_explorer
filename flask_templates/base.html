@@ -285,6 +285,61 @@
         window.location.href = url;
     }
 
+    // ── relationship removal with inline confirmation ──────────────────────
+    function cgRelRemove(event, btn) {
+        event.stopPropagation();
+        const item = btn.closest('.rel-item');
+        if (!item) return;
+        if (item.classList.contains('rel-confirming')) return;
+
+        item.classList.add('rel-confirming');
+        btn.style.display = 'none';
+
+        const confirmEl = document.createElement('span');
+        confirmEl.className = 'rel-confirm-btns';
+        confirmEl.innerHTML =
+            `<span class="text-muted" style="font-size:var(--fs-xs);">Remove?</span>
+             <button class="btn btn-xs btn-danger py-0 px-1" style="font-size:var(--fs-xs);">Remove</button>
+             <button class="btn btn-xs btn-outline-secondary py-0 px-1" style="font-size:var(--fs-xs);">Cancel</button>`;
+        item.appendChild(confirmEl);
+
+        confirmEl.querySelector('.btn-danger').addEventListener('click', async e => {
+            e.stopPropagation();
+            const { linkType, sourceId, targetId, pid } = item.dataset;
+            confirmEl.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            try {
+                const resp = await fetch(`/${pid}/api/relationships`, {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ link_type: linkType, source_id: sourceId, target_id: targetId }),
+                });
+                const data = await resp.json();
+                if (!resp.ok || data.error) {
+                    cgToast('Remove failed: ' + (data.error || resp.status), 'bi-exclamation-circle', 3500);
+                    _cgRelCancelConfirm(item, btn, confirmEl);
+                } else {
+                    item.style.transition = 'opacity 0.2s';
+                    item.style.opacity = '0';
+                    setTimeout(() => item.remove(), 220);
+                }
+            } catch(err) {
+                cgToast('Remove failed: ' + err.message, 'bi-exclamation-circle', 3500);
+                _cgRelCancelConfirm(item, btn, confirmEl);
+            }
+        });
+
+        confirmEl.querySelector('.btn-outline-secondary').addEventListener('click', e => {
+            e.stopPropagation();
+            _cgRelCancelConfirm(item, btn, confirmEl);
+        });
+    }
+
+    function _cgRelCancelConfirm(item, btn, confirmEl) {
+        item.classList.remove('rel-confirming');
+        confirmEl.remove();
+        btn.style.display = '';
+    }
+
     </script>
 
     <div class="container-fluid px-4" id="content">

@@ -229,10 +229,13 @@
         <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
       </div>
       <div class="res-section-body">
+        {% set _parent_ltype = 'sample_parent' if rel_item_url_seg == 'samples' else 'dataset_parent' %}
         {% for item in rel_parents %}
-        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')">
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')"
+             data-link-type="{{_parent_ltype}}" data-source-id="{{res['unique_id']}}" data-target-id="{{item['unique_id']}}" data-pid="{{pid}}">
           <i class="bi {{ rel_item_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0;"></i>
           <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
+          <button class="rel-remove-btn" onclick="cgRelRemove(event, this)" title="Remove relationship"><i class="bi bi-x"></i></button>
         </div>
         {% endfor %}
       </div>
@@ -249,10 +252,13 @@
         <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
       </div>
       <div class="res-section-body">
+        {% set _child_ltype = 'sample_child' if rel_item_url_seg == 'samples' else 'dataset_child' %}
         {% for item in rel_children %}
-        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')">
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')"
+             data-link-type="{{_child_ltype}}" data-source-id="{{res['unique_id']}}" data-target-id="{{item['unique_id']}}" data-pid="{{pid}}">
           <i class="bi {{ rel_item_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0;"></i>
           <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
+          <button class="rel-remove-btn" onclick="cgRelRemove(event, this)" title="Remove relationship"><i class="bi bi-x"></i></button>
         </div>
         {% endfor %}
       </div>
@@ -269,14 +275,17 @@
         <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
       </div>
       <div class="res-section-body">
+        {% set _assoc_ltype = 'linked_dataset' if rel_assoc_url_seg == 'datasets' else 'linked_sample' %}
         {% for item in rel_associated %}
-        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_assoc_url_seg}}/{{item['unique_id']}}')">
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_assoc_url_seg}}/{{item['unique_id']}}')"
+             data-link-type="{{_assoc_ltype}}" data-source-id="{{res['unique_id']}}" data-target-id="{{item['unique_id']}}" data-pid="{{pid}}">
           <i class="bi {{ rel_assoc_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0;"></i>
           <span class="rel-item-name">
             <span class="rel-item-name-text">{{item[rel_assoc_name_field]}}</span>
             <span class="rel-item-sub mfid">{{item['unique_id']}}</span>
             {% if item.get(rel_assoc_sub_field) %}<span class="rel-item-sub">{{item[rel_assoc_sub_field]}}</span>{% endif %}
           </span>
+          <button class="rel-remove-btn" onclick="cgRelRemove(event, this)" title="Remove relationship"><i class="bi bi-x"></i></button>
         </div>
         {% endfor %}
       </div>
