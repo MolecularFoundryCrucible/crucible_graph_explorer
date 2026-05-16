@@ -209,7 +209,25 @@
       <i class="bi bi-diagram-3"></i>
       Relationships
       {% set total = (rel_parents|length) + (rel_children|length) + (rel_associated|length) %}
-      {% if total %}<span class="ms-auto" style="font-family:'IBM Plex Mono',monospace; font-size: var(--fs-xs);">{{ total }}</span>{% endif %}
+      <span class="ms-auto d-flex align-items-center gap-2">
+        {% if total %}<span class="mfid" style="font-size: var(--fs-xs);">{{ total }}</span>{% endif %}
+        <button class="btn btn-sm py-0 px-2" style="font-size:var(--fs-xs); border:1px solid var(--cg-accent-mid); color:var(--cg-link);"
+                onclick="cgRelAddOpen(this)"
+                data-pid="{{pid}}"
+                data-source-id="{{res['unique_id']}}"
+                data-res-type="{{res_url_seg}}">
+          <i class="bi bi-plus"></i>Add
+        </button>
+      </span>
+    </div>
+    <!-- inline add-relationship picker (hidden by default) -->
+    <div id="rel-add-picker" style="display:none; padding:0.5rem 0.75rem; border-bottom:1px solid var(--bs-border-color); background:var(--bs-tertiary-bg);">
+      <div class="d-flex gap-1 mb-1">
+        <select id="rel-add-type" class="form-select form-select-sm" style="max-width:10rem;"></select>
+        <input id="rel-add-search" type="text" class="form-control form-control-sm" placeholder="Name or MFID…" autocomplete="off">
+        <button class="btn btn-sm btn-outline-secondary px-2" onclick="cgRelAddClose()" title="Cancel"><i class="bi bi-x"></i></button>
+      </div>
+      <div id="rel-add-results" class="list-group" style="display:none; max-height:180px; overflow-y:auto;"></div>
     </div>
 
     {% if not rel_parents and not rel_children and not rel_associated %}

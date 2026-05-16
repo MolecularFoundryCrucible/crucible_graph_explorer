@@ -285,6 +285,100 @@
         window.location.href = url;
     }
 
+    // ── relationship add — inline picker in right panel ───────────────────
+    const _REL_ADD_TYPES = {
+        samples:  [
+            { type: 'sample_parent',  label: 'Parent Sample',  icon: 'bi-flask',    endpoint: 'samples'  },
+            { type: 'sample_child',   label: 'Child Sample',   icon: 'bi-flask',    endpoint: 'samples'  },
+            { type: 'linked_dataset', label: 'Linked Dataset', icon: 'bi-database', endpoint: 'datasets' },
+        ],
+        datasets: [
+            { type: 'linked_sample',  label: 'Linked Sample',  icon: 'bi-flask',    endpoint: 'samples'  },
+            { type: 'dataset_parent', label: 'Parent Dataset', icon: 'bi-database', endpoint: 'datasets' },
+            { type: 'dataset_child',  label: 'Child Dataset',  icon: 'bi-database', endpoint: 'datasets' },
+        ],
+    };
+    let _relAddCtx = {};
+
+    function cgRelAddOpen(btn) {
+        const picker  = document.getElementById('rel-add-picker');
+        const typeEl  = document.getElementById('rel-add-type');
+        const search  = document.getElementById('rel-add-search');
+        const results = document.getElementById('rel-add-results');
+        _relAddCtx = { pid: btn.dataset.pid, sourceId: btn.dataset.sourceId, resType: btn.dataset.resType };
+        typeEl.innerHTML = (_REL_ADD_TYPES[_relAddCtx.resType] || []).map(t =>
+            `<option value="${t.type}" data-endpoint="${t.endpoint}">${t.label}</option>`
+        ).join('');
+        search.value = '';
+        results.style.display = 'none';
+        results.innerHTML = '';
+        picker.style.display = '';
+        search.focus();
+    }
+
+    function cgRelAddClose() {
+        document.getElementById('rel-add-picker').style.display = 'none';
+    }
+
+    (function() {
+        document.addEventListener('DOMContentLoaded', () => {
+            const search  = document.getElementById('rel-add-search');
+            const typeEl  = document.getElementById('rel-add-type');
+            const results = document.getElementById('rel-add-results');
+            if (!search) return;
+
+            const doSearch = () => {
+                const q = search.value.trim();
+                const opt = typeEl.options[typeEl.selectedIndex];
+                if (!q || !opt) { results.style.display = 'none'; return; }
+                const endpoint = opt.dataset.endpoint;
+                fetch(`/${_relAddCtx.pid}/api/${endpoint}?q=${encodeURIComponent(q)}`)
+                    .then(r => r.json())
+                    .then(items => {
+                        if (!items.length) { results.style.display = 'none'; return; }
+                        results.innerHTML = items.map(item =>
+                            `<button type="button" class="list-group-item list-group-item-action py-1"
+                                     style="font-size:var(--fs-sm);"
+                                     data-id="${item.id}" data-name="${escHtml(item.name)}">
+                                ${escHtml(item.name)}
+                                <span class="text-muted ms-1 mfid" style="font-size:var(--fs-xs);">${item.id}</span>
+                             </button>`
+                        ).join('');
+                        results.style.display = '';
+                        results.querySelectorAll('button').forEach(b => {
+                            b.addEventListener('click', () => _cgRelAddLink(typeEl.value, b.dataset.id, b.dataset.name));
+                        });
+                    });
+            };
+            search.addEventListener('input', doSearch);
+            typeEl.addEventListener('change', () => { search.value = ''; results.style.display = 'none'; });
+        });
+    })();
+
+    async function _cgRelAddLink(linkType, targetId, targetName) {
+        const results = document.getElementById('rel-add-results');
+        results.style.display = 'none';
+        document.getElementById('rel-add-search').value = '';
+        try {
+            const resp = await fetch(`/${_relAddCtx.pid}/api/relationships`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ link_type: linkType, source_id: _relAddCtx.sourceId, target_id: targetId }),
+            });
+            const data = await resp.json();
+            if (!resp.ok || data.error) {
+                cgToast('Could not add: ' + (data.error || resp.status), 'bi-exclamation-circle', 3500);
+            } else {
+                cgToast(`Added: ${targetName}`, 'bi-check-circle');
+                cgRelAddClose();
+                // Reload to reflect new relationship in server-rendered panel
+                setTimeout(() => window.location.reload(), 600);
+            }
+        } catch(err) {
+            cgToast('Could not add: ' + err.message, 'bi-exclamation-circle', 3500);
+        }
+    }
+
     // ── relationship removal with inline confirmation ──────────────────────
     function cgRelRemove(event, btn) {
         event.stopPropagation();

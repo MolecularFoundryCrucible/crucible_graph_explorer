@@ -389,6 +389,42 @@ def create_blueprint(auth):
             'url':  f'/{project_id}/datasets/{dataset_id}',
         })
 
+    @bp.route("/<project_id>/api/relationships", methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def api_relationship_add(project_id):
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        data = request.get_json(silent=True) or {}
+
+        link_type = data.get('link_type', '')
+        source_id = data.get('source_id', '')
+        target_id = data.get('target_id', '')
+
+        if not link_type or not source_id or not target_id:
+            return jsonify({'error': 'link_type, source_id, and target_id are required'}), 400
+
+        try:
+            client = get_user_client()
+            if link_type == 'sample_parent':
+                client.samples.update(source_id, parents=[{'unique_id': target_id}])
+            elif link_type == 'sample_child':
+                client.samples.update(source_id, children=[{'unique_id': target_id}])
+            elif link_type == 'linked_dataset':
+                client.datasets.add_sample(target_id, source_id)
+            elif link_type == 'dataset_parent':
+                client.datasets.link_parent_child(target_id, source_id)
+            elif link_type == 'dataset_child':
+                client.datasets.link_parent_child(source_id, target_id)
+            elif link_type == 'linked_sample':
+                client.datasets.add_sample(source_id, target_id)
+            else:
+                return jsonify({'error': f'Unknown link_type: {link_type}'}), 400
+        except Exception as exc:
+            return jsonify({'error': str(exc)}), 500
+
+        clear_project_cache(project_id, orcid)
+        return jsonify({'ok': True})
+
     @bp.route("/<project_id>/api/relationships", methods=['DELETE'])
     @auth.oidc_auth('orcid')
     def api_relationship_delete(project_id):
