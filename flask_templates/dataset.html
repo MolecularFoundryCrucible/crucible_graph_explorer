@@ -173,10 +173,10 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for sample in samples %}
-        <a class="list-row" href="/{{project_id}}/samples/{{sample['unique_id']}}">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{project_id}}/samples/{{sample[\'unique_id\']}}')">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{sample['sample_name']}}</span>
             <span class="mfid small ms-auto">{{sample['unique_id']}}</span>
-        </a>
+        </div>
         {% endfor %}
     </div>
 </div>
@@ -195,10 +195,10 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for pd in parent_datasets %}
-        <a class="list-row" href="/{{project_id}}/datasets/{{pd['unique_id']}}">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{project_id}}/datasets/{{pd[\'unique_id\']}}')">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{pd['dataset_name']}}</span>
             <span class="mfid small ms-auto">{{pd['unique_id']}}</span>
-        </a>
+        </div>
         {% endfor %}
     </div>
 </div>
@@ -217,10 +217,10 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for cd in child_datasets %}
-        <a class="list-row" href="/{{project_id}}/datasets/{{cd['unique_id']}}">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{project_id}}/datasets/{{cd[\'unique_id\']}}')">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{cd['dataset_name']}}</span>
             <span class="mfid small ms-auto">{{cd['unique_id']}}</span>
-        </a>
+        </div>
         {% endfor %}
     </div>
 </div>

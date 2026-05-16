@@ -208,6 +208,16 @@ a:hover { color: var(--cg-link-hover); }
     border-color: var(--cg-accent-mid);
     box-shadow: 0 0 0 0.2rem rgba(168,196,205,0.25);
 }
+/* Focus rings for custom interactive elements */
+.cg-sidebar-action:focus-visible,
+.cg-rail-btn:focus-visible,
+.cg-sib-btn:focus-visible,
+.cg-sib-jump-btn:focus-visible,
+.rel-remove-btn:focus-visible,
+.cg-drop-zone:focus-visible {
+    outline: 2px solid var(--cg-accent-mid);
+    outline-offset: 2px;
+}
 
 /* ── subtle active feedback ─────────────────────────────────────── */
 .btn:active:not(:disabled) { transform: scale(0.97); }
@@ -556,7 +566,10 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
     border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
     color: var(--bs-secondary-color); font-size: var(--fs-sm); padding: 0 0.3rem;
     cursor: pointer; max-width: 110px;
+    transition: border-color 0.12s, color 0.12s;
 }
+.cg-sib-groupby:hover { border-color: var(--cg-accent-mid); color: var(--bs-body-color); }
+.cg-sib-groupby:focus { outline: none; border-color: var(--cg-accent-mid); box-shadow: 0 0 0 2px rgba(58,122,135,0.2); }
 
 /* ── graph node popup ───────────────────────────────────────────── */
 .cg-graph-popup {
@@ -702,6 +715,15 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 .rel-panel-empty {
     text-align: center; padding: 2rem 1rem;
     font-size: var(--fs-sm); color: var(--bs-secondary-color);
+    background: var(--cg-hover-bg); border-radius: 0.375rem; margin: 0.5rem;
+}
+/* Generic empty state used across the app */
+.cg-empty-state {
+    text-align: center; padding: 2.5rem 1rem;
+    color: var(--bs-secondary-color);
+    background: var(--cg-hover-bg);
+    border: 1px dashed var(--bs-border-color);
+    border-radius: 0.5rem;
 }
 /* res-section inside the relationship panel — strip box-model, keep visual style */
 .rel-panel .res-section {
@@ -753,6 +775,8 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
     color: var(--bs-danger);
 }
 .rel-item.rel-confirming { background: var(--bs-warning-bg-subtle); }
+.rel-item.rel-confirming .rel-copy-btn,
+.rel-item.rel-confirming .rel-remove-btn { display: none; }
 .rel-confirm-btns {
     display: flex; align-items: center; gap: 0.35rem;
     font-size: var(--fs-xs); flex-shrink: 0;

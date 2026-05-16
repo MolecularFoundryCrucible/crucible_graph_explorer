@@ -32,6 +32,7 @@
         {% for p in all_projects %}<option value="{{ p.project_id }}"{% if p.project_id == pid %} selected{% endif %}>{{ p.project_id }}</option>{% endfor %}
       </select>
     </div>
+    <hr class="my-3" style="border-color:var(--bs-border-color); opacity:0.6;">
     <div class="mb-3">
       <label class="form-label fw-semibold" for="sp-timestamp">Timestamp</label>
       <input type="datetime-local" id="sp-timestamp" class="form-control">
@@ -50,6 +51,7 @@
     <div class="mb-3">
       <label class="form-label fw-semibold">Relationships</label>
       <div id="sp-links-container"></div>
+
       <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="spLinks.openPicker()">
         <i class="bi bi-link-45deg me-1"></i>Add relationship
       </button>
@@ -114,6 +116,7 @@
       </div>
       <span class="text-muted" style="font-size:var(--fs-xs);">Make visible to all users</span>
     </div>
+    <hr class="my-3" style="border-color:var(--bs-border-color); opacity:0.6;">
     <div class="mb-3">
       <label class="form-label fw-semibold" for="ds-instrument">Instrument</label>
       <input type="text" id="ds-instrument" class="form-control" autocomplete="off"
