@@ -149,8 +149,7 @@
                          onclick="cgLbOpenSection(this)"
                          src="data:image/png;base64, {{thumb['thumbnail_b64str']}}"
                          alt="{{thumb['thumbnail_name']}}"
-                         style="object-fit:contain; max-height:280px; cursor:pointer; transition:opacity 0.12s;"
-                         onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                         class="cg-thumb-contain">
                 </div>
             </div>
             {% endfor %}

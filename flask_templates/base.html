@@ -454,17 +454,13 @@
     <div id="cgLightbox" onclick="if(event.target===this)cgLbClose()"
          style="display:none; position:fixed; inset:0; z-index:5000;
                 background:rgba(0,0,0,0.88); align-items:center; justify-content:center; gap:1rem;">
-        <button onclick="cgLbNav(-1)" style="background:none; border:none; color:rgba(255,255,255,0.7);
-                font-size:2.5rem; cursor:pointer; padding:0 0.5rem; line-height:1;
-                transition:color 0.12s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">&#8249;</button>
+        <button onclick="cgLbNav(-1)" class="cg-lb-nav">&#8249;</button>
         <div style="text-align:center; max-width:88vw;">
             <img id="cgLbImg" src="" alt="" style="max-width:88vw; max-height:80vh; border-radius:6px; display:block;">
             <div id="cgLbLabel" style="color:rgba(255,255,255,0.75); font-size: var(--fs-sm); margin-top:0.6rem; font-family:'IBM Plex Sans',sans-serif;"></div>
             <div id="cgLbCounter" style="color:rgba(255,255,255,0.4); font-size: var(--fs-sm); margin-top:0.2rem; font-family:'IBM Plex Mono',monospace;"></div>
         </div>
-        <button onclick="cgLbNav(1)" style="background:none; border:none; color:rgba(255,255,255,0.7);
-                font-size:2.5rem; cursor:pointer; padding:0 0.5rem; line-height:1;
-                transition:color 0.12s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">&#8250;</button>
+        <button onclick="cgLbNav(1)" class="cg-lb-nav">&#8250;</button>
         <button onclick="cgLbClose()" style="position:absolute; top:1rem; right:1.25rem;
                 background:none; border:none; color:rgba(255,255,255,0.6); font-size: var(--fs-2xl);
                 cursor:pointer; line-height:1;">&#x2715;</button>

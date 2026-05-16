@@ -550,7 +550,7 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 }
 .cg-action-btn:hover { color: var(--bs-body-color); }
 .cg-action-btn.primary { background: var(--cg-link); border-color: var(--cg-link); color: #fff; }
-.cg-action-btn.primary:hover { background: #2e6370; border-color: #2e6370; color: #fff; }
+.cg-action-btn.primary:hover { background: var(--bs-btn-hover-bg, #2e6370); border-color: var(--bs-btn-hover-border-color, #2e6370); color: #fff; }
 .cg-sib-groupby {
     height: 1.6rem; border-radius: 0.25rem;
     border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
@@ -825,3 +825,38 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 }
 .cg-drop-file-list li:last-child { border-bottom: none; }
 .cg-drop-file-list .cg-file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── thumbnail images (lightbox-openable) ────────────────────────── */
+.cg-thumb {
+    object-fit: cover; border-radius: 0.375rem;
+    border: 1px solid var(--bs-border-color);
+    cursor: pointer; transition: opacity 0.12s;
+}
+.cg-thumb:hover { opacity: 0.82; }
+.cg-thumb-contain {
+    object-fit: contain; max-height: 280px;
+    cursor: pointer; transition: opacity 0.12s;
+}
+.cg-thumb-contain:hover { opacity: 0.82; }
+
+/* ── quick-nav tiles (dashboard) ─────────────────────────────────── */
+.cg-nav-tile {
+    transition: background 0.12s, border-color 0.12s;
+    color: inherit; text-decoration: none;
+}
+.cg-nav-tile:hover {
+    background: var(--cg-hover-bg) !important;
+    border-color: var(--cg-accent-mid) !important;
+    color: inherit;
+}
+
+/* ── lightbox nav buttons ────────────────────────────────────────── */
+.cg-lb-nav {
+    background: none; border: none; color: rgba(255,255,255,0.7);
+    font-size: 2.5rem; cursor: pointer; padding: 0 0.5rem; line-height: 1;
+    transition: color 0.12s;
+}
+.cg-lb-nav:hover { color: #fff; }
+
+/* ── clickable divs that need pointer cursor ─────────────────────── */
+.cg-clickable { cursor: pointer; }

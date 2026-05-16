@@ -94,10 +94,7 @@
         ] %}
         {% for href, icon, label, desc in tiles %}
         <div class="col-12 col-sm-4">
-            <a href="{{ href }}" class="d-flex align-items-center gap-3 p-3 rounded border text-decoration-none"
-               style="transition: background 0.12s, border-color 0.12s; color: inherit;"
-               onmouseover="this.style.background='var(--cg-hover-bg)'; this.style.borderColor='var(--cg-accent-mid)';"
-               onmouseout="this.style.background=''; this.style.borderColor='';">
+            <a href="{{ href }}" class="cg-nav-tile d-flex align-items-center gap-3 p-3 rounded border">
                 <i class="bi {{ icon }} fs-4 flex-shrink-0" style="color: var(--cg-accent-mid);"></i>
                 <div>
                     <div class="fw-semibold" style="font-size: var(--fs-lg);">{{ label }}</div>
@@ -156,7 +153,7 @@
 
     <!-- ── hidden projects section ──────────────────────────────────────── -->
     <div id="hiddenSection" style="display:none;" class="mt-3 pt-3">
-        <div class="d-flex align-items-center gap-2 mb-2 px-1" style="cursor:pointer;" onclick="toggleHiddenView()">
+        <div class="d-flex align-items-center gap-2 mb-2 px-1 cg-clickable" onclick="toggleHiddenView()">
             <i class="bi bi-eye-slash text-muted" style="font-size: var(--fs-sm);"></i>
             <span class="text-muted small fw-semibold">Hidden projects</span>
             <span class="badge rounded-pill text-bg-secondary fw-normal" id="hiddenCount" style="font-size: var(--fs-xs);"></span>
