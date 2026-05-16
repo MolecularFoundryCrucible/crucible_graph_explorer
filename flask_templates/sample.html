@@ -32,8 +32,10 @@
 
 {% block sidebar %}
 {% set sidebar_actions = [
-    {'label': 'Edit sample',  'onclick': 'cgOpenSamplePanel(SAMPLE_DATA)', 'icon': 'bi-pencil'},
-    {'label': 'Upload photo', 'url': '/' ~ pid ~ '/samples/' ~ s['unique_id'] ~ '/upload-photo', 'icon': 'bi-camera'},
+    {'label': 'Search',       'url': '/' ~ pid ~ '/search',                                        'icon': 'bi-search'},
+    {'label': 'Chat',         'url': '/' ~ pid ~ '/chat',                                          'icon': 'bi-chat-dots'},
+    {'label': 'Edit sample',  'onclick': 'cgOpenSamplePanel(SAMPLE_DATA)',                         'icon': 'bi-pencil'},
+    {'label': 'Upload photo', 'url': '/' ~ pid ~ '/samples/' ~ s['unique_id'] ~ '/upload-photo',  'icon': 'bi-camera'},
 ] %}
 {{ resource_sidebar(pid, 'sample', 'bi-flask', s['sample_name'], resource_id=s['unique_id'], actions=sidebar_actions) }}
 {% endblock %}

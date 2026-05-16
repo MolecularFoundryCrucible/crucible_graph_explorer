@@ -37,6 +37,8 @@
 
 {% block sidebar %}
 {% set sidebar_actions = [] %}
+{% set _ = sidebar_actions.append({'label': 'Search',       'url': '/' ~ project_id ~ '/search',  'icon': 'bi-search'}) %}
+{% set _ = sidebar_actions.append({'label': 'Chat',         'url': '/' ~ project_id ~ '/chat',    'icon': 'bi-chat-dots'}) %}
 {% set _ = sidebar_actions.append({'label': 'Edit dataset', 'onclick': 'cgOpenDatasetPanel(DATASET_DATA)', 'icon': 'bi-pencil'}) %}
 {% if ds['measurement'] == 'MDNote' %}
   {% set _ = sidebar_actions.append({'label': 'Edit note', 'url': '/' ~ project_id ~ '/datasets/' ~ ds['unique_id'] ~ '/mdnote-edit', 'icon': 'bi-file-text'}) %}
@@ -44,7 +46,7 @@
 {% for cv in custom_views %}
   {% set _ = sidebar_actions.append({'label': cv['label'], 'url': cv['url'], 'icon': cv.get('icon', 'bi-journal-text')}) %}
 {% endfor %}
-{% set _ = sidebar_actions.append({'label': 'Files & downloads', 'url': '#section-files', 'icon': 'bi-download', 'section': 'section-files'}) %}
+{% set _ = sidebar_actions.append({'label': 'Upload file', 'onclick': 'cgDatasetUploadFile()', 'icon': 'bi-upload'}) %}
 {{ resource_sidebar(project_id, 'dataset', 'bi-database', ds['dataset_name'], resource_id=ds['unique_id'], actions=sidebar_actions) }}
 {% endblock %}
 
@@ -283,6 +285,39 @@
 <script>
     const DATASET_DATA = {{ ds | tojson }};
 
+    function cgDatasetUploadFile() {
+        const input = document.getElementById('_dsUploadInput');
+        input.onchange = async () => {
+            const files = Array.from(input.files);
+            if (!files.length) return;
+            input.value = '';
+            let uploaded = 0;
+            for (const f of files) {
+                cgToast(`Uploading ${f.name}…`, 'bi-upload', 60000);
+                const fd = new FormData();
+                fd.append('file', f);
+                try {
+                    const resp = await fetch('/{{project_id}}/api/datasets/{{ds["unique_id"]}}/upload-file', {
+                        method: 'POST', body: fd,
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok || data.error) {
+                        cgToast(`Upload failed: ${data.error || resp.status}`, 'bi-exclamation-circle', 4000);
+                    } else {
+                        uploaded++;
+                    }
+                } catch(err) {
+                    cgToast(`Upload error: ${err.message}`, 'bi-exclamation-circle', 4000);
+                }
+            }
+            if (uploaded) {
+                cgToast(`${uploaded} file${uploaded > 1 ? 's' : ''} uploaded`, 'bi-check-circle');
+                setTimeout(() => window.location.reload(), 1200);
+            }
+        };
+        input.click();
+    }
+
     async function shareFile(event, mfid) {
         const btn = event.currentTarget;
         const icon = btn.querySelector('i');
@@ -326,6 +361,7 @@
         }
     }
 </script>
+<input type="file" id="_dsUploadInput" multiple style="display:none;">
 {% endblock %}
 
 {% block panels %}{% include '_create_panels.html' %}{% endblock %}
