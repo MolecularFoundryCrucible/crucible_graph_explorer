@@ -3,21 +3,29 @@
 
 {% block head %}
     {{ super() }}
-    {{ vite_tags() }}
     <style>
         #cy {
             width: 100%;
-            height: 700px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-bottom: 2rem;
+            height: 65vh;
+            display: block;
         }
-        .legend-dot {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-            margin-right: 4px;
+        .cg-graph-wrap {
+            position: relative;
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.375rem;
+            overflow: hidden;
+            margin-bottom: 2rem;
+            min-height: 65vh;
+        }
+        #cy-spinner {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 5; background: var(--bs-body-bg);
+        }
+        #zoomHint {
+            position: absolute; bottom: 0.6rem; right: 0.8rem;
+            font-size: var(--fs-xs); color: var(--bs-secondary-color);
+            pointer-events: none; transition: opacity 1s; opacity: 1;
         }
     </style>
 {% endblock %}
@@ -28,46 +36,111 @@
 {% endblock %}
 
 {% block content %}
+{% set _node_estimate = pc['samples'] | length + pc['datasets'] | length %}
 
-<h1>Project Graph – <em>{{pc['project_id']}}</em></h1>
-
-<div class="d-flex align-items-center gap-3 mb-2">
-    <button id="toggleLayoutBtn" class="btn btn-sm btn-secondary">Switch to Vertical Layout</button>
-    <span class="text-muted small">
-        <span class="legend-dot" style="background:#4a7ba7;"></span>Sample
-        &nbsp;
-        <span class="legend-dot" style="background:#5a9e6f;"></span>Dataset
-    </span>
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+    <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-diagram-3" style="color:var(--cg-accent-mid);"></i>
+        <span class="fw-semibold" style="font-size: var(--fs-lg);">Project Graph</span>
+        <span class="text-muted">—</span>
+        <span class="text-body-secondary small">{{pc['project_id']}}</span>
+    </div>
+    <div class="d-flex align-items-center gap-1 ms-auto flex-wrap">
+        <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);" disabled>
+            <i class="bi bi-arrow-left-right me-1"></i>Vertical
+        </button>
+        <button id="fitBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);" title="Fit graph" disabled>
+            <i class="bi bi-bounding-box"></i>
+        </button>
+        <span class="badge fw-normal border" style="background:var(--bs-tertiary-bg);color:var(--bs-secondary-color);font-size: var(--fs-xs);">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--cy-sample-color);margin-right:3px;vertical-align:middle;"></span>Sample
+        </span>
+        <span class="badge fw-normal border" style="background:var(--bs-tertiary-bg);color:var(--bs-secondary-color);font-size: var(--fs-xs);">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--cy-dataset-color);margin-right:3px;vertical-align:middle;"></span>Dataset
+        </span>
+    </div>
 </div>
 
-<div id="cy" data-project-id="{{pc['project_id']}}"></div>
+{% if _node_estimate > 200 %}
+<div id="graphWarning" class="alert alert-warning d-flex align-items-start gap-3 mb-3">
+    <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+    <div>
+        <strong>Large project graph:</strong>
+        This project has approximately <strong>{{_node_estimate}}</strong> samples and datasets.
+        Rendering the full graph may be slow or unresponsive. For a focused view, use the
+        <strong>entity graph</strong> from an individual sample or dataset page.
+        <div class="d-flex gap-2 mt-2">
+            <button id="confirmGraph" class="btn btn-sm btn-warning">
+                <i class="bi bi-diagram-3 me-1"></i>Render anyway
+            </button>
+            <a href="/{{pc['project_id']}}/" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to project
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="cg-graph-wrap" {% if _node_estimate > 200 %}style="display:none;"{% endif %} id="graphWrap">
+    <div id="cy-spinner">
+        <div class="spinner-border text-secondary" role="status">
+            <span class="visually-hidden">Loading…</span>
+        </div>
+    </div>
+    <div id="cy" data-project-id="{{pc['project_id']}}"></div>
+    <div id="zoomHint">
+        <i class="bi bi-keyboard me-1"></i>Ctrl + scroll to zoom
+    </div>
+</div>
 
 <script type="module">
   let cyInstance = null;
 
-  async function initGraph() {
+  async function loadAndRender() {
+    document.getElementById('graphWrap').style.display = '';
     const response = await fetch('/{{pc["project_id"]}}/api/project-graph-data');
     const graphData = await response.json();
 
-    if (window.initEntityGraph) {
-      cyInstance = window.initEntityGraph('cy', graphData);
-    } else {
-      setTimeout(initGraph, 100);
-    }
+    document.getElementById('toggleLayoutBtn').disabled = false;
+    document.getElementById('fitBtn').disabled = false;
+
+    const initGraph = await window.loadEntityGraph();
+    cyInstance = initGraph('cy', graphData);
+    document.getElementById('cy-spinner').style.display = 'none';
+    setTimeout(() => {
+      const hint = document.getElementById('zoomHint');
+      if (hint) {
+        hint.style.opacity = '0';
+        setTimeout(() => { hint.style.display = 'none'; }, 1000);
+      }
+    }, 2500);
   }
+
+  {% if _node_estimate > 200 %}
+  document.getElementById('confirmGraph').addEventListener('click', function() {
+    document.getElementById('graphWarning').style.display = 'none';
+    loadAndRender();
+  });
+  {% else %}
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadAndRender);
+  } else {
+    loadAndRender();
+  }
+  {% endif %}
 
   document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
-    if (cyInstance && cyInstance.toggleLayout) {
-      const newLayout = cyInstance.toggleLayout();
-      this.textContent = newLayout === 'LR' ? 'Switch to Vertical Layout' : 'Switch to Horizontal Layout';
-    }
+    if (!cyInstance?.toggleLayout) return;
+    const newLayout = cyInstance.toggleLayout();
+    this.innerHTML = newLayout === 'LR'
+      ? '<i class="bi bi-arrow-left-right me-1"></i>Vertical'
+      : '<i class="bi bi-arrow-down me-1"></i>Horizontal';
+    setTimeout(() => { cyInstance.resize(); cyInstance.fit(); }, 550);
   });
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initGraph);
-  } else {
-    initGraph();
-  }
+  document.getElementById('fitBtn').addEventListener('click', () => {
+    if (cyInstance) cyInstance.fit();
+  });
 </script>
 
 {% endblock %}

@@ -11,54 +11,10 @@
 
 {% block content %}
 <style>
-    .meta-row {
-        display: flex; gap: 0.75rem; align-items: baseline;
-        padding: 0.3rem 0;
-    }
-    .meta-key {
-        font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
-        letter-spacing: 0.05em; color: var(--bs-secondary-color);
-        white-space: nowrap; min-width: 7rem; flex-shrink: 0;
-    }
-    .meta-divider {
-        display: flex; align-items: center; gap: 0.6rem;
-        margin: 0.75rem 0 0.4rem;
-    }
-    .meta-divider-label {
-        font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
-        letter-spacing: 0.06em; color: var(--bs-secondary-color); white-space: nowrap;
-    }
-    .meta-divider-line {
-        flex: 1; height: 1px; background: var(--bs-border-color);
-    }
-    .res-section {
-        border: 1px solid var(--bs-border-color);
-        border-radius: 0.375rem; overflow: hidden; margin-bottom: 1rem;
-    }
-    .res-section-header {
-        display: flex; align-items: center; gap: 0.5rem;
-        padding: 0.6rem 0.75rem;
-        background: var(--bs-tertiary-bg);
-        cursor: pointer; user-select: none;
-        font-size: 0.875rem; font-weight: 600;
-        border-bottom: 1px solid var(--bs-border-color);
-    }
-    .res-section-header:hover { filter: brightness(0.97); }
-    .res-section-chevron {
-        margin-left: auto; color: var(--bs-secondary-color);
-        transition: transform 0.2s; flex-shrink: 0;
-    }
-    .list-row {
-        display: flex; align-items: center; flex-wrap: wrap; gap: 0.15rem 0.5rem;
-        padding: 0.5rem 1rem;
-        border-bottom: 1px solid var(--bs-border-color);
-        transition: background 0.1s; text-decoration: none; color: inherit;
-    }
-    .list-row:last-child { border-bottom: none; }
-    .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
+    .res-section { max-width: none; }
 </style>
 
-<div style="max-width:680px; margin: 0 auto;">
+<div style="max-width:860px; margin: 0 auto;">
 
     <!-- ── header card ──────────────────────────────────────────────────── -->
     <div class="rounded border overflow-hidden mb-4" id="instrumentCard"
@@ -74,7 +30,7 @@
 
             <div style="min-width:0; flex:1;">
                 <div class="small fw-semibold text-uppercase mb-1"
-                     style="font-size:0.7rem; letter-spacing:0.05em; color:var(--bs-secondary-color);">
+                     style="font-size: var(--fs-xs); letter-spacing:0.05em; color:var(--bs-secondary-color);">
                     <i class="bi bi-cpu me-1"></i>Instrument
                 </div>
                 <h1 class="fs-4 fw-semibold mb-0 lh-sm">
@@ -84,26 +40,26 @@
                 <div class="d-flex flex-wrap gap-2 mt-2">
                     {% if instrument.get('instrument_type') %}
                     <span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
-                          style="background:var(--bs-tertiary-bg); font-size:0.78rem;">
+                          style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
                         <i class="bi bi-tag"></i>{{ instrument['instrument_type'] }}
                     </span>
                     {% endif %}
                     {% if instrument.get('location') %}
                     <span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
-                          style="background:var(--bs-tertiary-bg); font-size:0.78rem;">
+                          style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
                         <i class="bi bi-geo-alt"></i>{{ instrument['location'] }}
                     </span>
                     {% endif %}
                     {% if instrument.get('manufacturer') %}
                     <span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
-                          style="background:var(--bs-tertiary-bg); font-size:0.78rem;">
+                          style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
                         <i class="bi bi-building"></i>{{ instrument['manufacturer'] }}
                     </span>
                     {% endif %}
                 </div>
 
                 {% if instrument.get('description') %}
-                <p class="mt-2 mb-0 text-secondary" style="font-size:0.875rem;">
+                <p class="mt-2 mb-0 text-secondary" style="font-size: var(--fs-md);">
                     {{ instrument['description'] }}
                 </p>
                 {% endif %}
@@ -169,7 +125,7 @@
             <i class="bi bi-database text-muted"></i>
             <span>Recent Datasets</span>
             <span class="badge fw-normal border text-muted ms-1"
-                  style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
+                  style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
                 {{ recent_datasets | length }}
             </span>
             <i class="bi bi-chevron-right res-section-chevron" style="transform:rotate(90deg);"></i>
@@ -177,7 +133,7 @@
         <div class="res-section-body">
             {% for ds in recent_datasets[:50] %}
             {% if ds.get('project_id') and ds.get('unique_id') %}
-            <a class="list-row" href="/{{ ds['project_id'] }}/dataset/{{ ds['unique_id'] }}">
+            <a class="list-row" href="/{{ ds['project_id'] }}/datasets/{{ ds['unique_id'] }}">
                 <div style="flex:1; min-width:0;">
                     <div class="fw-medium text-truncate">{{ ds.get('dataset_name') or ds['unique_id'] }}</div>
                     {% if ds.get('measurement') or ds.get('project_id') %}
@@ -207,29 +163,10 @@
 </div>
 
 <script>
-    function toggleSection(header) {
-        const body    = header.nextElementSibling;
-        const chevron = header.querySelector('.res-section-chevron');
-        const isOpen  = body.style.display !== 'none';
-        body.style.display = isOpen ? 'none' : '';
-        if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
-    }
-
-    (function () {
-        const PALETTE = [
-            '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
-            '#b07aa1','#9c755f','#6b6ecf','#e05c5c','#3a9e7e'
-        ];
-        function hashColor(str) {
-            let h = 0;
-            for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
-            return PALETTE[Math.abs(h) % PALETTE.length];
-        }
-        const uid   = {{ instrument.get('unique_id') | tojson }};
-        const color = hashColor(uid || '');
-        document.getElementById('instrumentCard').style.borderLeftColor = color;
-        document.getElementById('instrumentIcon').style.background = color;
-    })();
+    const uid   = {{ instrument.get('unique_id') | tojson }};
+    const color = hashColor(uid || '');
+    document.getElementById('instrumentCard').style.borderLeftColor = color;
+    document.getElementById('instrumentIcon').style.background = color;
 </script>
 
 {% endblock %}

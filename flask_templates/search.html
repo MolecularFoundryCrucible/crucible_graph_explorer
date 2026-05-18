@@ -11,10 +11,9 @@
             transition: background 0.1s;
         }
         .list-row:last-child { border-bottom: none; }
-        .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
-        mark { background: #fff3cd; border-radius: 2px; padding: 0 2px; }
-        .result-meta { font-size: 0.8em; color: var(--bs-secondary-color); }
-        #results-summary { font-size: 0.85em; color: var(--bs-secondary-color); min-height: 1.4em; }
+        .list-row:hover { background: var(--cg-hover-bg); color: inherit; }
+        .result-meta { font-size: var(--fs-sm); color: var(--bs-secondary-color); }
+        #results-summary { font-size: var(--fs-md); color: var(--bs-secondary-color); min-height: 1.5rem; }
     </style>
 {% endblock %}
 
@@ -25,7 +24,7 @@
 
 {% block content %}
 
-<h1 class="fs-4 fw-semibold mb-3"><i class="bi bi-search me-2 text-secondary"></i>Search <span class="mfid">{{pc['project_id']}}</span></h1>
+<h1 class="fw-semibold mb-3" style="font-size:var(--fs-2xl);"><i class="bi bi-search me-2 text-secondary"></i>Search <span class="mfid">{{pc['project_id']}}</span></h1>
 
 <div class="mb-3">
     <input id="search-input" type="text" class="form-control form-control-lg"
@@ -35,7 +34,7 @@
 
 <div class="row">
     <div class="col-md-6">
-        <h5><i class="bi bi-eyedropper me-1 text-muted"></i>Samples <span id="sample-count" class="badge bg-secondary ms-1"></span></h5>
+        <h5><i class="bi bi-flask me-1 text-muted"></i>Samples <span id="sample-count" class="badge bg-secondary ms-1"></span></h5>
         <div id="sample-results"></div>
     </div>
     <div class="col-md-6">
@@ -81,6 +80,7 @@ function renderSample(s, q) {
 
 function renderDataset(d, q) {
     const ql = q.toLowerCase();
+    const meta = [d.measurement, d.instrument, d.session].filter(Boolean);
     let metaHtml = '';
     if (d.metadata_str) {
         const hits = d.metadata_str.split('\n')
@@ -98,8 +98,8 @@ function renderDataset(d, q) {
     return `<a href="${d.url}" class="list-row">
         <div class="fw-medium">${highlight(d.name, q)}</div>
         <div class="result-meta">
-            ${d.measurement ? highlight(d.measurement, q) + ' &nbsp;·&nbsp; ' : ''}
-            <span class="mfid">${d.id}</span>
+            ${meta.map(v => highlight(v, q)).join(' &nbsp;·&nbsp; ')}
+            ${meta.length ? ' &nbsp;·&nbsp; ' : ''}<span class="mfid">${d.id}</span>
         </div>
         ${metaHtml}
     </a>`;
@@ -120,8 +120,8 @@ function search(q) {
     }
 
     const ql = q.toLowerCase();
-    const matchedSamples  = SAMPLES.filter(s  => matches(s,  ['name','description','type','id'], ql));
-    const matchedDatasets = DATASETS.filter(d => matches(d, ['name','measurement','id','metadata_str'], ql));
+    const matchedSamples  = SAMPLES.filter(s  => matches(s,  ['name','description','type','id','owner'], ql));
+    const matchedDatasets = DATASETS.filter(d => matches(d, ['name','measurement','instrument','session','id','owner','metadata_str'], ql));
 
     sampleEl.innerHTML  = matchedSamples.length
         ? `<div class="border rounded overflow-hidden">${matchedSamples.map(s => renderSample(s, q)).join('')}</div>`
@@ -135,8 +135,21 @@ function search(q) {
     summary.textContent    = `${matchedSamples.length + matchedDatasets.length} results for "${q}"`;
 }
 
-document.getElementById('search-input').addEventListener('input', function() {
-    search(this.value.trim());
+const searchInput = document.getElementById('search-input');
+
+// Restore query from URL on load
+(function() {
+    const q = new URLSearchParams(window.location.search).get('q') || '';
+    if (q) { searchInput.value = q; search(q); }
+})();
+
+searchInput.addEventListener('input', function() {
+    const q = this.value.trim();
+    const url = new URL(window.location);
+    if (q) url.searchParams.set('q', q);
+    else url.searchParams.delete('q');
+    window.history.replaceState({}, '', url);
+    search(q);
 });
 </script>
 

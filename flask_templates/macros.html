@@ -1,0 +1,266 @@
+{# Shared Jinja2 macros for resource detail pages (dataset.html, sample_graph.html). #}
+
+{# ── resource_sidebar: left nav sidebar for sample/dataset pages ─────────────── #}
+{%- macro resource_sidebar(pid, resource_label, resource_icon, resource_title, resource_id=None, actions=[]) -%}
+<div id="resourceSidebar" class="cg-sidebar d-none d-md-block">
+<script>if(localStorage.getItem('cg_sidebar_collapsed'))document.getElementById('resourceSidebar').classList.add('collapsed');</script>
+  <button class="cg-sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+    <i class="bi bi-chevron-left"></i>
+  </button>
+  <div class="cg-sidebar-content">
+
+    <!-- ── navigation zone ─────────────────────────────────────────── -->
+    <a href="/" class="cg-sidebar-action cg-sidebar-home">
+      <i class="bi bi-house"></i>
+      <span>Dashboard</span>
+    </a>
+    <!-- ── project + actions zone ─────────────────────────────────── -->
+    <div class="cg-sidebar-section">
+      <div class="cg-sidebar-back cg-sidebar-action" onclick="goBackToProject()" title="Back to project">
+        <i class="bi bi-collection"></i>
+        <span class="text-truncate" style="flex:1; min-width:0;">{{pid}}</span>
+        <i class="bi bi-arrow-right" style="font-size:var(--fs-xs); color:var(--bs-secondary-color); flex-shrink:0;"></i>
+      </div>
+    </div>
+
+    {% if actions %}
+    <div class="cg-sidebar-section">
+      {% for action in actions %}
+      {% if action.get('separator') %}
+      <hr class="my-1 mx-2" style="border-color:var(--bs-border-color); opacity:1;">
+      {% elif action.get('onclick') %}
+      <button class="cg-sidebar-action w-100 text-start border-0 bg-transparent"
+              onclick="{{ action.onclick }}">
+        <i class="bi {{ action.icon }}"></i>
+        <span>{{ action.label }}</span>
+      </button>
+      {% else %}
+      <a href="{{ action.url }}"
+         {% if action.get('section') %}onclick="event.preventDefault();document.getElementById('{{ action.section }}')?.scrollIntoView({behavior:'smooth',block:'start'})"{% endif %}
+         class="cg-sidebar-action">
+        <i class="bi {{ action.icon }}"></i>
+        <span>{{ action.label }}</span>
+      </a>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- collapsed icon rail -->
+  <div class="cg-sidebar-icon-rail" id="sidebarIconRail">
+    <button class="cg-rail-btn" onclick="window.location.href='/'" title="Dashboard">
+      <i class="bi bi-house"></i>
+    </button>
+    <button class="cg-rail-btn" onclick="goBackToProject()" title="Back to project">
+      <i class="bi bi-collection"></i>
+    </button>
+    {% for action in actions %}
+    {% if action.get('onclick') %}
+    <button class="cg-rail-btn" onclick="{{ action.onclick }}" title="{{ action.label }}">
+      <i class="bi {{ action.icon }}"></i>
+    </button>
+    {% else %}
+    <a class="cg-rail-btn" href="{{ action.url }}" title="{{ action.label }}">
+      <i class="bi {{ action.icon }}"></i>
+    </a>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+<script>
+function toggleSidebar() {
+  var sb = document.getElementById('resourceSidebar');
+  var collapsed = sb.classList.toggle('collapsed');
+  document.documentElement.classList.toggle('sidebar-collapsed', collapsed);
+  localStorage.setItem('cg_sidebar_collapsed', collapsed ? '1' : '');
+}
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.rel-item').forEach(function(item) {
+    const mfidEl = item.querySelector('.rel-item-sub.mfid');
+    if (!mfidEl) return;
+    const id = mfidEl.textContent.trim();
+    const btn = document.createElement('button');
+    btn.className = 'rel-copy-btn';
+    btn.title = 'Copy ID';
+    btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      navigator.clipboard.writeText(id).then(function() {
+        cgToast('ID copied', 'bi-clipboard-check');
+      });
+    });
+    mfidEl.after(btn);
+  });
+});
+</script>
+{%- endmacro -%}
+
+{# ── resource_card_identity: icon + title + uuid + badges + QR ──────────────── #}
+{%- macro resource_card_identity(title, uuid, icon='bi-dot', keywords=none, type_badge=none) -%}
+<div class="cg-card-identity">
+  <i class="bi {{ icon }}" style="font-size: var(--fs-2xl); color:var(--cg-accent-mid); flex-shrink:0;"></i>
+  <div class="cg-card-names">
+    <h1 class="cg-card-title">{{ title }}</h1>
+    <div class="mfid cg-card-uuid">{{ uuid }}</div>
+    {% if keywords %}
+    <div class="d-flex flex-wrap gap-1 mt-1">
+      {% set kw_list = keywords if (keywords is sequence and keywords is not string) else [keywords] %}
+      {% for kw in kw_list %}
+      <span class="badge fw-normal border text-body-secondary" style="background:var(--bs-tertiary-bg); font-size: var(--fs-xs);">{{ kw }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if type_badge %}
+    <div class="mt-1">
+      <span class="badge fw-normal border text-body-secondary" style="background:var(--bs-tertiary-bg);">{{ type_badge }}</span>
+    </div>
+    {% endif %}
+  </div>
+  <div class="flex-shrink-0">
+    <img src="{{ qrcode(uuid, box_size=3, border=2) }}" style="border-radius:4px; box-shadow: 0 0 0 1px var(--bs-border-color);" title="{{ uuid }}">
+  </div>
+</div>
+{%- endmacro -%}
+
+{# ── mrow: one metadata label/value row ─────────────────────────────────────── #}
+{%- macro mrow(label, value) -%}
+<div class="meta-row">
+    <span class="meta-key">{{ label }}</span>
+    <span class="text-break">
+        {%- if value is none or value == '' -%}<span class="text-muted">—</span>
+        {%- elif value is sequence and value is not string -%}{{ value | join(', ') }}
+        {%- else -%}{{ value }}{%- endif -%}
+    </span>
+</div>
+{%- endmacro -%}
+
+{# ── mrow_link: meta row with a clickable value ──────────────────────────────── #}
+{%- macro mrow_link(label, text, href, external=false) -%}
+<div class="meta-row">
+    <span class="meta-key">{{ label }}</span>
+    {%- if text and href -%}
+    <a href="{{ href }}" class="text-decoration-none"
+       {%- if external %} target="_blank" rel="noopener"{% endif %}>{{ text }}</a>
+    {%- elif text -%}
+    <span class="text-break">{{ text }}</span>
+    {%- else -%}
+    <span class="text-muted">—</span>
+    {%- endif -%}
+</div>
+{%- endmacro -%}
+
+{# ── deletion_banner: orange/red alert when a deletion request exists ─────────── #}
+{%- macro deletion_banner(resource) -%}
+{%- set dr = resource.get('deletion_request') -%}
+{%- if dr and dr.get('status') in ('pending', 'approved') -%}
+<div class="d-flex align-items-center gap-2 rounded border px-3 py-2 mb-3 small"
+     style="max-width:860px;
+     {%- if dr['status'] == 'approved' -%}
+       background:var(--bs-danger-bg-subtle); border-color:var(--bs-danger-border-subtle) !important; color:var(--bs-danger-text-emphasis);
+     {%- else -%}
+       background:var(--bs-warning-bg-subtle); border-color:var(--bs-warning-border-subtle) !important; color:var(--bs-warning-text-emphasis);
+     {%- endif -%}">
+    <i class="bi {%- if dr['status'] == 'approved' %} bi-trash3{% else %} bi-exclamation-triangle{% endif %} flex-shrink-0"></i>
+    <div>
+        <strong>Deletion {{ dr['status'] | capitalize }}</strong>
+        {%- if dr.get('reason') %} — {{ dr['reason'] }}{%- endif %}
+    </div>
+</div>
+{%- endif -%}
+{%- endmacro -%}
+
+{# ── render_dict_recursive: recursive metadata tree ────────────────────────── #}
+{% macro render_dict_recursive(d) %}
+<div class="metadata-tree">
+{% for key, value in d.items() %}
+    {% if value is mapping %}
+    <details class="tree-node" open>
+        <summary class="tree-summary"><b>{{ key }}</b></summary>
+        <div class="tree-children">{{ render_dict_recursive(value) }}</div>
+    </details>
+    {% else %}
+    <div class="tree-leaf"><b>{{ key }}</b>: {{ value if value is not none else "N/A" }}</div>
+    {% endif %}
+{% endfor %}
+</div>
+{% endmacro %}
+
+{# ── section_metadata: scientific metadata section + tree-search JS ─────────── #}
+{% macro section_metadata(metadata) %}
+<div class="res-section" id="section-metadata">
+    <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-braces text-muted"></i>
+        <span>Scientific Metadata</span>
+        <i class="bi bi-chevron-right res-section-chevron"></i>
+    </div>
+    <div class="res-section-body" style="display:none;">
+        <div class="p-3">
+            <input id="tree_search" type="text" class="form-control form-control-sm mb-2"
+                   placeholder="Search metadata…">
+            <div id="metadata-tree-root">
+                {% if metadata %}
+                    {{ render_dict_recursive(metadata) }}
+                {% else %}
+                <p class="text-muted small mb-0">No scientific metadata recorded.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    function highlightTextNodes(el, query) {
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        const textNodes = [];
+        let node;
+        while (node = walker.nextNode()) textNodes.push(node);
+        textNodes.forEach(textNode => {
+            const lower = textNode.textContent.toLowerCase();
+            const idx   = lower.indexOf(query);
+            if (idx === -1) return;
+            const frag   = document.createDocumentFragment();
+            const before = textNode.textContent.slice(0, idx);
+            const match  = textNode.textContent.slice(idx, idx + query.length);
+            const after  = textNode.textContent.slice(idx + query.length);
+            if (before) frag.appendChild(document.createTextNode(before));
+            const mark = document.createElement('mark');
+            mark.textContent = match;
+            frag.appendChild(mark);
+            if (after) frag.appendChild(document.createTextNode(after));
+            textNode.parentNode.replaceChild(frag, textNode);
+        });
+    }
+
+    const searchInput = document.getElementById('tree_search');
+    if (!searchInput) return;
+    searchInput.addEventListener('input', function () {
+        const metaSection = document.getElementById('section-metadata');
+        const metaBody    = metaSection && metaSection.querySelector('.res-section-body');
+        const metaChevron = metaSection && metaSection.querySelector('.res-section-chevron');
+        if (this.value && metaBody && metaBody.style.display === 'none') {
+            metaBody.style.display = '';
+            if (metaChevron) metaChevron.style.transform = 'rotate(90deg)';
+        }
+        const query = this.value.trim().toLowerCase();
+        const root  = document.getElementById('metadata-tree-root');
+        if (!root) return;
+        root.querySelectorAll('.tree-leaf, .tree-summary').forEach(el => {
+            if (el.dataset.originalHtml !== undefined)
+                el.innerHTML = el.dataset.originalHtml;
+        });
+        root.querySelectorAll('details').forEach(d => { d.open = true; });
+        if (!query) return;
+        root.querySelectorAll('.tree-leaf, .tree-summary').forEach(el => {
+            if (el.dataset.originalHtml === undefined)
+                el.dataset.originalHtml = el.innerHTML;
+            if (el.textContent.toLowerCase().includes(query))
+                highlightTextNodes(el, query);
+        });
+    });
+}());
+</script>
+{% endmacro %}

@@ -1,0 +1,765 @@
+{# _create_panels.html — slide-in creation panels.
+   Included via {% block panels %} in base.html. Requires `pc` and `all_projects` in context. #}
+{% set pid = pc['project_id'] %}
+
+<!-- ── shared backdrop ────────────────────────────────────────────── -->
+<div id="cgPanelBackdrop" class="cg-create-panel-backdrop" onclick="cgCloseAllPanels()"></div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!--  SAMPLE PANEL                                                    -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="cgSamplePanel" class="cg-create-panel" role="dialog" aria-modal="true" aria-label="New Sample">
+  <div class="cg-create-panel-header">
+    <i class="bi bi-flask" style="font-size:var(--fs-xl); color:var(--cg-accent-mid);"></i>
+    <span class="cg-create-panel-title">New Sample</span>
+    <button class="btn-close" onclick="cgCloseAllPanels()" aria-label="Close"></button>
+  </div>
+  <div class="cg-create-panel-body">
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="sp-name">Name <span class="text-danger">*</span></label>
+      <input type="text" id="sp-name" class="form-control" autocomplete="off">
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="sp-type">Type</label>
+      <input type="text" id="sp-type" class="form-control" autocomplete="off"
+             placeholder="Search or enter new…"
+             oninput="cgTypeahead('sp-type','sp-type-results','{{ pid }}','sample-types')">
+      <div id="sp-type-results" class="list-group mt-1" style="display:none;"></div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="sp-project">Project</label>
+      <select id="sp-project" class="form-select">
+        {% for p in all_projects %}<option value="{{ p.project_id }}"{% if p.project_id == pid %} selected{% endif %}>{{ p.project_id }}</option>{% endfor %}
+      </select>
+    </div>
+    <hr class="my-3" style="border-color:var(--bs-border-color); opacity:0.6;">
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="sp-timestamp">Timestamp</label>
+      <input type="datetime-local" id="sp-timestamp" class="form-control">
+    </div>
+    <div class="mb-3 d-flex align-items-center gap-2">
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" id="sp-public" role="switch">
+        <label class="form-check-label fw-semibold" for="sp-public">Public</label>
+      </div>
+      <span class="text-muted" style="font-size:var(--fs-xs);">Make visible to all users</span>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="sp-desc">Description</label>
+      <textarea id="sp-desc" class="form-control" rows="2"></textarea>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Relationships</label>
+      <div id="sp-links-container"></div>
+
+      <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="spLinks.openPicker()">
+        <i class="bi bi-link-45deg me-1"></i>Add relationship
+      </button>
+    </div>
+    <div class="mb-1">
+      <label class="form-label fw-semibold">Scientific Metadata</label>
+      <div class="d-flex gap-1 mb-1">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="cgImportJson('sp-meta-json')">
+          <i class="bi bi-upload me-1"></i>Import JSON
+        </button>
+        <span class="text-muted align-self-center" style="font-size:var(--fs-xs);">or type below</span>
+      </div>
+      <textarea id="sp-meta-json" class="form-control font-monospace" rows="4"
+                placeholder="{}" style="font-size:var(--fs-sm); resize:vertical;"></textarea>
+      <div id="sp-meta-error" class="text-danger mt-1" style="display:none; font-size:var(--fs-xs);"></div>
+    </div>
+  </div>
+  <div class="cg-create-panel-footer" style="flex-wrap:wrap; gap:0.4rem;">
+    <button class="btn btn-primary" onclick="cgSubmitSample('{{ pid }}')" id="sp-submit">
+      <i class="bi bi-plus-circle me-1"></i>Create Sample
+    </button>
+    <button class="btn btn-outline-secondary" onclick="cgCloseAllPanels()">Cancel</button>
+    <span id="sp-error" class="text-danger small ms-auto align-self-center" style="display:none;"></span>
+    <button id="sp-del-btn" class="btn btn-link text-danger ms-auto py-0" style="display:none; font-size:var(--fs-sm);"
+            onclick="cgRequestDeletion('sp-del-btn','{{ pid }}')">
+      <i class="bi bi-trash3 me-1"></i>Request deletion
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!--  DATASET PANEL                                                   -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="cgDatasetPanel" class="cg-create-panel" role="dialog" aria-modal="true" aria-label="New Dataset">
+  <div class="cg-create-panel-header">
+    <i class="bi bi-database" style="font-size:var(--fs-xl); color:var(--cg-accent-mid);"></i>
+    <span class="cg-create-panel-title">New Dataset</span>
+    <button class="btn-close" onclick="cgCloseAllPanels()" aria-label="Close"></button>
+  </div>
+  <div class="cg-create-panel-body">
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="ds-name">Name <span class="text-danger">*</span></label>
+      <input type="text" id="ds-name" class="form-control" autocomplete="off">
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="ds-measurement">Measurement Type</label>
+      <input type="text" id="ds-measurement" class="form-control" autocomplete="off"
+             placeholder="Search or enter new…"
+             oninput="cgTypeahead('ds-measurement','ds-measurement-results','{{ pid }}','measurements')">
+      <div id="ds-measurement-results" class="list-group mt-1" style="display:none;"></div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="ds-project">Project</label>
+      <select id="ds-project" class="form-select">
+        {% for p in all_projects %}<option value="{{ p.project_id }}"{% if p.project_id == pid %} selected{% endif %}>{{ p.project_id }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="mb-3 d-flex align-items-center gap-2">
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" id="ds-public" role="switch">
+        <label class="form-check-label fw-semibold" for="ds-public">Public</label>
+      </div>
+      <span class="text-muted" style="font-size:var(--fs-xs);">Make visible to all users</span>
+    </div>
+    <hr class="my-3" style="border-color:var(--bs-border-color); opacity:0.6;">
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="ds-instrument">Instrument</label>
+      <input type="text" id="ds-instrument" class="form-control" autocomplete="off"
+             list="ds-instrument-datalist" placeholder="Search instruments…">
+      <datalist id="ds-instrument-datalist"></datalist>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="ds-session">Session Name</label>
+      <input type="text" id="ds-session" class="form-control" autocomplete="off">
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="ds-timestamp">Timestamp</label>
+      <input type="datetime-local" id="ds-timestamp" class="form-control">
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="ds-datatype">Data Type</label>
+      <input type="text" id="ds-datatype" class="form-control" autocomplete="off">
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Files</label>
+      <div id="ds-drop-zone" class="cg-drop-zone" onclick="document.getElementById('ds-file-input').click()">
+        <i class="bi bi-upload d-block mb-1" style="font-size:var(--fs-xl);"></i>
+        Click or drag &amp; drop files here
+      </div>
+      <input type="file" id="ds-file-input" multiple style="display:none;">
+      <ul class="cg-drop-file-list" id="ds-file-list"></ul>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Relationships</label>
+      <div id="ds-links-container"></div>
+      <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="dsLinks.openPicker()">
+        <i class="bi bi-link-45deg me-1"></i>Add relationship
+      </button>
+    </div>
+    <div class="mb-1">
+      <label class="form-label fw-semibold">Scientific Metadata</label>
+      <div class="d-flex gap-1 mb-1">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="cgImportJson('ds-meta-json')">
+          <i class="bi bi-upload me-1"></i>Import JSON
+        </button>
+        <span class="text-muted align-self-center" style="font-size:var(--fs-xs);">or type below</span>
+      </div>
+      <textarea id="ds-meta-json" class="form-control font-monospace" rows="4"
+                placeholder="{}" style="font-size:var(--fs-sm); resize:vertical;"></textarea>
+      <div id="ds-meta-error" class="text-danger mt-1" style="display:none; font-size:var(--fs-xs);"></div>
+    </div>
+  </div>
+  <div class="cg-create-panel-footer" style="flex-wrap:wrap; gap:0.4rem;">
+    <button class="btn btn-primary" onclick="cgSubmitDataset('{{ pid }}')" id="ds-submit">
+      <i class="bi bi-plus-circle me-1"></i>Create Dataset
+    </button>
+    <button class="btn btn-outline-secondary" onclick="cgCloseAllPanels()">Cancel</button>
+    <span id="ds-error" class="text-danger small ms-auto align-self-center" style="display:none;"></span>
+    <button id="ds-del-btn" class="btn btn-link text-danger ms-auto py-0" style="display:none; font-size:var(--fs-sm);"
+            onclick="cgRequestDeletion('ds-del-btn','{{ pid }}')">
+      <i class="bi bi-trash3 me-1"></i>Request deletion
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!--  NOTE (MDNote) PANEL                                            -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="cgNotePanel" class="cg-create-panel" role="dialog" aria-modal="true" aria-label="New Note">
+  <div class="cg-create-panel-header">
+    <i class="bi bi-file-text" style="font-size:var(--fs-xl); color:var(--cg-accent-mid);"></i>
+    <span class="cg-create-panel-title">New Note</span>
+    <button class="btn-close" onclick="cgCloseAllPanels()" aria-label="Close"></button>
+  </div>
+  <div class="cg-create-panel-body">
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="nt-name">Title <span class="text-danger">*</span></label>
+      <input type="text" id="nt-name" class="form-control" autocomplete="off">
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="nt-project">Project</label>
+      <select id="nt-project" class="form-select">
+        {% for p in all_projects %}<option value="{{ p.project_id }}"{% if p.project_id == pid %} selected{% endif %}>{{ p.project_id }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="mb-1">
+      <label class="form-label fw-semibold">Relationships</label>
+      <div id="nt-links-container"></div>
+      <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="ntLinks.openPicker()">
+        <i class="bi bi-link-45deg me-1"></i>Add relationship
+      </button>
+    </div>
+  </div>
+  <div class="cg-create-panel-footer">
+    <button class="btn btn-primary" onclick="cgSubmitNote('{{ pid }}')" id="nt-submit">
+      <i class="bi bi-plus-circle me-1"></i>Create &amp; Edit Note
+    </button>
+    <button class="btn btn-outline-secondary" onclick="cgCloseAllPanels()">Cancel</button>
+    <span id="nt-error" class="text-danger small ms-auto align-self-center" style="display:none;"></span>
+  </div>
+</div>
+
+<!-- hidden file input for JSON import -->
+<input type="file" id="cgJsonFileInput" accept=".json,application/json" style="display:none;">
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!--  PANEL JAVASCRIPT                                               -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<script>
+// ── open / close ─────────────────────────────────────────────────────────────
+function cgOpenPanel(id) {
+    cgCloseAllPanels();
+    document.getElementById(id).classList.add('open');
+    document.getElementById('cgPanelBackdrop').classList.add('open');
+    setTimeout(() => {
+        const el = document.querySelector(`#${id} input[type="text"], #${id} textarea`);
+        if (el) el.focus();
+    }, 260);
+}
+function cgCloseAllPanels() {
+    document.querySelectorAll('.cg-create-panel').forEach(p => p.classList.remove('open'));
+    document.getElementById('cgPanelBackdrop').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cgCloseAllPanels(); });
+
+// ── typeahead ─────────────────────────────────────────────────────────────────
+function cgTypeahead(inputId, resultsId, pid, endpoint) {
+    const input   = document.getElementById(inputId);
+    const results = document.getElementById(resultsId);
+    const q = input.value.trim();
+    if (!q) { results.style.display = 'none'; return; }
+    fetch(`/${pid}/api/${endpoint}?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(items => {
+            if (!items.length) { results.style.display = 'none'; return; }
+            results.innerHTML = items.map(t =>
+                `<button type="button" class="list-group-item list-group-item-action py-1"
+                         style="font-size:var(--fs-sm);"
+                         onclick="document.getElementById('${inputId}').value=${JSON.stringify(t)};
+                                  document.getElementById('${resultsId}').style.display='none';">
+                    ${escHtml(t)}
+                 </button>`
+            ).join('');
+            results.style.display = '';
+        });
+}
+
+// ── submit helper ─────────────────────────────────────────────────────────────
+function _cgSetSubmitting(btnId, errId, submitting, label) {
+    const btn = document.getElementById(btnId);
+    const err = document.getElementById(errId);
+    btn.disabled = submitting;
+    btn.innerHTML = submitting
+        ? '<span class="spinner-border spinner-border-sm me-1"></span>Creating…'
+        : label;
+    err.style.display = 'none';
+}
+
+// ── datetime helpers ──────────────────────────────────────────────────────────
+function _cgNowLocal() {
+    const d = new Date();
+    d.setSeconds(0, 0);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function _cgToISO(dtLocal) {
+    if (!dtLocal) return null;
+    return dtLocal.length === 16 ? dtLocal + ':00' : dtLocal;
+}
+
+// ── JSON metadata helpers ─────────────────────────────────────────────────────
+function cgParseMetaJson(textareaId, errorId) {
+    const ta  = document.getElementById(textareaId);
+    const err = document.getElementById(errorId);
+    const raw = ta.value.trim();
+    if (!raw || raw === '{}' || raw === 'null') { err.style.display = 'none'; return null; }
+    try {
+        const parsed = JSON.parse(raw);
+        err.style.display = 'none';
+        return (typeof parsed === 'object' && parsed !== null && Object.keys(parsed).length) ? parsed : null;
+    } catch (e) {
+        err.textContent = 'Invalid JSON: ' + e.message;
+        err.style.display = '';
+        return undefined;  // sentinel: parse failed
+    }
+}
+
+function cgImportJson(targetTextareaId) {
+    const input = document.getElementById('cgJsonFileInput');
+    input.onchange = () => {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const parsed = JSON.parse(e.target.result);
+                document.getElementById(targetTextareaId).value = JSON.stringify(parsed, null, 2);
+            } catch (err) {
+                alert('Could not parse JSON file: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+        input.value = '';  // allow re-importing same file
+    };
+    input.click();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  CgLinkBuilder — unified dynamic relationship picker
+// ══════════════════════════════════════════════════════════════════════════════
+class CgLinkBuilder {
+    constructor(containerId, pid, allowedTypes) {
+        this.container = document.getElementById(containerId);
+        this.pid = pid;
+        this.types = allowedTypes;
+        this.links = [];
+        this._picker = null;
+    }
+    openPicker() {
+        if (this._picker) this._picker.remove();
+        const p = document.createElement('div');
+        p.className = 'border rounded p-2 mb-2';
+        p.style.background = 'var(--bs-tertiary-bg)';
+        p.innerHTML = `
+            <div class="d-flex gap-1 mb-2">
+                <select class="form-select form-select-sm cg-lp-type" style="max-width:11rem;">
+                    ${this.types.map(t => `<option value="${t.type}">${escHtml(t.label)}</option>`).join('')}
+                </select>
+                <input type="text" class="form-control form-control-sm cg-lp-search"
+                       placeholder="Name or MFID…" autocomplete="off">
+                <button type="button" class="btn btn-sm btn-outline-secondary px-2"
+                        onclick="this.closest('.border').remove()" title="Cancel">
+                    <i class="bi bi-x"></i></button>
+            </div>
+            <div class="cg-lp-results list-group" style="display:none; max-height:160px; overflow-y:auto;"></div>`;
+        this.container.appendChild(p);
+        this._picker = p;
+        const searchEl  = p.querySelector('.cg-lp-search');
+        const typeEl    = p.querySelector('.cg-lp-type');
+        const resultsEl = p.querySelector('.cg-lp-results');
+        const doSearch = () => {
+            const q = searchEl.value.trim();
+            const typeDef = this.types.find(t => t.type === typeEl.value);
+            if (!typeDef || !q) { resultsEl.style.display = 'none'; return; }
+            fetch(`/${this.pid}/api/${typeDef.endpoint}?q=${encodeURIComponent(q)}`)
+                .then(r => r.json())
+                .then(items => {
+                    if (!items.length) { resultsEl.style.display = 'none'; return; }
+                    resultsEl.innerHTML = items.map(item =>
+                        `<button type="button" class="list-group-item list-group-item-action py-1"
+                                 style="font-size:var(--fs-sm);"
+                                 data-id="${escHtml(item.id)}" data-name="${escHtml(item.name)}">
+                            <i class="bi ${escHtml(typeDef.icon)} me-1" style="font-size:var(--fs-xs);"></i>
+                            ${escHtml(item.name)}
+                            <span class="text-muted ms-1 mfid" style="font-size:var(--fs-xs);">${escHtml(item.id)}</span>
+                         </button>`
+                    ).join('');
+                    resultsEl.style.display = '';
+                    resultsEl.querySelectorAll('button').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const cur = this.types.find(t => t.type === typeEl.value);
+                            this._addLink(typeEl.value, btn.dataset.id, btn.dataset.name, cur.label);
+                            p.remove();
+                            this._picker = null;
+                        });
+                    });
+                });
+        };
+        searchEl.addEventListener('input', doSearch);
+        typeEl.addEventListener('change', () => { searchEl.value = ''; resultsEl.style.display = 'none'; });
+        searchEl.focus();
+    }
+    _addLink(type, id, name, label) {
+        if (this.links.some(l => l.id === id && l.type === type)) return;
+        this.links.push({ type, id, name, label });
+        this._render();
+    }
+    removeLink(type, id) {
+        this.links = this.links.filter(l => !(l.id === id && l.type === type));
+        this._render();
+    }
+    _render() {
+        this.container.querySelectorAll('.cg-link-chip').forEach(el => el.remove());
+        this.links.forEach(l => {
+            const chip = document.createElement('span');
+            chip.className = 'cg-link-chip badge rounded-pill border text-body fw-normal d-inline-flex align-items-center gap-1 me-1 mb-1';
+            chip.style.cssText = 'background:var(--bs-tertiary-bg); font-size:var(--fs-xs);';
+            chip.innerHTML = `<span class="text-muted" style="font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:0.07em;">${escHtml(l.label)}</span>${escHtml(l.name)}`;
+            const closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'btn-close';
+            closeBtn.style.fontSize = 'var(--fs-2xs)';
+            closeBtn.addEventListener('click', () => this.removeLink(l.type, l.id));
+            chip.appendChild(closeBtn);
+            this.container.insertBefore(chip, this.container.firstChild);
+        });
+    }
+    export() { return [...this.links]; }
+    reset() { this.links = []; this.container.innerHTML = ''; this._picker = null; }
+}
+
+// ── Relationship type definitions ─────────────────────────────────────────────
+const SAMPLE_LINK_TYPES = [
+    { type: 'sample_parent',   label: 'Parent Sample',   icon: 'bi-flask',    endpoint: 'samples'  },
+    { type: 'sample_child',    label: 'Child Sample',    icon: 'bi-flask',    endpoint: 'samples'  },
+    { type: 'linked_dataset',  label: 'Linked Dataset',  icon: 'bi-database', endpoint: 'datasets' },
+];
+const DATASET_LINK_TYPES = [
+    { type: 'linked_sample',   label: 'Linked Sample',   icon: 'bi-flask',    endpoint: 'samples'  },
+    { type: 'dataset_parent',  label: 'Parent Dataset',  icon: 'bi-database', endpoint: 'datasets' },
+    { type: 'dataset_child',   label: 'Child Dataset',   icon: 'bi-database', endpoint: 'datasets' },
+];
+const NOTE_LINK_TYPES = [
+    { type: 'linked_sample',   label: 'Linked Sample',   icon: 'bi-flask',    endpoint: 'samples'  },
+    { type: 'linked_dataset',  label: 'Linked Dataset',  icon: 'bi-database', endpoint: 'datasets' },
+];
+
+// ── File drop zone ────────────────────────────────────────────────────────────
+const _dsFiles = [];  // DataTransfer-like list of File objects
+
+function _dsRenderFileList() {
+    const ul = document.getElementById('ds-file-list');
+    ul.innerHTML = _dsFiles.map((f, i) =>
+        `<li>
+            <i class="bi bi-file-earmark" style="font-size:var(--fs-xs); flex-shrink:0;"></i>
+            <span class="cg-file-name">${escHtml(f.name)}</span>
+            <span class="text-muted" style="font-size:var(--fs-xs); flex-shrink:0;">${(f.size/1024).toFixed(0)} KB</span>
+            <button type="button" class="btn-close ms-1" style="font-size:var(--fs-2xs);"
+                    onclick="_dsRemoveFile(${i})"></button>
+        </li>`
+    ).join('');
+}
+
+function _dsRemoveFile(idx) {
+    _dsFiles.splice(idx, 1);
+    _dsRenderFileList();
+}
+
+function _dsAddFiles(fileList) {
+    for (const f of fileList) {
+        if (!_dsFiles.some(e => e.name === f.name && e.size === f.size)) {
+            _dsFiles.push(f);
+        }
+    }
+    _dsRenderFileList();
+}
+
+(function() {
+    const zone  = document.getElementById('ds-drop-zone');
+    const input = document.getElementById('ds-file-input');
+    if (!zone || !input) return;
+    zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        _dsAddFiles(e.dataTransfer.files);
+    });
+    input.addEventListener('change', () => { _dsAddFiles(input.files); input.value = ''; });
+})();
+
+// ── Instantiate link builders ─────────────────────────────────────────────────
+const spLinks = new CgLinkBuilder('sp-links-container', '{{ pid }}', SAMPLE_LINK_TYPES);
+const dsLinks = new CgLinkBuilder('ds-links-container', '{{ pid }}', DATASET_LINK_TYPES);
+const ntLinks = new CgLinkBuilder('nt-links-container', '{{ pid }}', NOTE_LINK_TYPES);
+
+// ── submit: sample ────────────────────────────────────────────────────────────
+async function cgSubmitSample(pid) {
+    const name    = document.getElementById('sp-name').value.trim();
+    const submit  = document.getElementById('sp-submit');
+    const editId  = submit.dataset.editId || '';
+    const isEdit  = !!editId;
+    const selectedPid = isEdit
+        ? (submit.dataset.editPid || pid)
+        : (document.getElementById('sp-project').value || pid);
+    const errEl = document.getElementById('sp-error');
+    if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; return; }
+    const meta = cgParseMetaJson('sp-meta-json', 'sp-meta-error');
+    if (meta === undefined) return;
+    _cgSetSubmitting('sp-submit', 'sp-error', true);
+    const url    = isEdit ? `/${selectedPid}/api/samples/${editId}/update` : `/${selectedPid}/api/samples/create`;
+    const method = isEdit ? 'PATCH' : 'POST';
+    const body   = {
+        sample_name: name,
+        sample_type: document.getElementById('sp-type').value.trim() || null,
+        description: document.getElementById('sp-desc').value.trim() || null,
+        timestamp:   _cgToISO(document.getElementById('sp-timestamp').value) || null,
+        public:      document.getElementById('sp-public').checked,
+        scientific_metadata: meta,
+    };
+    if (!isEdit) body.links = spLinks.export();
+    const resp = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+    const data = await resp.json();
+    const resetLabel = isEdit
+        ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
+        : '<i class="bi bi-plus-circle me-1"></i>Create Sample';
+    if (!resp.ok || data.error) {
+        _cgSetSubmitting('sp-submit', 'sp-error', false, resetLabel);
+        errEl.textContent = data.error || 'Failed.';
+        errEl.style.display = '';
+        return;
+    }
+    window.location.href = data.url;
+}
+
+// ── submit: dataset ───────────────────────────────────────────────────────────
+async function cgSubmitDataset(pid) {
+    const name   = document.getElementById('ds-name').value.trim();
+    const submit = document.getElementById('ds-submit');
+    const editId  = submit.dataset.editId || '';
+    const isEdit  = !!editId;
+    const selectedPid = isEdit
+        ? (submit.dataset.editPid || pid)
+        : (document.getElementById('ds-project').value || pid);
+    const errEl = document.getElementById('ds-error');
+    if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; return; }
+    const meta = cgParseMetaJson('ds-meta-json', 'ds-meta-error');
+    if (meta === undefined) return;
+    _cgSetSubmitting('ds-submit', 'ds-error', true);
+    const url    = isEdit ? `/${selectedPid}/api/datasets/${editId}/update` : `/${selectedPid}/api/datasets/create`;
+    const method = isEdit ? 'PATCH' : 'POST';
+    const body   = {
+        dataset_name:    name,
+        measurement:     document.getElementById('ds-measurement').value.trim() || null,
+        instrument_name: document.getElementById('ds-instrument').value.trim() || null,
+        session_name:    document.getElementById('ds-session').value.trim() || null,
+        data_type:       document.getElementById('ds-datatype').value.trim() || null,
+        timestamp:       _cgToISO(document.getElementById('ds-timestamp').value) || null,
+        public:          document.getElementById('ds-public').checked,
+        scientific_metadata: meta,
+    };
+    if (!isEdit) body.links = dsLinks.export();
+    const resp = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+    const data = await resp.json();
+    const resetLabel = isEdit
+        ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
+        : '<i class="bi bi-plus-circle me-1"></i>Create Dataset';
+    if (!resp.ok || data.error) {
+        _cgSetSubmitting('ds-submit', 'ds-error', false, resetLabel);
+        errEl.textContent = data.error || 'Failed.';
+        errEl.style.display = '';
+        return;
+    }
+    if (!isEdit && _dsFiles.length) {
+        const btn = document.getElementById('ds-submit');
+        for (let i = 0; i < _dsFiles.length; i++) {
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Uploading ${i+1}/${_dsFiles.length}…`;
+            const fd = new FormData();
+            fd.append('file', _dsFiles[i]);
+            const ur = await fetch(`/${selectedPid}/api/datasets/${data.id}/upload-file`, {
+                method: 'POST', body: fd,
+            });
+            if (!ur.ok) {
+                const ud = await ur.json().catch(() => ({}));
+                errEl.textContent = `File "${_dsFiles[i].name}" upload failed: ${ud.error || ur.status}`;
+                errEl.style.display = '';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Create Dataset';
+                return;
+            }
+        }
+    }
+    window.location.href = data.url;
+}
+
+// ── submit: note ──────────────────────────────────────────────────────────────
+async function cgSubmitNote(pid) {
+    const name = document.getElementById('nt-name').value.trim();
+    const selectedPid = document.getElementById('nt-project').value || pid;
+    const errEl = document.getElementById('nt-error');
+    if (!name) { errEl.textContent = 'Title is required.'; errEl.style.display = ''; return; }
+    _cgSetSubmitting('nt-submit', 'nt-error', true);
+    const resp = await fetch(`/${selectedPid}/api/datasets/create`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            dataset_name: name,
+            measurement:  'MDNote',
+            links: ntLinks.export(),
+        }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) {
+        _cgSetSubmitting('nt-submit', 'nt-error', false, '<i class="bi bi-plus-circle me-1"></i>Create &amp; Edit Note');
+        errEl.textContent = data.error || 'Creation failed.';
+        errEl.style.display = '';
+        return;
+    }
+    window.location.href = `/${selectedPid}/datasets/${data.id}/mdnote-edit`;
+}
+
+// ── open panel functions ──────────────────────────────────────────────────────
+let _instrumentsLoaded = false;
+
+function cgOpenSamplePanel(editData) {
+    const isEdit = !!editData;
+    const d = editData || {};
+    document.getElementById('sp-name').value      = d.sample_name   || '';
+    document.getElementById('sp-type').value      = d.sample_type   || '';
+    document.getElementById('sp-desc').value      = d.description   || '';
+    document.getElementById('sp-public').checked  = !!d.public;
+    document.getElementById('sp-timestamp').value = isEdit ? (d.timestamp || '').slice(0,16) : _cgNowLocal();
+    document.getElementById('sp-meta-json').value = isEdit && d.scientific_metadata
+        ? JSON.stringify(d.scientific_metadata, null, 2) : '';
+    document.getElementById('sp-type-results').style.display = 'none';
+    document.getElementById('sp-meta-error').style.display   = 'none';
+    document.getElementById('sp-error').style.display        = 'none';
+
+    // Edit mode: hide project selector and links (not relevant for editing)
+    document.getElementById('sp-project').closest('.mb-3').style.display          = isEdit ? 'none' : '';
+    document.getElementById('sp-links-container').closest('.mb-3').style.display  = isEdit ? 'none' : '';
+
+    const title  = document.querySelector('#cgSamplePanel .cg-create-panel-title');
+    const submit = document.getElementById('sp-submit');
+    title.textContent  = isEdit ? 'Edit Sample'  : 'New Sample';
+    submit.innerHTML   = isEdit
+        ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
+        : '<i class="bi bi-plus-circle me-1"></i>Create Sample';
+    submit.dataset.editId  = d.unique_id    || '';
+    submit.dataset.editPid = d.project_id   || '';
+
+    document.getElementById('sp-del-btn').style.display = isEdit ? '' : 'none';
+    if (isEdit) document.getElementById('sp-del-btn').dataset.resourceId = d.unique_id;
+    spLinks.reset();
+    cgOpenPanel('cgSamplePanel');
+}
+
+function cgOpenDatasetPanel(editData) {
+    const isEdit = !!editData;
+    const d = editData || {};
+    document.getElementById('ds-name').value        = d.dataset_name    || '';
+    document.getElementById('ds-measurement').value = d.measurement     || '';
+    document.getElementById('ds-session').value     = d.session_name    || '';
+    document.getElementById('ds-datatype').value    = d.data_type       || '';
+    document.getElementById('ds-instrument').value  = d.instrument_name || '';
+    document.getElementById('ds-public').checked    = !!d.public;
+    document.getElementById('ds-timestamp').value   = isEdit ? (d.timestamp || '').slice(0,16) : _cgNowLocal();
+    document.getElementById('ds-meta-json').value   = isEdit && d.scientific_metadata
+        ? JSON.stringify(d.scientific_metadata, null, 2) : '';
+    document.getElementById('ds-measurement-results').style.display = 'none';
+    document.getElementById('ds-meta-error').style.display          = 'none';
+    document.getElementById('ds-error').style.display               = 'none';
+
+    // Edit mode: hide project selector, links, and file drop zone
+    document.getElementById('ds-project').closest('.mb-3').style.display           = isEdit ? 'none' : '';
+    document.getElementById('ds-links-container').closest('.mb-3').style.display   = isEdit ? 'none' : '';
+    document.getElementById('ds-drop-zone').closest('.mb-3').style.display         = isEdit ? 'none' : '';
+
+    const title  = document.querySelector('#cgDatasetPanel .cg-create-panel-title');
+    const submit = document.getElementById('ds-submit');
+    title.textContent = isEdit ? 'Edit Dataset' : 'New Dataset';
+    submit.innerHTML  = isEdit
+        ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
+        : '<i class="bi bi-plus-circle me-1"></i>Create Dataset';
+    submit.dataset.editId  = d.unique_id  || '';
+    submit.dataset.editPid = d.project_id || '';
+
+    document.getElementById('ds-del-btn').style.display = isEdit ? '' : 'none';
+    if (isEdit) document.getElementById('ds-del-btn').dataset.resourceId = d.unique_id;
+    _dsFiles.length = 0;
+    _dsRenderFileList();
+    dsLinks.reset();
+    cgOpenPanel('cgDatasetPanel');
+    if (!_instrumentsLoaded) {
+        fetch('/api/instruments')
+            .then(r => r.json())
+            .then(instruments => {
+                _instrumentsLoaded = true;
+                const dl = document.getElementById('ds-instrument-datalist');
+                instruments.forEach(i => {
+                    const opt = document.createElement('option');
+                    opt.value = i.name;
+                    dl.appendChild(opt);
+                });
+            })
+            .catch(() => {});
+    }
+}
+
+// ── request deletion ──────────────────────────────────────────────────────────
+async function cgRequestDeletion(btnId, pid) {
+    const btn = document.getElementById(btnId);
+    const resourceId = btn.dataset.resourceId;
+    if (!resourceId) return;
+
+    // Inline reason prompt replaces the button
+    const orig = btn.outerHTML;
+    const wrap = document.createElement('div');
+    wrap.className = 'd-flex align-items-center gap-1 w-100 mt-1';
+    wrap.style.cssText = 'flex-basis:100%;';
+    wrap.innerHTML = `
+        <input id="${btnId}-reason" type="text" class="form-control form-control-sm"
+               placeholder="Reason (optional)" style="font-size:var(--fs-xs);">
+        <button class="btn btn-sm btn-danger py-0 px-2" style="font-size:var(--fs-xs); white-space:nowrap;"
+                onclick="_cgConfirmDeletion('${btnId}','${pid}','${resourceId}')">Confirm</button>
+        <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--fs-xs);"
+                onclick="_cgCancelDeletion('${btnId}')">Cancel</button>`;
+    btn.replaceWith(wrap);
+    wrap.querySelector('input').focus();
+}
+
+async function _cgConfirmDeletion(btnId, pid, resourceId) {
+    const wrap = document.getElementById(btnId + '-reason')?.closest('div');
+    const reason = document.getElementById(btnId + '-reason')?.value.trim() || null;
+    if (wrap) { wrap.innerHTML = '<span class="spinner-border spinner-border-sm text-danger"></span>'; }
+    try {
+        const resp = await fetch(`/${pid}/api/resources/${resourceId}/request-deletion`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ reason }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.error) {
+            cgToast('Request failed: ' + (data.error || resp.status), 'bi-exclamation-circle', 4000);
+            _cgCancelDeletion(btnId);
+        } else {
+            cgToast('Deletion requested', 'bi-trash3');
+            cgCloseAllPanels();
+            setTimeout(() => window.location.reload(), 800);
+        }
+    } catch(err) {
+        cgToast('Request failed: ' + err.message, 'bi-exclamation-circle', 4000);
+        _cgCancelDeletion(btnId);
+    }
+}
+
+function _cgCancelDeletion(btnId) {
+    const wrap = document.getElementById(btnId + '-reason')?.closest('div');
+    if (!wrap) return;
+    const btn = document.createElement('button');
+    btn.id = btnId;
+    btn.className = 'btn btn-link text-danger ms-auto py-0';
+    btn.style.cssText = 'font-size:var(--fs-sm);';
+    btn.innerHTML = '<i class="bi bi-trash3 me-1"></i>Request deletion';
+    const pid = btnId === 'sp-del-btn'
+        ? document.getElementById('sp-submit').dataset.editPid
+        : document.getElementById('ds-submit').dataset.editPid;
+    btn.dataset.resourceId = btnId === 'sp-del-btn'
+        ? document.getElementById('sp-submit').dataset.editId
+        : document.getElementById('ds-submit').dataset.editId;
+    btn.setAttribute('onclick', `cgRequestDeletion('${btnId}','${pid}')`);
+    wrap.replaceWith(btn);
+}
+
+function cgOpenNotePanel() {
+    document.getElementById('nt-name').value = '';
+    document.getElementById('nt-error').style.display = 'none';
+    ntLinks.reset();
+    cgOpenPanel('cgNotePanel');
+}
+</script>

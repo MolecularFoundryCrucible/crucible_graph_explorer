@@ -33,8 +33,8 @@ function wikiLinkPlugin(md, projectId) {
 
     if (!silent) {
       const href = type === 'sample'
-        ? `/${projectId}/sample-graph/${id}`
-        : `/${projectId}/dataset/${id}`;
+        ? `/${projectId}/samples/${id}`
+        : `/${projectId}/datasets/${id}`;
 
       const tokenOpen = state.push('link_open', 'a', 1);
       tokenOpen.attrSet('href', href);

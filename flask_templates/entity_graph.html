@@ -3,21 +3,29 @@
 
 {% block head %}
     {{ super() }}
-    {{ vite_tags() }}
     <style>
         #cy {
             width: 100%;
-            min-height: 65vh;
-            border: 1px solid var(--bs-border-color);
-            border-radius: 4px;
-            margin-bottom: 2rem;
+            height: 65vh;
+            display: block;
         }
-        .legend-dot {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-            margin-right: 4px;
+        .cg-graph-wrap {
+            position: relative;
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.375rem;
+            overflow: hidden;
+            margin-bottom: 2rem;
+            min-height: 65vh;
+        }
+        #cy-spinner {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 5; background: var(--bs-body-bg);
+        }
+        #zoomHint {
+            position: absolute; bottom: 0.6rem; right: 0.8rem;
+            font-size: var(--fs-xs); color: var(--bs-secondary-color);
+            pointer-events: none; transition: opacity 1s; opacity: 1;
         }
     </style>
 {% endblock %}
@@ -25,35 +33,55 @@
 {% block breadcrumb %}
     <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a></li>
     {% if entity_type == 'sample' %}
-    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/sample-graph/{{entity_id}}"><b>Sample</b> {{entity_name}}</a></li>
+    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/samples/{{entity_id}}"><b>Sample</b> {{entity_name}}</a></li>
     {% else %}
-    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/dataset/{{entity_id}}"><b>Dataset</b> {{entity_name}}</a></li>
+    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/datasets/{{entity_id}}"><b>Dataset</b> {{entity_name}}</a></li>
     {% endif %}
     <li class="breadcrumb-item active" aria-current="page">Entity Graph</li>
 {% endblock %}
 
 {% block content %}
 
-<h1>Entity Graph – <em>{{entity_name}}</em></h1>
-
-<div class="d-flex align-items-center gap-3 mb-2">
-    <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left-right me-1"></i>Switch to Vertical Layout
-    </button>
-    <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-image me-1"></i>Hide Thumbnails
-    </button>
-    <span class="text-muted small">
-        <span class="legend-dot" style="background:#4a7ba7;"></span>Sample
-        &nbsp;
-        <span class="legend-dot" style="background:#5a9e6f;"></span>Dataset
-    </span>
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+    <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-diagram-3" style="color:var(--cg-accent-mid);"></i>
+        <span class="fw-semibold" style="font-size: var(--fs-lg);">Entity Graph</span>
+        <span class="text-muted">—</span>
+        <span class="text-body-secondary small">{{entity_name}}</span>
+    </div>
+    <div class="d-flex align-items-center gap-1 ms-auto flex-wrap">
+        <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);">
+            <i class="bi bi-arrow-left-right me-1"></i>Vertical
+        </button>
+        <button id="fitBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);" title="Fit graph">
+            <i class="bi bi-bounding-box"></i>
+        </button>
+        <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);">
+            <i class="bi bi-image me-1"></i>Hide Thumbnails
+        </button>
+        <span class="badge fw-normal border" style="background:var(--bs-tertiary-bg);color:var(--bs-secondary-color);font-size: var(--fs-xs);">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--cy-sample-color);margin-right:3px;vertical-align:middle;"></span>Sample
+        </span>
+        <span class="badge fw-normal border" style="background:var(--bs-tertiary-bg);color:var(--bs-secondary-color);font-size: var(--fs-xs);">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--cy-dataset-color);margin-right:3px;vertical-align:middle;"></span>Dataset
+        </span>
+    </div>
 </div>
 
-<div id="cy"
-     data-project-id="{{pc['project_id']}}"
-     data-entity-type="{{entity_type}}"
-     data-entity-id="{{entity_id}}"></div>
+<div class="cg-graph-wrap">
+    <div id="cy-spinner">
+        <div class="spinner-border text-secondary" role="status">
+            <span class="visually-hidden">Loading…</span>
+        </div>
+    </div>
+    <div id="cy"
+         data-project-id="{{pc['project_id']}}"
+         data-entity-type="{{entity_type}}"
+         data-entity-id="{{entity_id}}"></div>
+    <div id="zoomHint">
+        <i class="bi bi-keyboard me-1"></i>Ctrl + scroll to zoom
+    </div>
+</div>
 
 <script type="module">
   let cyInstance = null;
@@ -62,29 +90,37 @@
     const response = await fetch('/{{pc["project_id"]}}/api/entity-graph-data/{{entity_type}}/{{entity_id}}');
     const graphData = await response.json();
 
-    if (window.initEntityGraph) {
-      cyInstance = window.initEntityGraph('cy', graphData);
-    } else {
-      setTimeout(initGraph, 100);
-    }
+    const initGraph = await window.loadEntityGraph();
+    cyInstance = initGraph('cy', graphData);
+    document.getElementById('cy-spinner').style.display = 'none';
+    setTimeout(() => {
+      const hint = document.getElementById('zoomHint');
+      if (hint) {
+        hint.style.opacity = '0';
+        setTimeout(() => { hint.style.display = 'none'; }, 1000);
+      }
+    }, 2500);
   }
 
   document.getElementById('toggleLayoutBtn').addEventListener('click', function() {
-    if (cyInstance && cyInstance.toggleLayout) {
-      const newLayout = cyInstance.toggleLayout();
-      this.innerHTML = newLayout === 'LR'
-        ? '<i class="bi bi-arrow-left-right me-1"></i>Switch to Vertical Layout'
-        : '<i class="bi bi-arrow-down me-1"></i>Switch to Horizontal Layout';
-    }
+    if (!cyInstance?.toggleLayout) return;
+    const newLayout = cyInstance.toggleLayout();
+    this.innerHTML = newLayout === 'LR'
+      ? '<i class="bi bi-arrow-left-right me-1"></i>Vertical'
+      : '<i class="bi bi-arrow-down me-1"></i>Horizontal';
+    setTimeout(() => { cyInstance.resize(); cyInstance.fit(); }, 550);
+  });
+
+  document.getElementById('fitBtn').addEventListener('click', () => {
+    if (cyInstance) cyInstance.fit();
   });
 
   document.getElementById('toggleThumbnailsBtn').addEventListener('click', function() {
-    if (cyInstance && cyInstance.toggleThumbnails) {
-      const visible = cyInstance.toggleThumbnails();
-      this.innerHTML = visible
-        ? '<i class="bi bi-image me-1"></i>Hide Thumbnails'
-        : '<i class="bi bi-image me-1"></i>Show Thumbnails';
-    }
+    if (!cyInstance?.toggleThumbnails) return;
+    const visible = cyInstance.toggleThumbnails();
+    this.innerHTML = visible
+      ? '<i class="bi bi-image me-1"></i>Hide Thumbnails'
+      : '<i class="bi bi-image me-1"></i>Show Thumbnails';
   });
 
   if (document.readyState === 'loading') {

@@ -32,4 +32,8 @@ dependencies = [
     "fsspec>=2026.2.0",
     "ncempy>=1.15",
     "py4dstem>=0.14.16",
+    "cachetools>=5.0.0",
 ]
+
+[tool.uv.sources]
+nano-crucible = { git = "https://github.com/MolecularFoundryCrucible/nano-crucible.git", branch = "dev" }

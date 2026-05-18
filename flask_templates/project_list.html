@@ -1,7 +1,68 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 
-{% block head %}{{ super() }}{% endblock %}
+{% block head %}{{ super() }}
+<style>
+    /* ── grid layout for list view (header + rows share identical columns) ── */
+    .proj-grid {
+        display: grid;
+        grid-template-columns: 1.4rem 1fr 10rem 13rem 2.75rem 2.75rem 12rem;
+        align-items: center;
+        column-gap: 0.75rem;
+    }
+    @media (max-width: 1199px) {
+        .proj-grid { grid-template-columns: 1.4rem 1fr 9rem 0 2.75rem 2.75rem 12rem; }
+        .proj-grid .col-lead { display: none; }
+    }
+    @media (max-width: 991px) {
+        .proj-grid { grid-template-columns: 1.4rem 1fr 0 0 2.75rem 2.75rem 10rem; }
+        .proj-grid .col-org { display: none; }
+    }
+
+    /* ── list header ────────────────────────────────────────────────────── */
+    #listHeader {
+        position: sticky; z-index: 10;
+        padding: 0.3rem 1rem;
+        font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+        color: var(--bs-secondary-color);
+        background: color-mix(in srgb, var(--cg-accent) 8%, var(--bs-tertiary-bg));
+        border-top: 1px solid var(--bs-border-color);
+        border-bottom: 1px solid var(--bs-border-color);
+        cursor: pointer; user-select: none;
+    }
+    #listHeader span { display: flex; align-items: center; gap: 0.3rem; }
+    #listHeader span:hover { color: var(--bs-body-color); }
+
+    /* ── list rows ──────────────────────────────────────────────────────── */
+    .proj-list-row {
+        padding: 0.55rem 1rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        cursor: pointer; transition: background 0.1s, box-shadow 0.15s;
+    }
+    .proj-list-row:last-child { border-bottom: none; }
+    .proj-list-row:hover { background: var(--cg-hover-bg); }
+
+    /* ── card hover ─────────────────────────────────────────────────────── */
+    #projectList .card { transition: background 0.12s, box-shadow 0.15s; }
+    #projectList .card:hover { background: var(--cg-hover-bg) !important; }
+
+    /* ── stats loading shimmer ──────────────────────────────────────────── */
+    .stat-placeholder {
+        display: inline-block; width: 1.8rem; height: 0.75em;
+        border-radius: 3px; vertical-align: middle;
+        background: linear-gradient(90deg, var(--bs-border-color) 25%, var(--bs-secondary-bg) 50%, var(--bs-border-color) 75%);
+        background-size: 200% 100%;
+        animation: statShimmer 1.4s ease-in-out infinite;
+    }
+    @keyframes statShimmer {
+        0%   { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+
+    /* ── hidden section ─────────────────────────────────────────────────── */
+    #hiddenSection { border-top: 1px solid var(--bs-border-color); }
+</style>
+{% endblock %}
 
 {% block breadcrumb %}
         <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
@@ -11,28 +72,48 @@
 {% block main_col_class %}col-12{% endblock %}
 
 {% block content %}
+<div style="max-width:1100px; margin:0 auto;">
 
-    <h1 class="mb-3">Welcome to Crucible{% if user_name %}, {{ user_name }}{% endif %}</h1>
-
-    <div class="d-flex gap-2 mb-4 flex-wrap justify-content-center">
-        <a href="/search" class="btn btn-outline-secondary px-4">
-            <i class="bi bi-search me-2"></i>Search
-        </a>
-        <a href="/users" class="btn btn-outline-secondary px-4">
-            <i class="bi bi-people me-2"></i>Users
-        </a>
-        <a href="/instruments/" class="btn btn-outline-secondary px-4">
-            <i class="bi bi-cpu me-2"></i>Instruments
-        </a>
+    <!-- ── welcome ──────────────────────────────────────────────────────── -->
+    <div class="mb-4" style="border-left: 3px solid var(--cg-accent); padding-left: 1.1rem;">
+        <h1 class="fw-bold mb-0" style="font-size:2.2rem; letter-spacing:-0.02em; line-height:1.15;">
+            {% if user_name %}
+                Welcome to Crucible, <span style="color:var(--cg-link);">{{ user_name }}</span>
+            {% else %}
+                Welcome to Crucible
+            {% endif %}
+        </h1>
     </div>
 
+    <!-- ── quick nav tiles ───────────────────────────────────────────────── -->
+    <div class="row g-2 mb-4">
+        {% set tiles = [
+            ('/search',      'bi-search',  'Search',      'Find samples and datasets across projects'),
+            ('/users',       'bi-people',  'Users',       'Browse researchers and collaborators'),
+            ('/instruments/', 'bi-cpu',    'Instruments', 'View instruments and upload data'),
+        ] %}
+        {% for href, icon, label, desc in tiles %}
+        <div class="col-12 col-sm-4">
+            <a href="{{ href }}" class="cg-nav-tile d-flex align-items-center gap-3 p-3 rounded border">
+                <i class="bi {{ icon }} fs-4 flex-shrink-0" style="color: var(--cg-accent-mid);"></i>
+                <div>
+                    <div class="fw-semibold" style="font-size: var(--fs-lg);">{{ label }}</div>
+                    <div class="text-muted" style="font-size: var(--fs-sm);">{{ desc }}</div>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ── toolbar ──────────────────────────────────────────────────────── -->
     <div class="d-flex flex-wrap align-items-center gap-2 justify-content-between mb-2">
-        <h5 class="mb-0 fw-semibold">Your Projects</h5>
+        <div class="d-flex align-items-center gap-2">
+            <h5 class="mb-0 fw-semibold">Your Projects</h5>
+            <span class="text-muted small" id="projectCount"></span>
+        </div>
         <div class="d-flex flex-wrap gap-2 align-items-center">
-            <span class="text-muted small text-nowrap" id="projectCount"></span>
             <input type="search" class="form-control form-control-sm" id="filterInput"
-                   placeholder="Filter projects…" oninput="applyFilter()" style="width:16rem; max-width:100%;">
-            <!-- sort + layout toggle: hidden on mobile, list view doesn't work on narrow screens -->
+                   placeholder="Filter… (or press /)" oninput="applyFilter()" style="width:15rem; max-width:100%;">
             <div class="d-none d-md-flex gap-2 align-items-center" id="desktopControls">
                 <div class="input-group input-group-sm" id="cardSortControls">
                     <label class="input-group-text">Sort</label>
@@ -45,50 +126,45 @@
                     <button class="btn btn-outline-secondary" id="sortDir" onclick="toggleDir()">▲</button>
                 </div>
                 <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-secondary" id="btnCards" onclick="setLayout('cards')" title="Card view">&#x229E;</button>
-                    <button class="btn btn-outline-secondary" id="btnList"  onclick="setLayout('list')"  title="List view">&#x2630;</button>
+                    <button class="btn btn-outline-secondary" id="btnCards" onclick="setLayout('cards')" title="Card view">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary" id="btnList" onclick="setLayout('list')" title="List view">
+                        <i class="bi bi-list-ul"></i>
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="d-flex align-items-center gap-3 px-3 py-1 mb-0 small fw-semibold text-uppercase border-bottom border-top bg-body-tertiary text-muted"
-         id="listHeader" style="display:none!important;">
-        <span style="min-width:1.25rem;"></span>
-        <span id="lhdr-id"   onclick="sortBy('id')"   style="min-width:21rem; cursor:pointer; user-select:none;">ID   <span class="lsort-icon">▲</span></span>
-        <span id="lhdr-name" onclick="sortBy('name')" style="min-width:8rem; flex:1; max-width:18rem; cursor:pointer; user-select:none;">Name <span class="lsort-icon opacity-25">⇅</span></span>
-        <span id="lhdr-org"  onclick="sortBy('org')"  style="min-width:10rem; cursor:pointer; user-select:none;">Organization <span class="lsort-icon opacity-25">⇅</span></span>
-        <span id="lhdr-lead" onclick="sortBy('lead')" style="min-width:16rem; cursor:pointer; user-select:none;">Lead <span class="lsort-icon opacity-25">⇅</span></span>
-        <span style="min-width:5rem;margin-inline:-0.5rem;"></span>
-        <span style="min-width:13rem;"></span>
+    <!-- ── list header (shown only in list view) ────────────────────────── -->
+    <div class="proj-grid" id="listHeader" style="display:none;">
+        <span></span>
+        <span id="lhdr-id" onclick="sortBy('id')">ID <span class="lsort-icon">▲</span></span>
+        <span id="lhdr-org" onclick="sortBy('org')" class="col-org">Org <span class="lsort-icon opacity-25">⇅</span></span>
+        <span id="lhdr-lead" onclick="sortBy('lead')" class="col-lead">Lead <span class="lsort-icon opacity-25">⇅</span></span>
+        <span title="Samples" style="justify-content:flex-end;"><i class="bi bi-flask" style="font-size: var(--fs-sm); opacity:0.6;"></i></span>
+        <span title="Datasets" style="justify-content:flex-end;"><i class="bi bi-database" style="font-size: var(--fs-sm); opacity:0.6;"></i></span>
+        <span></span>
     </div>
 
     <div id="projectList" class="mb-4"></div>
-
     <div id="emptyState" class="text-center text-muted py-5" style="display:none;"></div>
 
-    <!-- archived section -->
-    <div id="archivedSection" style="display:none;" class="mt-4 pt-3 border-top">
-        <div class="d-flex align-items-center gap-2 mb-2" style="cursor:pointer;" onclick="toggleArchivedView()">
-            <i class="bi bi-archive text-muted small"></i>
-            <span class="text-muted small fw-semibold text-uppercase">Archived</span>
-            <span class="badge bg-secondary rounded-pill" id="archivedCount"></span>
-            <span class="text-muted small" id="archivedToggleLabel">Show ▸</span>
+    <!-- ── hidden projects section ──────────────────────────────────────── -->
+    <div id="hiddenSection" style="display:none;" class="mt-3 pt-3">
+        <div class="d-flex align-items-center gap-2 mb-2 px-1 cg-clickable" onclick="toggleHiddenView()">
+            <i class="bi bi-eye-slash text-muted" style="font-size: var(--fs-sm);"></i>
+            <span class="text-muted small fw-semibold">Hidden projects</span>
+            <span class="badge rounded-pill text-bg-secondary fw-normal" id="hiddenCount" style="font-size: var(--fs-xs);"></span>
+            <span class="text-muted small ms-1" id="hiddenToggleLabel">Show</span>
         </div>
-        <div id="archivedList" style="display:none;" class="mb-4"></div>
+        <div id="hiddenList" style="display:none;" class="mb-4"></div>
     </div>
 
-    <!-- back-to-top button -->
-    <button id="backToTop" title="Back to top"
-            onclick="window.scrollTo({top:0, behavior:'smooth'})"
-            style="position:fixed; bottom:1.75rem; right:1.75rem; display:none; z-index:1050;
-                   width:2.5rem; height:2.5rem; border-radius:50%; border:none;
-                   background:var(--bs-secondary-color); color:#fff;
-                   box-shadow:0 2px 8px rgba(0,0,0,0.25); cursor:pointer;
-                   align-items:center; justify-content:center; font-size:1rem;
-                   transition: opacity 0.2s;">
-        <i class="bi bi-arrow-up"></i>
-    </button>
+    </div><!-- end projects section -->
+
+</div><!-- end max-width wrapper -->
 
     <script>
         const PROJECTS = {{ projects | tojson }};
@@ -96,62 +172,43 @@
         let currentSortKey  = 'id';
         let sortAsc         = true;
         let currentFilter   = '';
-        let archivedOpen    = false;
-        let projectStats    = {};  // {project_id: {datasets: N, samples: M}} — loaded async
+        let hiddenOpen      = false;
+        let projectStats    = {};
 
-        const ARCHIVE_KEY = 'crucible-archived';
-        const STAR_KEY    = 'crucible-starred';
-        const DASH        = '<em class="text-muted">—</em>';
-        const PALETTE     = [
-            '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
-            '#b07aa1','#9c755f','#6b6ecf','#e05c5c','#3a9e7e'
-        ];
+        const HIDE_KEY = 'crucible-archived';   // keep old key for localStorage compat
+        const STAR_KEY = 'crucible-starred';
+        const DASH     = '<em class="text-muted opacity-50">—</em>';
 
         // ── helpers ───────────────────────────────────────────────────────────
-
-        function navIfNoSelection(event, url) {
-            if (event.button === 1) { window.open(url, '_blank'); return; }
-            if (event.button !== 0) return;
-            if (window.getSelection().toString()) return;
-            if (event.target.closest('a, button')) return;
-            window.location.href = url;
-        }
 
         function esc(s) {
             return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
-        function hashColor(str) {
-            let h = 0;
-            for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
-            return PALETTE[Math.abs(h) % PALETTE.length];
-        }
-
-        function avatarHTML(id) {
+        function avatarHTML(id, size='2.1rem', fs='0.68rem') {
             const initials = id.replace(/[_-]/g,' ').split(' ')
-                               .filter(Boolean).slice(0, 2)
-                               .map(w => w[0].toUpperCase()).join('');
+                               .filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
             const bg = hashColor(id);
-            return `<div style="width:2.25rem;height:2.25rem;min-width:2.25rem;border-radius:50%;`
+            return `<div style="width:${size};height:${size};min-width:${size};border-radius:50%;`
                  + `background:${bg};color:#fff;display:flex;align-items:center;justify-content:center;`
-                 + `font-size:0.7rem;font-weight:700;letter-spacing:0.05em;">${esc(initials)}</div>`;
+                 + `font-size:${fs};font-weight:700;letter-spacing:0.05em;flex-shrink:0;">${esc(initials)}</div>`;
         }
 
-        // ── archive / star helpers ────────────────────────────────────────────
+        // ── hide / star helpers ───────────────────────────────────────────────
 
-        function getArchived() {
-            try { return new Set(JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]')); }
+        function getHidden() {
+            try { return new Set(JSON.parse(localStorage.getItem(HIDE_KEY) || '[]')); }
             catch { return new Set(); }
         }
-        function setArchived(set) { localStorage.setItem(ARCHIVE_KEY, JSON.stringify([...set])); }
+        function setHidden(set) { localStorage.setItem(HIDE_KEY, JSON.stringify([...set])); }
 
-        function archiveProject(id, event) {
+        function hideProject(id, event) {
             event.stopPropagation();
-            const a = getArchived(); a.add(id); setArchived(a); render();
+            const h = getHidden(); h.add(id); setHidden(h); render();
         }
-        function restoreProject(id, event) {
+        function unhideProject(id, event) {
             event.stopPropagation();
-            const a = getArchived(); a.delete(id); setArchived(a); render();
+            const h = getHidden(); h.delete(id); setHidden(h); render();
         }
 
         function getStarred() {
@@ -169,42 +226,176 @@
 
         function starBtn(id, starred) {
             return `<button class="btn btn-sm btn-link p-0 ${starred ? 'text-warning' : 'text-muted'}"
-                            onclick="toggleStar('${esc(id)}', event)"
-                            title="${starred ? 'Unstar' : 'Star'}"
-                            style="line-height:1; font-size:0.9rem;">
+                            onclick="toggleStar('${esc(id)}', event)" title="${starred ? 'Unstar' : 'Star'}"
+                            style="line-height:1; font-size: var(--fs-md);">
                         <i class="bi ${starred ? 'bi-star-fill' : 'bi-star'}"></i>
                     </button>`;
         }
 
-        function archiveBtn(id) {
+        function hideBtn(id) {
             return `<button class="btn btn-sm btn-link text-muted p-0"
-                            onclick="archiveProject('${esc(id)}', event)"
-                            title="Archive project"
-                            style="line-height:1; font-size:0.9rem;">
-                        <i class="bi bi-archive"></i>
+                            onclick="hideProject('${esc(id)}', event)" title="Hide project"
+                            style="line-height:1; font-size: var(--fs-sm);">
+                        <i class="bi bi-eye-slash"></i>
                     </button>`;
         }
 
-        // ── badge helpers ─────────────────────────────────────────────────────
+        // ── stats HTML ────────────────────────────────────────────────────────
 
-        function metaBadge(icon, text) {
-            return `<span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1"
-                          style="background:var(--bs-tertiary-bg); font-size:0.75rem; max-width:14rem;"
-                          title="${esc(text)}">
-                        <i class="bi ${icon}"></i>
-                        <span class="text-truncate">${esc(text)}</span>
-                    </span>`;
+        function statVal(pid, key) {
+            const s  = projectStats[pid];
+            return s ? (s[key] ?? '—') : `<span class="stat-placeholder"></span>`;
+        }
+        function statCell(pid, key) {
+            return `<div style="font-size: var(--fs-sm);color:var(--bs-secondary-color);text-align:right;font-variant-numeric:tabular-nums;">${statVal(pid, key)}</div>`;
+        }
+
+        // ── card HTML ─────────────────────────────────────────────────────────
+
+        function cardHTML(p) {
+            const starred   = getStarred().has(p.project_id);
+            const color     = hashColor(p.project_id);
+            const borderCol = starred ? '#ffc107' : color;
+            const url       = `/${esc(p.project_id)}/`;
+            const org       = p.organization ? `<span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1" style="background:var(--bs-tertiary-bg);font-size: var(--fs-xs);max-width:100%;"><i class="bi bi-building"></i><span class="text-truncate">${esc(p.organization)}</span></span>` : '';
+            const lead      = (p.project_lead_name || p.project_lead_email) ? `<span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1" style="background:var(--bs-tertiary-bg);font-size: var(--fs-xs);max-width:100%;"><i class="bi bi-person"></i><span class="text-truncate">${esc(p.project_lead_name || p.project_lead_email)}</span></span>` : '';
+            return `
+            <div class="col">
+              <div class="card h-100" style="border-left:4px solid ${borderCol}; cursor:pointer;"
+                   onmouseup="navIfNoSelection(event, '${url}')">
+                <div class="card-body pb-2" style="position:relative;">
+                  <div style="position:absolute;top:0.5rem;right:0.6rem;display:flex;gap:0.3rem;align-items:center;">
+                    ${starBtn(p.project_id, starred)}
+                    ${hideBtn(p.project_id)}
+                  </div>
+                  <div class="d-flex align-items-center gap-2 mb-2">
+                    ${avatarHTML(p.project_id)}
+                    <div style="min-width:0;">
+                      <div class="fw-semibold text-truncate" style="font-family:'IBM Plex Mono',monospace; font-size: var(--fs-md);">
+                        ${esc(p.project_id)}
+                      </div>
+                      <div class="text-truncate text-muted" style="font-size: var(--fs-sm);" title="${esc(p.title)}">${esc(p.title) || DASH}</div>
+                    </div>
+                  </div>
+                  ${org || lead ? `<div class="d-flex flex-wrap gap-1">${org}${lead}</div>` : ''}
+                </div>
+                <div class="card-footer d-flex align-items-center gap-2 py-2" style="background:var(--bs-tertiary-bg);">
+                  <span style="font-size: var(--fs-sm);color:var(--bs-secondary-color);display:flex;align-items:center;gap:0.25rem;"><i class="bi bi-flask" style="font-size: var(--fs-xs);opacity:0.7;"></i>${statVal(p.project_id,'samples')}</span>
+                  <span style="font-size: var(--fs-sm);color:var(--bs-secondary-color);display:flex;align-items:center;gap:0.25rem;"><i class="bi bi-database" style="font-size: var(--fs-xs);opacity:0.7;"></i>${statVal(p.project_id,'datasets')}</span>
+                  <div class="ms-auto d-flex gap-1">
+                    <a href="${url}search" class="btn btn-sm btn-outline-secondary px-2" onclick="event.stopPropagation()">
+                        <i class="bi bi-search"></i>
+                    </a>
+                    <a href="${url}chat" class="btn btn-sm btn-cg-accent px-2" onclick="event.stopPropagation()">
+                        <i class="bi bi-chat-dots"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+        }
+
+        // ── list row HTML ─────────────────────────────────────────────────────
+
+        function listRowHTML(p) {
+            const starred = getStarred().has(p.project_id);
+            const url     = `/${esc(p.project_id)}/`;
+            const color   = starred ? '#ffc107' : hashColor(p.project_id);
+            const title   = p.title && p.title !== p.project_id
+                ? `<div class="text-muted text-truncate" style="font-size: var(--fs-sm);">${esc(p.title)}</div>` : '';
+            const orgText  = p.organization
+                ? `<span class="text-truncate" style="font-size: var(--fs-sm); color:var(--bs-secondary-color);"><i class="bi bi-building me-1" style="font-size: var(--fs-xs); opacity:0.7;"></i>${esc(p.organization)}</span>`
+                : DASH;
+            const leadText = (p.project_lead_name || p.project_lead_email)
+                ? `<span class="text-truncate" style="font-size: var(--fs-sm); color:var(--bs-secondary-color);"><i class="bi bi-person me-1" style="font-size: var(--fs-xs); opacity:0.7;"></i>${esc(p.project_lead_name || p.project_lead_email)}</span>`
+                : DASH;
+            return `
+            <div class="proj-grid proj-list-row" style="box-shadow: inset 4px 0 0 ${color};"
+                 onmouseup="navIfNoSelection(event, '${url}')">
+              <div>${starBtn(p.project_id, starred)}</div>
+              <div style="min-width:0;">
+                <a href="${url}" class="fw-semibold text-decoration-none"
+                   style="font-family:'IBM Plex Mono',monospace; font-size: var(--fs-md); color:var(--cg-link);">${esc(p.project_id)}</a>
+                ${title}
+              </div>
+              <div class="col-org" style="min-width:0; overflow:hidden;">${orgText}</div>
+              <div class="col-lead" style="min-width:0; overflow:hidden;">${leadText}</div>
+              ${statCell(p.project_id, 'samples')}
+              ${statCell(p.project_id, 'datasets')}
+              <div class="d-flex align-items-center justify-content-end gap-1">
+                <a href="${url}search" class="btn btn-sm btn-outline-secondary px-2" onclick="event.stopPropagation()" title="Search">
+                    <i class="bi bi-search"></i>
+                </a>
+                <a href="${url}chat" class="btn btn-sm btn-cg-accent px-2" onclick="event.stopPropagation()" title="Chat">
+                    <i class="bi bi-chat-dots"></i>
+                </a>
+                ${hideBtn(p.project_id)}
+              </div>
+            </div>`;
+        }
+
+        // ── hidden project rows ───────────────────────────────────────────────
+
+        function hiddenRowHTML(p) {
+            const url   = `/${esc(p.project_id)}/`;
+            const color = hashColor(p.project_id);
+            const orgText  = p.organization
+                ? `<span class="text-truncate" style="font-size: var(--fs-sm); color:var(--bs-secondary-color);"><i class="bi bi-building me-1" style="font-size: var(--fs-xs); opacity:0.7;"></i>${esc(p.organization)}</span>`
+                : DASH;
+            const leadText = (p.project_lead_name || p.project_lead_email)
+                ? `<span class="text-truncate" style="font-size: var(--fs-sm); color:var(--bs-secondary-color);"><i class="bi bi-person me-1" style="font-size: var(--fs-xs); opacity:0.7;"></i>${esc(p.project_lead_name || p.project_lead_email)}</span>`
+                : DASH;
+            return `
+            <div class="proj-grid proj-list-row opacity-50" style="box-shadow: inset 4px 0 0 ${color};"
+                 onmouseup="navIfNoSelection(event, '${url}')">
+              <div></div>
+              <div style="min-width:0;">
+                <a href="${url}" class="fw-semibold text-decoration-none"
+                   style="font-family:'IBM Plex Mono',monospace; font-size: var(--fs-md); color:var(--cg-link);">${esc(p.project_id)}</a>
+                ${p.title && p.title !== p.project_id ? `<div class="text-muted text-truncate" style="font-size: var(--fs-sm);">${esc(p.title)}</div>` : ''}
+              </div>
+              <div class="col-org" style="min-width:0; overflow:hidden;">${orgText}</div>
+              <div class="col-lead" style="min-width:0; overflow:hidden;">${leadText}</div>
+              ${statCell(p.project_id, 'samples')}
+              ${statCell(p.project_id, 'datasets')}
+              <div class="d-flex align-items-center justify-content-end">
+                <button class="btn btn-sm btn-outline-secondary px-2"
+                        onclick="unhideProject('${esc(p.project_id)}', event)" title="Show again">
+                    <i class="bi bi-eye me-1"></i>Unhide
+                </button>
+              </div>
+            </div>`;
+        }
+
+        // ── list header sort indicators ───────────────────────────────────────
+
+        function updateListHeaders() {
+            ['id', 'org', 'lead'].forEach(key => {
+                const hdr = document.getElementById(`lhdr-${key}`);
+                if (!hdr) return;
+                const icon = hdr.querySelector('.lsort-icon');
+                if (!icon) return;
+                if (key === currentSortKey) {
+                    icon.textContent = sortAsc ? '▲' : '▼';
+                    icon.classList.remove('opacity-25');
+                    hdr.style.color = 'var(--bs-body-color)';
+                } else {
+                    icon.textContent = '⇅';
+                    icon.classList.add('opacity-25');
+                    hdr.style.color = '';
+                }
+            });
         }
 
         // ── sort / filter ─────────────────────────────────────────────────────
 
         function sortedFiltered() {
-            const fieldMap = { id:'project_id', name:'title', org:'organization', lead:'project_lead_email' };
+            const fieldMap = { id: 'project_id', name: 'title', org: 'organization', lead: 'project_lead_email' };
             const field    = fieldMap[currentSortKey];
-            const archived = getArchived();
+            const hidden   = getHidden();
             const starred  = getStarred();
             return PROJECTS
-                .filter(p => !archived.has(p.project_id))
+                .filter(p => !hidden.has(p.project_id))
                 .filter(p => {
                     if (!currentFilter) return true;
                     return (p.project_id         || '').toLowerCase().includes(currentFilter)
@@ -224,214 +415,10 @@
                 });
         }
 
-        // ── card / row HTML ───────────────────────────────────────────────────
-
-        function statsHTML(pid) {
-            const s = projectStats[pid];
-            const col = 'min-width:5rem;flex-shrink:0;font-size:0.78rem;color:var(--bs-secondary-color);line-height:1.55;';
-            const row = 'display:flex;align-items:center;gap:0.3rem;';
-            const ico = 'font-size:0.7rem;opacity:0.7;';
-            const sp = s ? (s.samples ?? '—') : '<span style="opacity:0.35;">···</span>';
-            const ds = s ? (s.datasets ?? '—') : '<span style="opacity:0.35;">···</span>';
-            return `<div style="${col}">
-                <div style="${row}"><i class="bi bi-eyedropper" style="${ico}"></i>${sp}</div>
-                <div style="${row}"><i class="bi bi-database"   style="${ico}"></i>${ds}</div>
-            </div>`;
-        }
-
-        function cardHTML(p) {
-            const starred  = getStarred().has(p.project_id);
-            const color    = hashColor(p.project_id);
-            const orgBadge  = p.organization       ? metaBadge('bi-building', p.organization)                               : '';
-            const leadBadge = p.project_lead_email ? metaBadge('bi-person',   p.project_lead_name || p.project_lead_email) : '';
-            const url = `/${esc(p.project_id)}/`;
-            return `
-            <div class="col">
-              <div class="card h-100 shadow-sm" style="border-left:4px solid ${color};${starred ? 'border-color:#ffc107;' : ''}cursor:pointer;"
-                   onmouseup="navIfNoSelection(event, '${url}')">
-                <div class="card-body" style="position:relative;">
-                  <div style="position:absolute;top:0.5rem;right:0.6rem;display:flex;gap:0.3rem;align-items:center;">
-                    ${starBtn(p.project_id, starred)}
-                    ${archiveBtn(p.project_id)}
-                  </div>
-                  <div class="d-flex align-items-center gap-3 mb-2">
-                    ${avatarHTML(p.project_id)}
-                    <div style="min-width:0;">
-                      <h6 class="mb-0 fw-semibold" style="font-family:monospace;">
-                        <a href="${url}" class="text-decoration-none text-primary">${esc(p.project_id)}</a>
-                      </h6>
-                      <p class="mb-0 text-truncate small text-muted" title="${esc(p.title)}">${esc(p.title) || DASH}</p>
-                    </div>
-                  </div>
-                  <div class="d-flex flex-wrap gap-1 mt-1">
-                    ${orgBadge}${leadBadge}
-                  </div>
-                </div>
-                <div class="card-footer d-flex align-items-center gap-2 py-2">
-                  ${statsHTML(p.project_id)}
-                  <div class="ms-auto d-flex gap-2">
-                    <a href="${url}search" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-search me-1"></i>Search
-                    </a>
-                    <a href="${url}chat" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-chat-dots me-1"></i>Chat
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>`;
-        }
-
-        function listRowHTML(p) {
-            const starred = getStarred().has(p.project_id);
-            const url = `/${esc(p.project_id)}/`;
-            return `
-            <div class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-2"
-                 style="${starred ? 'border-left:3px solid #ffc107;' : ''}cursor:pointer;"
-                 onmouseup="navIfNoSelection(event, '${url}')">
-              <div style="min-width:1.25rem;">${starBtn(p.project_id, starred)}</div>
-              <a href="${url}" class="fw-semibold text-nowrap text-primary text-decoration-none"
-                 style="font-family:monospace;min-width:21rem;">${esc(p.project_id)}</a>
-              <span class="flex-grow-1" style="min-width:8rem;max-width:18rem;font-size:0.875rem;">${esc(p.title) || DASH}</span>
-              <span class="text-muted small text-truncate" style="min-width:10rem;">${esc(p.organization) || DASH}</span>
-              <span class="text-muted small text-nowrap" style="min-width:16rem;">${esc(p.project_lead_name || p.project_lead_email) || DASH}</span>
-              <div style="min-width:5rem;flex-shrink:0;margin-inline:-0.5rem;">${statsHTML(p.project_id)}</div>
-              <div class="d-flex align-items-center justify-content-end gap-2 flex-shrink-0" style="min-width:13rem;">
-                  <a href="${url}search" class="btn btn-sm btn-outline-secondary">
-                      <i class="bi bi-search me-1"></i>Search
-                  </a>
-                  <a href="${url}chat" class="btn btn-sm btn-outline-primary">
-                      <i class="bi bi-chat-dots me-1"></i>Chat
-                  </a>
-                  ${archiveBtn(p.project_id)}
-              </div>
-            </div>`;
-        }
-
-        function archivedCardHTML(p) {
-            const color     = hashColor(p.project_id);
-            const orgBadge  = p.organization       ? metaBadge('bi-building', p.organization)                               : '';
-            const leadBadge = p.project_lead_email ? metaBadge('bi-person',   p.project_lead_name || p.project_lead_email) : '';
-            const url = `/${esc(p.project_id)}/`;
-            return `
-            <div class="col">
-              <div class="card h-100 shadow-sm opacity-50" style="border-left:4px solid ${color};cursor:pointer;"
-                   onmouseup="navIfNoSelection(event, '${url}')">
-                <div class="card-body" style="position:relative;">
-                  <div class="d-flex align-items-center gap-3 mb-2">
-                    ${avatarHTML(p.project_id)}
-                    <div style="min-width:0;">
-                      <h6 class="mb-0 fw-semibold" style="font-family:monospace;">
-                        <a href="${url}" class="text-decoration-none text-primary">${esc(p.project_id)}</a>
-                      </h6>
-                      <p class="mb-0 small text-muted" style="font-size:0.875rem;">${esc(p.title) || DASH}</p>
-                    </div>
-                  </div>
-                  <div class="d-flex flex-wrap gap-1 mt-1">${orgBadge}${leadBadge}</div>
-                </div>
-                <div class="card-footer d-flex align-items-center gap-2 py-2">
-                  ${statsHTML(p.project_id)}
-                  <div class="ms-auto">
-                    <button class="btn btn-sm btn-outline-secondary"
-                            onclick="restoreProject('${esc(p.project_id)}', event)">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>`;
-        }
-
-        function archivedRowHTML(p) {
-            const url = `/${esc(p.project_id)}/`;
-            return `
-            <div class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-2 opacity-50"
-                 style="cursor:pointer;" onmouseup="navIfNoSelection(event, '${url}')">
-              <div style="min-width:1.25rem;"></div>
-              <a href="${url}" class="fw-semibold text-nowrap text-primary text-decoration-none"
-                 style="font-family:monospace;min-width:21rem;">${esc(p.project_id)}</a>
-              <span class="flex-grow-1" style="min-width:8rem;max-width:18rem;font-size:0.875rem;">${esc(p.title) || DASH}</span>
-              <span class="text-muted small text-truncate" style="min-width:10rem;">${esc(p.organization) || DASH}</span>
-              <span class="text-muted small text-nowrap" style="min-width:16rem;">${esc(p.project_lead_name || p.project_lead_email) || DASH}</span>
-              <div style="min-width:5rem;flex-shrink:0;margin-inline:-0.5rem;">${statsHTML(p.project_id)}</div>
-              <div class="d-flex align-items-center justify-content-end gap-2 flex-shrink-0" style="min-width:13rem;">
-                <button class="btn btn-sm btn-outline-secondary"
-                        onclick="restoreProject('${esc(p.project_id)}', event)">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
-                </button>
-              </div>
-            </div>`;
-        }
-
-        // ── list header arrows ────────────────────────────────────────────────
-
-        function updateListHeaders() {
-            ['id', 'name', 'org', 'lead'].forEach(key => {
-                const hdr = document.getElementById(`lhdr-${key}`);
-                if (!hdr) return;
-                const icon = hdr.querySelector('.lsort-icon');
-                if (key === currentSortKey) {
-                    icon.textContent = sortAsc ? '▲' : '▼';
-                    icon.classList.remove('opacity-25');
-                    hdr.classList.add('text-body-emphasis');
-                } else {
-                    icon.textContent = '⇅';
-                    icon.classList.add('opacity-25');
-                    hdr.classList.remove('text-body-emphasis');
-                }
-            });
-        }
-
-        // ── render ────────────────────────────────────────────────────────────
-
-        // on narrow screens always use cards — list columns don't fit
-        function effectiveLayout() {
-            return window.innerWidth < 768 ? 'cards' : currentLayout;
-        }
-
-        function render() {
-            const items     = sortedFiltered();
-            const archived  = getArchived();
-            const layout    = effectiveLayout();
-            const container = document.getElementById('projectList');
-            const listHeader       = document.getElementById('listHeader');
-            const cardSortControls = document.getElementById('cardSortControls');
-
-            if (layout === 'cards') {
-                container.className = 'row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-4';
-                container.innerHTML = items.map(cardHTML).join('');
-                listHeader.style.setProperty('display', 'none', 'important');
-                cardSortControls.style.display = '';
-            } else {
-                container.className = 'list-group list-group-flush mb-2';
-                container.innerHTML = items.map(listRowHTML).join('');
-                listHeader.style.removeProperty('display');
-                cardSortControls.style.display = 'none';
-                updateListHeaders();
-            }
-
-            const emptyEl = document.getElementById('emptyState');
-            if (items.length === 0) {
-                emptyEl.style.display = '';
-                emptyEl.innerHTML = filteredArchived().length > 0
-                    ? '<i class="bi bi-archive d-block fs-2 mb-2 text-muted"></i>No active projects match — see archived results below.'
-                    : '<i class="bi bi-search d-block fs-2 mb-2 text-muted"></i>No projects match your filter.';
-            } else {
-                emptyEl.style.display = 'none';
-            }
-
-            const total = PROJECTS.length - archived.size;
-            document.getElementById('projectCount').textContent = items.length === total
-                ? `${total} project${total !== 1 ? 's' : ''}`
-                : `${items.length} of ${total} projects`;
-
-            renderArchived();
-        }
-
-        function filteredArchived() {
-            const archived = getArchived();
+        function filteredHidden() {
+            const hidden = getHidden();
             return PROJECTS.filter(p => {
-                if (!archived.has(p.project_id)) return false;
+                if (!hidden.has(p.project_id)) return false;
                 if (!currentFilter) return true;
                 return (p.project_id         || '').toLowerCase().includes(currentFilter)
                     || (p.title              || '').toLowerCase().includes(currentFilter)
@@ -440,41 +427,83 @@
             });
         }
 
-        function renderArchived() {
-            const allArchived      = getArchived();
-            const visibleArchived  = filteredArchived();
-            const section          = document.getElementById('archivedSection');
-            const list             = document.getElementById('archivedList');
-            const countEl          = document.getElementById('archivedCount');
-            const toggleLabel      = document.getElementById('archivedToggleLabel');
+        // ── render ────────────────────────────────────────────────────────────
 
-            if (allArchived.size === 0) { section.style.display = 'none'; return; }
+        function effectiveLayout() {
+            return window.innerWidth < 768 ? 'cards' : currentLayout;
+        }
+
+        function render() {
+            const items       = sortedFiltered();
+            const hidden      = getHidden();
+            const layout      = effectiveLayout();
+            const container   = document.getElementById('projectList');
+            const listHeader  = document.getElementById('listHeader');
+            const cardSort    = document.getElementById('cardSortControls');
+
+            if (layout === 'cards') {
+                container.className = 'row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-4';
+                container.innerHTML = items.map(cardHTML).join('');
+                listHeader.style.display = 'none';
+                cardSort.style.display = '';
+            } else {
+                container.className = 'border rounded overflow-hidden mb-2';
+                container.innerHTML = items.map(listRowHTML).join('');
+                listHeader.style.display = '';
+                cardSort.style.display = 'none';
+                updateListHeaders();
+
+                // sync list header top with nav height
+                const nav = document.querySelector('nav[aria-label="breadcrumb"]');
+                if (nav) listHeader.style.top = nav.getBoundingClientRect().height + 'px';
+            }
+
+            const emptyEl = document.getElementById('emptyState');
+            if (items.length === 0) {
+                emptyEl.style.display = '';
+                emptyEl.innerHTML = filteredHidden().length > 0
+                    ? '<i class="bi bi-eye-slash d-block fs-2 mb-2 text-muted opacity-50"></i>No active projects match — see hidden projects below.'
+                    : '<i class="bi bi-collection d-block fs-2 mb-2 text-muted opacity-50"></i>No projects match your filter.';
+            } else {
+                emptyEl.style.display = 'none';
+            }
+
+            const total = PROJECTS.length - hidden.size;
+            document.getElementById('projectCount').textContent = items.length === total
+                ? `${total} project${total !== 1 ? 's' : ''}`
+                : `${items.length} of ${total}`;
+
+            renderHidden();
+        }
+
+        function renderHidden() {
+            const allHidden = getHidden();
+            const section   = document.getElementById('hiddenSection');
+            const list      = document.getElementById('hiddenList');
+            const countEl   = document.getElementById('hiddenCount');
+            const label     = document.getElementById('hiddenToggleLabel');
+
+            if (allHidden.size === 0) { section.style.display = 'none'; return; }
 
             section.style.display = '';
-            countEl.textContent = allArchived.size;
+            countEl.textContent   = allHidden.size;
 
-            const shouldShow = archivedOpen || (currentFilter && visibleArchived.length > 0);
+            const visHidden = filteredHidden();
+            const shouldShow = hiddenOpen || (currentFilter && visHidden.length > 0);
+
+            label.textContent = shouldShow ? 'Hide ▾' : 'Show ▸';
+            list.style.display = shouldShow ? '' : 'none';
 
             if (shouldShow) {
-                toggleLabel.textContent = 'Hide ▾';
-                list.style.display = '';
-                const items = currentFilter ? visibleArchived : PROJECTS.filter(p => allArchived.has(p.project_id));
-                if (effectiveLayout() === 'cards') {
-                    list.className = 'row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-2';
-                    list.innerHTML = items.map(archivedCardHTML).join('');
-                } else {
-                    list.className = 'list-group list-group-flush mb-2';
-                    list.innerHTML = items.map(archivedRowHTML).join('');
-                }
-            } else {
-                toggleLabel.textContent = 'Show ▸';
-                list.style.display = 'none';
+                const items = currentFilter ? visHidden : PROJECTS.filter(p => allHidden.has(p.project_id));
+                list.className = 'border rounded overflow-hidden mb-2';
+                list.innerHTML = items.map(hiddenRowHTML).join('');
             }
         }
 
-        function toggleArchivedView() {
-            archivedOpen = !archivedOpen;
-            renderArchived();
+        function toggleHiddenView() {
+            hiddenOpen = !hiddenOpen;
+            renderHidden();
         }
 
         // ── controls ──────────────────────────────────────────────────────────
@@ -487,7 +516,7 @@
         function setSortKey(key) { currentSortKey = key; render(); }
 
         function sortBy(key) {
-            if (currentSortKey === key) { sortAsc = !sortAsc; }
+            if (currentSortKey === key) sortAsc = !sortAsc;
             else { currentSortKey = key; sortAsc = true; }
             render();
         }
@@ -506,29 +535,19 @@
             render();
         }
 
-        // ── sticky list header: computed dynamically like overview ─────────────
-
-        (function () {
-            const nav = document.querySelector('nav[aria-label="breadcrumb"]');
-            const hdr = document.getElementById('listHeader');
-            if (nav && hdr) {
-                const offset = nav.getBoundingClientRect().height;
-                hdr.style.top    = offset + 'px';
-                hdr.style.zIndex = '10';
-            }
-        })();
-
-        // ── back-to-top ───────────────────────────────────────────────────────
-
-        const backToTop = document.getElementById('backToTop');
-        window.addEventListener('scroll', () => {
-            backToTop.style.display = window.scrollY > 300 ? 'flex' : 'none';
-        }, { passive: true });
-
         setLayout(currentLayout);
 
+        // ── keyboard shortcut: / → focus filter ──────────────────────────────
+        document.addEventListener('keydown', e => {
+            if (e.key === '/' && document.activeElement.tagName !== 'INPUT'
+                              && document.activeElement.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                const f = document.getElementById('filterInput');
+                f.focus(); f.select();
+            }
+        });
+
         // ── async project stats ───────────────────────────────────────────────
-        // Fetch dataset/sample counts in the background; re-render when ready.
         (function fetchStats() {
             const ids = PROJECTS.map(p => p.project_id).join(',');
             if (!ids) return;
@@ -538,7 +557,7 @@
                 .catch(() => {});
         })();
 
-        // re-render on resize so mobile/desktop layout switch is seamless
+        // re-render on resize for mobile/desktop layout switch
         let resizeTimer;
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimer);

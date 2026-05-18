@@ -8,7 +8,6 @@
         #chat-wrapper {
             display: flex;
             flex-direction: column;
-            height: calc(100vh - 140px);
         }
         #chat-messages {
             flex: 1;
@@ -21,7 +20,7 @@
             margin-bottom: 0.75rem;
         }
         .msg-user .bubble {
-            background: #0d6efd;
+            background: var(--bs-primary);
             color: #fff;
             border-radius: 1rem 1rem 0.25rem 1rem;
             padding: 0.6rem 1rem;
@@ -35,8 +34,8 @@
             margin-bottom: 0.75rem;
         }
         .msg-assistant .bubble {
-            background: #f1f3f5;
-            color: #212529;
+            background: var(--bs-secondary-bg);
+            color: var(--bs-body-color);
             border-radius: 1rem 1rem 1rem 0.25rem;
             padding: 0.6rem 1rem;
             max-width: 85%;
@@ -44,10 +43,10 @@
         }
         .msg-assistant .bubble p:last-child { margin-bottom: 0; }
         .tool-pill {
-            font-size: 0.75em;
+            font-size: var(--fs-xs);
             font-family: monospace;
-            background: #e9ecef;
-            border: 1px solid #ced4da;
+            background: var(--bs-tertiary-bg);
+            border: 1px solid var(--bs-border-color);
             border-radius: 4px;
             padding: 2px 8px;
             margin-bottom: 4px;
@@ -56,10 +55,10 @@
         }
         .tool-pill-result {
             display: none;
-            font-size: 0.72em;
+            font-size: var(--fs-xs);
             font-family: monospace;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
+            background: var(--bs-body-bg);
+            border: 1px solid var(--bs-border-color);
             border-radius: 4px;
             padding: 4px 8px;
             margin-bottom: 6px;
@@ -70,7 +69,7 @@
         }
         .tool-group { margin-bottom: 4px; }
         #chat-input-area {
-            border-top: 1px solid #dee2e6;
+            border-top: 1px solid var(--bs-border-color);
             padding-top: 0.75rem;
         }
         #chat-input {
@@ -81,7 +80,7 @@
             display: inline-block;
             width: 7px; height: 7px;
             margin: 0 1px;
-            background: #adb5bd;
+            background: var(--bs-secondary-color);
             border-radius: 50%;
             animation: bounce 1.2s infinite;
         }
@@ -100,15 +99,39 @@
 {% endblock %}
 
 {% block content %}
+{%- set about_parts = about.split(':', 1) if about else [] -%}
+{%- set about_type = about_parts[0] if about_parts|length == 2 else None -%}
+{%- set about_id   = about_parts[1] if about_parts|length == 2 else None -%}
 <div id="chat-wrapper">
     <div class="d-flex align-items-center justify-content-between mb-2">
-        <h1 class="mb-0">Chat <em>{{pc['project_id']}}</em></h1>
+        <h1 class="fs-5 fw-semibold mb-0">
+            <i class="bi bi-chat-dots me-1 text-muted"></i>Chat
+            <a href="/{{pc['project_id']}}/" class="mfid text-decoration-none ms-1"
+               style="font-size:var(--fs-md);">{{pc['project_id']}}</a>
+        </h1>
         <div class="d-flex align-items-center gap-2">
-            <span id="spend-badge" class="badge text-bg-secondary font-monospace fw-normal"
-                  style="display:none;" title="API token spend"></span>
+            <span id="spend-badge" class="badge text-bg-secondary fw-normal"
+                  style="display:none; font-family:'IBM Plex Mono',monospace;" title="API token spend"></span>
             <button class="btn btn-sm btn-outline-secondary" id="clear-btn">Clear</button>
         </div>
     </div>
+
+    {% if about_id %}
+    <div class="d-flex align-items-center gap-2 rounded border px-3 py-2 mb-3 small"
+         style="background:color-mix(in srgb, var(--cg-accent) 8%, var(--bs-body-bg));
+                border-color:var(--cg-accent) !important; max-width:860px;">
+        <i class="bi bi-{% if about_type == 'sample' %}eyedropper{% else %}database{% endif %} flex-shrink-0"
+           style="color:var(--cg-accent-mid);"></i>
+        <div style="min-width:0;">
+            Asking about
+            <strong>{{ about_type }}</strong>
+            <a href="/{{pc['project_id']}}/{% if about_type == 'sample' %}samples{% else %}datasets{% endif %}/{{about_id}}"
+               class="mfid text-decoration-none ms-1">{{about_id}}</a>
+        </div>
+        <button type="button" class="btn-close btn-close-sm ms-auto flex-shrink-0"
+                style="font-size: var(--fs-2xs);" onclick="clearAbout()" title="Dismiss"></button>
+    </div>
+    {% endif %}
 
     <div id="chat-messages"></div>
 
@@ -125,6 +148,16 @@
 const PROJECT_ID = {{ pc['project_id'] | tojson }};
 const API_URL = `/${PROJECT_ID}/api/chat`;
 const STORAGE_KEY = `chat_history_${PROJECT_ID}_{{ orcid | tojson }}`;
+const ABOUT_TYPE = {{ (about_type or '') | tojson }};
+const ABOUT_ID   = {{ (about_id or '')   | tojson }};
+
+function clearAbout() {
+    const banner = document.querySelector('.about-banner');
+    if (banner) banner.remove();
+    const url = new URL(window.location);
+    url.searchParams.delete('about');
+    window.history.replaceState({}, '', url);
+}
 
 async function fetchSpend() {
     try {
@@ -176,6 +209,13 @@ try {
     if (saved) history = JSON.parse(saved);
 } catch {}
 renderHistory();
+
+// Pre-populate input when navigating from a resource page (only if no history yet)
+if (ABOUT_TYPE && ABOUT_ID && history.length === 0) {
+    inputEl.value = `Tell me about this ${ABOUT_TYPE}: ${ABOUT_ID}`;
+    inputEl.focus();
+    inputEl.setSelectionRange(0, 0);
+}
 
 function escHtml(s) {
     return String(s)
@@ -332,10 +372,10 @@ function handleEvent(event) {
         img.src = event.src;
         img.alt = event.label || 'thumbnail';
         img.title = event.label || '';
-        img.style.cssText = 'max-width:220px;max-height:180px;object-fit:contain;border:1px solid #dee2e6;border-radius:4px;display:block;margin:6px 0;';
+        img.style.cssText = 'max-width:220px;max-height:180px;object-fit:contain;border:1px solid var(--bs-border-color);border-radius:4px;display:block;margin:6px 0;';
         if (event.dataset_id) {
             img.style.cursor = 'pointer';
-            img.addEventListener('click', () => window.open(`/${PROJECT_ID}/dataset/${event.dataset_id}`, '_blank'));
+            img.addEventListener('click', () => window.open(`/${PROJECT_ID}/datasets/${event.dataset_id}`, '_blank'));
         }
         _currentBubble.appendChild(img);
         scrollToBottom();
@@ -398,5 +438,11 @@ clearBtn.addEventListener('click', function() {
     _rawText = '';
     _currentBubble = null;
 });
+
+(function fitChat() {
+    const navH = document.querySelector('nav[aria-label="breadcrumb"]')?.offsetHeight || 56;
+    document.getElementById('chat-wrapper').style.height = `calc(100vh - ${navH + 24}px)`;
+    window.addEventListener('resize', fitChat, { passive: true });
+})();
 </script>
 {% endblock %}

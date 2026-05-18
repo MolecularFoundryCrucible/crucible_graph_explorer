@@ -157,7 +157,7 @@ function openStream(jobId) {
                 $('batchLink').textContent = ev.dataset_id;
             } else {
                 $('batchInfo').style.display = '';
-                $('batchLink').href = `/${ev.project_id}/dataset/${ev.dataset_id}`;
+                $('batchLink').href = `/${ev.project_id}/datasets/${ev.dataset_id}`;
                 $('batchLink').textContent = ev.dataset_id;
             }
             $('samplesHeading').style.display = '';
@@ -204,7 +204,7 @@ function showResult(ev) {
     const created = ev.children.filter(c => !c.skipped).length;
     const batchRef = ev.dry_run
         ? `<span class="font-monospace">${ev.batch_id}</span>`
-        : `<a href="/${ev.project_id}/dataset/${ev.batch_id}" class="alert-link font-monospace">${ev.batch_id}</a>`;
+        : `<a href="/${ev.project_id}/datasets/${ev.batch_id}" class="alert-link font-monospace">${ev.batch_id}</a>`;
     const dryNote = ev.dry_run ? ' <span class="badge bg-warning text-dark ms-1">dry run</span>' : '';
     $('resultAlert').innerHTML =
         `<h5 class="alert-heading mb-1">Done — ${ev.dataset_name}${dryNote}</h5>` +
@@ -230,7 +230,7 @@ function showResult(ev) {
         } else {
             const idEl = ev.dry_run
                 ? `<span class="font-monospace small text-muted">${child.dataset_id}</span>`
-                : `<a href="/${ev.project_id}/dataset/${child.dataset_id}" class="font-monospace small text-truncate">${child.dataset_id}</a>`;
+                : `<a href="/${ev.project_id}/datasets/${child.dataset_id}" class="font-monospace small text-truncate">${child.dataset_id}</a>`;
             item.innerHTML =
                 `<span class="badge bg-body-secondary text-body border fw-normal" style="min-width:2.5rem;">${child.spot}</span>` +
                 `<span class="fw-semibold" style="min-width:7rem;">${child.sample_name}</span>` +

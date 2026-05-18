@@ -10,75 +10,165 @@
 
 {% block content %}
 <style>
-    .list-row {
-        display: flex; align-items: center; gap: 0.75rem;
-        padding: 0.6rem 0.75rem;
-        border-bottom: 1px solid var(--bs-border-color);
-        transition: background 0.1s; text-decoration: none; color: inherit;
+    .inst-layout { display: flex; gap: 1rem; align-items: flex-start; }
+    .inst-filter-panel {
+        width: 180px; flex-shrink: 0;
+        position: sticky; top: 3.5rem; max-height: calc(100vh - 4.5rem); overflow-y: auto;
+        border: 1px solid var(--bs-border-color); border-radius: 0.375rem;
+        background: var(--bs-tertiary-bg); padding: 0.75rem;
+        font-size: var(--fs-sm);
     }
-    .list-row:last-child { border-bottom: none; }
-    .list-row:hover { background: var(--bs-tertiary-bg); color: inherit; }
+    .inst-filter-panel h6 { font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.07em; color: var(--bs-secondary-color); margin-bottom: 0.4rem; }
+    .inst-filter-panel label { display: flex; align-items: center; gap: 0.4rem;
+        cursor: pointer; padding: 0.2rem 0; border-radius: 3px; }
+    .inst-filter-panel label:hover { background: var(--bs-border-color); }
+    .inst-type-count { margin-left: auto; font-size: var(--fs-xs); color: var(--bs-secondary-color); }
+    .inst-main { flex: 1; min-width: 0; }
+    .inst-group-header {
+        display: flex; align-items: center; gap: 0.5rem;
+        padding: 0.5rem 0.75rem; font-size: var(--fs-sm); font-weight: 600;
+        background: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color);
+        border-left-width: 4px; border-radius: 0.375rem 0.375rem 0 0;
+        position: sticky; top: 3.5rem; z-index: 5;
+    }
+    .inst-group-body { border: 1px solid var(--bs-border-color); border-top: none;
+        border-radius: 0 0 0.375rem 0.375rem; overflow: hidden; margin-bottom: 0.75rem; }
+    @media (max-width: 767px) {
+        .inst-filter-panel { display: none; }
+        .inst-layout { flex-direction: column; }
+    }
 </style>
 
-<div style="max-width:720px; margin: 0 auto;">
-
+<div style="max-width:1100px; margin:0 auto;">
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h1 class="fs-4 fw-semibold mb-0">
         <i class="bi bi-cpu me-2 text-secondary"></i>Instruments
+        <span id="instCount" class="text-muted fw-normal ms-1" style="font-size: var(--fs-sm);">{{ instruments | length }}</span>
     </h1>
-    <span class="badge bg-secondary rounded-pill">{{ instruments | length }}</span>
 </div>
 
-{% if instruments %}
-
-<input type="search" class="form-control form-control-sm mb-3" id="filterInput"
+<input type="search" class="form-control form-control-sm mb-3 d-md-none" id="filterInputMobile"
        placeholder="Filter…" oninput="applyFilter()">
 
-<div class="border rounded overflow-hidden">
-{% for inst in instruments %}
-<a class="list-row" href="/instrument/{{ inst.get('unique_id') }}"
-   data-search="{{ (inst.get('instrument_name','') ~ ' ' ~ inst.get('instrument_type','') ~ ' ' ~ inst.get('location','') ~ ' ' ~ inst.get('manufacturer','')).lower() }}">
-    <i class="bi bi-cpu text-secondary flex-shrink-0" style="font-size:1.1rem;"></i>
-    <div style="min-width:0; flex:1;">
-        <div class="fw-medium">{{ inst.get('instrument_name') or inst.get('unique_id') }}</div>
-        <div class="d-flex flex-wrap gap-3 mt-1">
-            {% if inst.get('manufacturer') or inst.get('model') %}
-            <span class="text-muted small">
-                {{ inst.get('manufacturer','') }}{% if inst.get('manufacturer') and inst.get('model') %} &middot; {% endif %}{{ inst.get('model','') }}
-            </span>
-            {% endif %}
-            {% if inst.get('location') %}
-            <span class="text-muted small">
-                <i class="bi bi-geo-alt" style="font-size:0.75rem;"></i> {{ inst['location'] }}
-            </span>
-            {% endif %}
-        </div>
-    </div>
-    {% if inst.get('instrument_type') %}
-    <span class="badge fw-normal border text-muted flex-shrink-0"
-          style="background:var(--bs-tertiary-bg); font-size:0.75rem;">
-        {{ inst['instrument_type'] }}
-    </span>
-    {% endif %}
-    <span class="mfid small text-nowrap flex-shrink-0">{{ inst.get('unique_id') }}</span>
-</a>
-{% endfor %}
-</div>
-</div>
+{% if instruments %}
+<div class="inst-layout">
 
-<script>
-    function applyFilter() {
-        const q = document.getElementById('filterInput').value.toLowerCase();
-        document.querySelectorAll('.list-row').forEach(row => {
-            row.style.display = (!q || row.dataset.search.includes(q)) ? '' : 'none';
-        });
-    }
-</script>
+  <div class="inst-filter-panel d-none d-md-block">
+      <input type="search" class="form-control form-control-sm mb-3" id="filterInput"
+             placeholder="Search…" oninput="applyFilter()">
+      <h6>Type</h6>
+      <div id="typeFilters"></div>
+  </div>
 
+  <div class="inst-main" id="instMain"></div>
+
+</div>
 {% else %}
 <p class="text-muted">No instruments found.</p>
 {% endif %}
+</div><!-- /max-width wrapper -->
 
-</div>{# end max-width wrapper #}
+<script>
+const INSTRUMENTS = {{ instruments | tojson }};
+let activeTypes = new Set();
+
+function getQuery() {
+    const d = document.getElementById('filterInput');
+    const m = document.getElementById('filterInputMobile');
+    return ((d && d.value) || (m && m.value) || '').toLowerCase();
+}
+
+function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+(function buildTypeFilters() {
+    const counts = {};
+    INSTRUMENTS.forEach(i => {
+        const t = i.instrument_type || '—';
+        counts[t] = (counts[t] || 0) + 1;
+    });
+    const types = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+    const el = document.getElementById('typeFilters');
+    if (!el) return;
+    types.forEach(([type, count]) => {
+        const lbl = document.createElement('label');
+        lbl.innerHTML = `<input type="checkbox" value="${esc(type)}" onchange="toggleType(this)">
+            <span class="text-truncate" style="flex:1;" title="${esc(type)}">${esc(type)}</span>
+            <span class="inst-type-count">${count}</span>`;
+        el.appendChild(lbl);
+    });
+})();
+
+function toggleType(cb) {
+    if (cb.checked) activeTypes.add(cb.value);
+    else activeTypes.delete(cb.value);
+    applyFilter();
+}
+
+function applyFilter() {
+    const q = getQuery();
+    const main = document.getElementById('instMain');
+    if (!main) return;
+
+    const groups = {};
+    let visibleTotal = 0;
+
+    INSTRUMENTS.forEach(inst => {
+        const type = inst.instrument_type || '—';
+        if (activeTypes.size && !activeTypes.has(type)) return;
+        const searchText = [inst.instrument_name, inst.instrument_type, inst.location, inst.manufacturer, inst.model].filter(Boolean).join(' ').toLowerCase();
+        if (q && !searchText.includes(q)) return;
+        if (!groups[type]) groups[type] = [];
+        groups[type].push(inst);
+        visibleTotal++;
+    });
+
+    const sortedTypes = Object.keys(groups).sort();
+
+    main.innerHTML = sortedTypes.map(type => {
+        const items = groups[type];
+        const color = hashColor(type);
+        const rows = items.map(inst => {
+            const url = `/instrument/${esc(inst.unique_id || '')}`;
+            const name = esc(inst.instrument_name || inst.unique_id || '');
+            const mfr  = [inst.manufacturer, inst.model].filter(Boolean).map(esc).join(' · ');
+            const loc  = inst.location ? `<i class="bi bi-geo-alt" style="font-size: var(--fs-xs);"></i> ${esc(inst.location)}` : '';
+            return `<a class="list-row" href="${url}"
+                        data-search="${esc([inst.instrument_name,inst.instrument_type,inst.location,inst.manufacturer,inst.model].filter(Boolean).join(' ').toLowerCase())}">
+                <i class="bi bi-cpu text-secondary flex-shrink-0" style="font-size: var(--fs-lg);"></i>
+                <div style="min-width:0; flex:1;">
+                    <div class="fw-medium">${name}</div>
+                    <div class="d-flex flex-wrap gap-3 mt-1">
+                        ${mfr ? `<span class="text-muted small">${mfr}</span>` : ''}
+                        ${loc  ? `<span class="text-muted small">${loc}</span>` : ''}
+                    </div>
+                </div>
+                <span class="mfid small text-nowrap flex-shrink-0">${esc(inst.unique_id || '')}</span>
+            </a>`;
+        }).join('');
+        return `<div class="inst-group-body-wrap">
+            <div class="inst-group-header" style="border-left-color:${color};">
+                <i class="bi bi-cpu-fill" style="color:${color}; font-size: var(--fs-sm);"></i>
+                <span>${esc(type)}</span>
+                <span class="badge fw-normal border text-muted ms-auto" style="background:var(--bs-body-bg); font-size: var(--fs-xs);">${items.length}</span>
+            </div>
+            <div class="inst-group-body">${rows}</div>
+        </div>`;
+    }).join('');
+
+    const countEl = document.getElementById('instCount');
+    if (countEl) {
+        countEl.textContent = (q || activeTypes.size) ? `${visibleTotal} of ${INSTRUMENTS.length}` : INSTRUMENTS.length;
+    }
+
+    if (!sortedTypes.length) {
+        main.innerHTML = '<div class="text-center text-muted py-5"><i class="bi bi-cpu fs-2 d-block mb-2 opacity-50"></i>No instruments match your filter.</div>';
+    }
+}
+
+applyFilter();
+</script>
 
 {% endblock %}

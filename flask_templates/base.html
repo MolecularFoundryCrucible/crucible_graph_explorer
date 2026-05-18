@@ -1,145 +1,929 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script>(function(){var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-bs-theme',t);})();</script>
+    <script>(function(){
+        var t=localStorage.getItem('theme')||'light';
+        document.documentElement.setAttribute('data-bs-theme',t);
+        if(localStorage.getItem('cg_sidebar_collapsed'))
+            document.documentElement.classList.add('sidebar-collapsed');
+    })();</script>
+    <style>
+        /* reserve scrollbar gutter so layout never shifts when content grows */
+        html { scrollbar-gutter: stable; }
+        /* critical: set sidebar width before styles.css loads — transition never fires on init */
+        .cg-sidebar { width: 260px; }
+        html.sidebar-collapsed .cg-sidebar { width: 40px; }
+    </style>
     {% block head %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-    <link
-      rel="stylesheet"
-        href="https://cdn.rawgit.com/afeld/bootstrap-toc/v1.0.1/dist/bootstrap-toc.min.css"
-    />
-
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-
-    <style type="text/css">
-        .mfid { color: #80858a; font-family: monospace; white-space: nowrap; }
-        .mfid-copy-btn {
-            opacity: 0.35; transition: opacity 0.15s;
-            color: var(--bs-secondary-color); font-size: 0.85em;
-            vertical-align: middle; line-height: 1;
-            background: none; border: none; padding: 0 0 0 0.25em; cursor: pointer;
-        }
-        .mfid-copy-btn:hover { opacity: 1; color: var(--bs-body-color); }
-
-        /* ── nav icon buttons (profile, dark mode) ─────────────────────── */
-        .nav-icon {
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 2rem; height: 2rem; border-radius: 0.4rem;
-            border: none; background: transparent;
-            color: var(--bs-secondary-color);
-            font-size: 1.05rem; text-decoration: none;
-            transition: background 0.15s, color 0.15s, transform 0.1s;
-            cursor: pointer; flex-shrink: 0;
-        }
-        .nav-icon:hover  { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
-        .nav-icon:active { transform: scale(0.88); }
-
-        /* ── breadcrumb home link ───────────────────────────────────────── */
-        .breadcrumb-item a { transition: color 0.15s; }
-
-        /* ── subtle active feedback on all buttons ──────────────────────── */
-        .btn:active:not(:disabled) { transform: scale(0.97); }
-
-        /* ── list-row active press feedback ────────────────────────────── */
-        .list-row:active { background: var(--bs-secondary-bg) !important; }
-    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    {{ vite_tags() }}
 
     <title>{% block title %}{% endblock %} - Crucible</title>
     {% endblock %}
 </head>
-<body data-bs-spy="scroll" data-bs-target="#toc">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.1/jquery.min.js"></script>
+<body>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-    <script src="https://cdn.rawgit.com/afeld/bootstrap-toc/v1.0.1/dist/bootstrap-toc.min.js"></script>
-    <script>
-        Toc.init({
-            $nav: $("#toc"), 
-            $scope: $("h1, h2, h3, h4, h5, h6")
-        })
-    </script>
 
     {% block nav %}
-    <nav aria-label="breadcrumb" class="sticky-top">
-    <div class="d-flex align-items-center bg-body-tertiary border rounded-3 px-1">
-        <ol class="breadcrumb breadcrumb-chevron p-3 mb-0 flex-grow-1">
-            <li class="breadcrumb-item"><a href="/"><b>Crucible</b></a></li>
-            {% block breadcrumb %}
-            {% endblock %}
-        </ol>
-        <div class="d-flex align-items-center gap-1 ms-auto me-1">
-            {% if current_user_orcid %}
-            <a href="/user/{{ current_user_orcid }}" class="nav-icon" title="My Profile">
-                <i class="bi bi-person-circle"></i>
-            </a>
-            {% endif %}
-            <button id="darkModeToggle" class="nav-icon" title="Toggle dark mode">
-                <i class="bi bi-moon"></i>
-            </button>
+    <nav class="cg-navbar sticky-top" aria-label="breadcrumb">
+        <div class="cg-navbar-inner d-flex align-items-center px-3 px-md-4">
+            <div style="position:relative;">
+                <a href="/" class="cg-wordmark" title="All projects">
+                    <!-- dark icon: shown in dark mode -->
+                    <svg class="cg-wordmark-icon cg-logo-dark" viewBox="0 0 423.59415 435.7869" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <g transform="translate(-1144.6638,-595.94049)">
+                        <g transform="matrix(0.94528721,0,0,0.94528721,722.99412,38.82903)">
+                          <path fill="#cccccc" d="m 480.65598,616.03724 a 35.892062,35.892062 0 0 0 -25.44997,10.34374 c -9.15799,9.15774 -10.12689,11.98336 -8.4625,24.60623 1.42879,10.83613 4.79265,16.79414 14.01562,24.8156 l 10.44998,9.08751 a 5.6932609,5.6932609 0 0 1 1.925,3.69061 l 9.84688,92.42807 c 14.0832,132.1711 18.35009,157.47866 30.82497,182.81863 18.24593,37.06277 53.53612,67.08037 94.1187,80.05617 25.10009,8.0255 85.87422,8.7434 114.25927,1.35 60.22387,-15.6863 102.4527,-62.19855 115.44055,-127.15303 2.7992,-13.99922 10.50993,-71.16682 17.13749,-127.0374 l 11.50623,-96.98432 a 14.28869,14.28869 0 0 1 3.68126,-7.99999 l 8.26875,-8.97185 c 1.12112,-1.2163 2.9461,-3.18413 4.02186,-4.44062 14.7685,-17.2497 15.8858,-33.85896 3.125,-47.6281 l -0.65625,-0.70625 a 25.83685,25.83685 0 0 0 -18.94999,-8.275 H 671.29648 Z"/>
+                          <path fill="#008080" d="m 672.29336,589.37475 c -26.94352,-0.58233 -46.68789,13.20237 -73.60931,14.43749 -19.76516,0.90684 -48.99915,-11.53743 -73.05309,-7.07185 -14.8675,2.76014 -34.33899,6.36851 -41.60309,19.29685 h 187.26862 70.25307 c -0.0724,8.9328 7.09799,35.16775 11.21562,53.30934 0.80377,3.54122 3.52739,10.88649 3.49063,26.60936 -0.0443,18.70886 -1.66232,27.41095 -9.82188,52.84057 -7.7825,24.25483 -8.05723,36.88642 -1.03124,47.18435 2.89924,4.24955 8.68122,8.64069 13.99374,10.62499 4.61663,1.72442 15.71307,0.83265 20.52185,-1.64999 2.25723,-1.16535 5.78342,-3.88922 7.83749,-6.05312 10.89137,-11.47474 11.40847,-25.61464 1.96252,-53.7406 -7.20159,-21.44297 -8.36476,-28.62215 -8.31875,-51.52183 0.0812,-42.48788 16.9362,-69.72897 17.2906,-77.59681 10e-5,-0.002 -7e-5,-0.004 0,-0.006 h 61.21872 c -10.67082,-17.78208 -25.27412,-18.05688 -49.23435,-19.90935 -21.76678,-1.68294 -49.59443,8.20023 -71.42181,7.76249 -20.96369,-0.42044 -45.99624,-14.06264 -66.95934,-14.51563 z"/>
+                          <g transform="matrix(0.95999937,0,0,0.95999937,17.843313,23.574646)">
+                            <rect fill="#031e2d" width="109.89026" height="27.472565" x="511.31506" y="763.93384" ry="13.736282"/>
+                            <rect fill="#031e2d" width="109.89026" height="27.472565" x="523.34058" y="827.00037" ry="13.736282"/>
+                            <rect fill="#031e2d" width="109.89026" height="27.472565" x="535.36621" y="890.06689" ry="13.736282"/>
+                          </g>
+                        </g>
+                      </g>
+                    </svg>
+                    <!-- light icon: shown in light mode -->
+                    <svg class="cg-wordmark-icon cg-logo-light" viewBox="0 0 423.59415 435.7869" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <g transform="translate(-475.54662,-595.94049)">
+                        <g transform="matrix(0.94528721,0,0,0.94528721,53.876907,38.82903)">
+                          <path fill="#031e2d" d="m 480.65598,616.03724 a 35.892062,35.892062 0 0 0 -25.44997,10.34374 c -9.15799,9.15774 -10.12689,11.98336 -8.4625,24.60623 1.42879,10.83613 4.79265,16.79414 14.01562,24.8156 l 10.44998,9.08751 a 5.6932609,5.6932609 0 0 1 1.925,3.69061 l 9.84688,92.42807 c 14.0832,132.1711 18.35009,157.47866 30.82497,182.81863 18.24593,37.06277 53.53612,67.08037 94.1187,80.05617 25.10009,8.0255 85.87422,8.7434 114.25927,1.35 60.22387,-15.6863 102.4527,-62.19855 115.44055,-127.15303 2.7992,-13.99922 10.50993,-71.16682 17.13749,-127.0374 l 11.50623,-96.98432 a 14.28869,14.28869 0 0 1 3.68126,-7.99999 l 8.26875,-8.97185 c 1.12112,-1.2163 2.9461,-3.18413 4.02186,-4.44062 14.7685,-17.2497 15.8858,-33.85896 3.125,-47.6281 l -0.65625,-0.70625 a 25.83685,25.83685 0 0 0 -18.94999,-8.275 H 671.29648 Z"/>
+                          <path fill="#ff6600" d="m 672.29336,589.37475 c -26.94352,-0.58233 -46.68789,13.20237 -73.60931,14.43749 -19.76516,0.90684 -48.99915,-11.53743 -73.05309,-7.07185 -14.8675,2.76014 -34.33899,6.36851 -41.60309,19.29685 h 187.26862 70.25307 c -0.0724,8.9328 7.09799,35.16775 11.21562,53.30934 0.80377,3.54122 3.52739,10.88649 3.49063,26.60936 -0.0443,18.70886 -1.66232,27.41095 -9.82188,52.84057 -7.7825,24.25483 -8.05723,36.88642 -1.03124,47.18435 2.89924,4.24955 8.68122,8.64069 13.99374,10.62499 4.61663,1.72442 15.71307,0.83265 20.52185,-1.64999 2.25723,-1.16535 5.78342,-3.88922 7.83749,-6.05312 10.89137,-11.47474 11.40847,-25.61464 1.96252,-53.7406 -7.20159,-21.44297 -8.36476,-28.62215 -8.31875,-51.52183 0.0812,-42.48788 16.9362,-69.72897 17.2906,-77.59681 10e-5,-0.002 -7e-5,-0.004 0,-0.006 h 61.21872 c -10.67082,-17.78208 -25.27412,-18.05688 -49.23435,-19.90935 -21.76678,-1.68294 -49.59443,8.20023 -71.42181,7.76249 -20.96369,-0.42044 -45.99624,-14.06264 -66.95934,-14.51563 z"/>
+                          <g transform="matrix(0.95999937,0,0,0.95999937,17.843313,23.574646)">
+                            <rect fill="#e6e6e6" width="109.89026" height="27.472565" x="511.31506" y="763.93384" ry="13.736282"/>
+                            <rect fill="#e6e6e6" width="109.89026" height="27.472565" x="523.34058" y="827.00037" ry="13.736282"/>
+                            <rect fill="#e6e6e6" width="109.89026" height="27.472565" x="535.36621" y="890.06689" ry="13.736282"/>
+                          </g>
+                        </g>
+                      </g>
+                    </svg>
+                    <span>Crucible</span>
+                </a>
+                <button id="recentProjectsBtn" class="nav-icon ms-1" title="Recent projects"
+                        style="font-size: var(--fs-sm); width:1.4rem; height:1.4rem;"
+                        onclick="toggleRecentProjects(event)">
+                    <i class="bi bi-chevron-down"></i>
+                </button>
+                <div id="recentProjectsDropdown" class="cg-recent-dropdown">
+                    <span class="cg-recent-label" id="recentProjectsLabel">Projects</span>
+                    <div class="cg-recent-list"></div>
+                </div>
+            </div>
+            <div class="cg-nav-sep"></div>
+            <ol class="breadcrumb cg-breadcrumb mb-0 flex-grow-1 flex-nowrap overflow-hidden">
+                {% block breadcrumb %}
+                {% endblock %}
+            </ol>
+            <div class="d-flex align-items-center gap-1 ms-2">
+                <button class="nav-icon d-none d-sm-flex" title="Quick search (Ctrl+K)"
+                        onclick="cgPaletteOpen()" style="gap:0.3rem; width:auto; padding:0 0.5rem; font-size: var(--fs-sm);">
+                    <i class="bi bi-search" style="font-size: var(--fs-md);"></i>
+                    <kbd class="cg-nav-kbd">⌘K</kbd>
+                </button>
+                <button id="darkModeToggle" class="nav-icon" title="Toggle dark mode">
+                    <i class="bi bi-moon"></i>
+                </button>
+                {% if current_user_orcid %}
+                <div style="position:relative;">
+                    <button class="nav-icon" id="userMenuBtn" title="Account"
+                            onclick="toggleUserMenu(event)">
+                        <i class="bi bi-person-circle"></i>
+                    </button>
+                    <div id="userMenuDropdown" class="cg-user-dropdown" style="display:none;">
+                        <div class="cg-user-header">
+                            <div class="cg-user-avatar" id="navUserAvatar"></div>
+                            <div style="min-width:0;">
+                                {% if current_user_name %}
+                                <div class="cg-user-name">{{ current_user_name }}</div>
+                                {% endif %}
+                                <div class="cg-user-orcid">{{ current_user_orcid }}</div>
+                            </div>
+                        </div>
+                        <a href="/profile" class="cg-user-item">
+                            <i class="bi bi-person"></i> My Profile
+                        </a>
+                        <a href="{{ url_for('logout') }}" class="cg-user-item cg-user-item-danger">
+                            <i class="bi bi-box-arrow-right"></i> Sign out
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
         </div>
-    </div>
     </nav>
-
     {% endblock %}
 
+    <script>
+    // ── color & avatar utilities ──────────────────────────────────────────
+    function hashColor(str) {
+        // HSL-based: hue spans full spectrum, saturation 45-74% (never gray),
+        // lightness 28-42% (always dark enough for white text).
+        let h = 0;
+        for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+        const u = h >>> 0;
+        const hue = u % 360;
+        const sat = 45 + ((u >>> 9)  % 30);  // 45–74%
+        const lit = 28 + ((u >>> 18) % 15);  // 28–42%
+        const s = sat / 100, l = lit / 100;
+        const c = (1 - Math.abs(2*l - 1)) * s;
+        const x = c * (1 - Math.abs((hue / 60) % 2 - 1));
+        const m = l - c / 2;
+        const [ri, gi, bi] =
+            hue < 60  ? [c,x,0] : hue < 120 ? [x,c,0] : hue < 180 ? [0,c,x] :
+            hue < 240 ? [0,x,c] : hue < 300 ? [x,0,c] : [c,0,x];
+        return '#' + [ri+m, gi+m, bi+m].map(v => Math.round(v*255).toString(16).padStart(2,'0')).join('');
+    }
+    function makeInitials(str) {
+        return str.replace(/[_\-]/g, ' ').split(' ')
+            .filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+    }
+    function makeAvatar(el, str, size='2.5rem', fontSize='0.85rem') {
+        const color = hashColor(str);
+        el.style.cssText = `width:${size};height:${size};min-width:${size};border-radius:50%;`
+            + `background:${color};color:#fff;display:flex;align-items:center;`
+            + `justify-content:center;font-size:${fontSize};font-weight:700;letter-spacing:0.05em;`;
+        el.textContent = makeInitials(str);
+        return color;
+    }
 
-    <div class="container-fluid mt-3 px-4" id="content">
+    // ── section toggle (animated) ─────────────────────────────────────────
+    function _initSectionBody(body, header) {
+        if (body.dataset.cgInit) return;
+        body.dataset.cgInit = '1';
+        body.style.overflow   = 'hidden';
+        body.style.transition = 'max-height 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease';
+        const hidden = body.style.display === 'none';
+        body.style.display = '';
+        if (hidden) {
+            body.style.maxHeight = '0px';
+            body.style.opacity   = '0';
+            if (header) header.dataset.open = 'false';
+        } else {
+            if (header) header.dataset.open = 'true';
+        }
+    }
+    function toggleSection(header) {
+        const body    = header.nextElementSibling;
+        const chevron = header.querySelector('.res-section-chevron');
+        _initSectionBody(body, header);
+        const isOpen = header.dataset.open !== 'false';
+        if (isOpen) {
+            body.style.maxHeight = body.scrollHeight + 'px';
+            requestAnimationFrame(() => { body.style.maxHeight = '0px'; body.style.opacity = '0'; });
+            header.dataset.open = 'false';
+        } else {
+            body.style.maxHeight = '0px'; body.style.opacity = '0';
+            requestAnimationFrame(() => { body.style.maxHeight = body.scrollHeight + 'px'; body.style.opacity = '1'; });
+            body.addEventListener('transitionend', function h() {
+                if (header.dataset.open !== 'false') body.style.maxHeight = 'none';
+                body.removeEventListener('transitionend', h);
+            });
+            header.dataset.open = 'true';
+        }
+        if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+    }
+    function setAllSections(expand) {
+        document.querySelectorAll('.res-section').forEach(section => {
+            const header = section.querySelector('.res-section-header');
+            if (!header) return;
+            _initSectionBody(header.nextElementSibling, header);
+            const isOpen = header.dataset.open !== 'false';
+            if (expand === isOpen) return;
+            if (section.id === 'section-graph' && window.toggleGraphSection && !isOpen) {
+                window.toggleGraphSection(header);
+            } else {
+                toggleSection(header);
+            }
+        });
+    }
+
+    // ── details advanced toggle (resource detail pages) ───────────────────
+    function toggleDetailsAdv() {
+        const adv     = document.getElementById('details-advanced');
+        const chevron = document.getElementById('details-adv-chevron');
+        if (!adv) return;
+        const open = adv.style.display !== 'none';
+        adv.style.display = open ? 'none' : '';
+        if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+        if (chevron) chevron.style.color     = open ? '' : 'var(--bs-body-color)';
+    }
+
+    // ── toast notifications ───────────────────────────────────────────────
+    function cgToast(message, icon='bi-check-circle', duration=2200) {
+        const container = document.getElementById('cg-toast-container');
+        if (!container) return;
+        const el = document.createElement('div');
+        el.className = 'cg-toast';
+        el.innerHTML = `<i class="bi ${icon}"></i><span>${message}</span>`;
+        container.appendChild(el);
+        setTimeout(() => {
+            el.classList.add('toast-out');
+            setTimeout(() => el.remove(), 200);  // matches toastOut duration
+        }, duration);
+    }
+
+    // ── thumbnail lightbox ─────────────────────────────────────────────────
+    // _lb() is a lazy getter because #cgLightbox lives after this <script> block in the DOM
+    (function() {
+        let _lbItems = [];
+        let _lbIdx   = 0;
+        const _lb    = () => document.getElementById('cgLightbox');
+
+        window.cgLbOpen = function(items, startIdx) {
+            _lbItems = items;
+            _lbIdx   = startIdx || 0;
+            _lbRender();
+            _lb().style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        };
+        window.cgLbClose = function() {
+            _lb().style.display = 'none';
+            document.body.style.overflow = '';
+        };
+        window.cgLbNav = function(dir) {
+            if (!_lbItems.length) return;
+            _lbIdx = (_lbIdx + dir + _lbItems.length) % _lbItems.length;
+            _lbRender();
+        };
+        window.cgLbOpenSection = function(imgEl) {
+            const body = imgEl.closest('.res-section-body') || imgEl.closest('.card-body') || imgEl.parentElement || document.body;
+            const all  = Array.from(body.querySelectorAll('[data-lb-src]'));
+            const items = all.map(img => ({ src: img.dataset.lbSrc, label: img.dataset.lbLabel || '' }));
+            const idx  = all.indexOf(imgEl);
+            cgLbOpen(items, Math.max(idx, 0));
+        };
+        function _lbRender() {
+            if (!_lbItems.length) return;
+            document.getElementById('cgLbImg').src       = _lbItems[_lbIdx].src;
+            document.getElementById('cgLbLabel').textContent   = _lbItems[_lbIdx].label || '';
+            document.getElementById('cgLbCounter').textContent =
+                _lbItems.length > 1 ? `${_lbIdx + 1} / ${_lbItems.length}` : '';
+        }
+        document.addEventListener('keydown', e => {
+            const lb = _lb();
+            if (!lb || lb.style.display === 'none') return;
+            if (e.key === 'Escape')      cgLbClose();
+            if (e.key === 'ArrowLeft')   cgLbNav(-1);
+            if (e.key === 'ArrowRight')  cgLbNav(1);
+        });
+    })();
+
+    // ── text-selectable navigation ────────────────────────────────────────
+    function navIfNoSelection(event, url) {
+        if (event.button === 1) { window.open(url, '_blank'); return; }
+        if (event.button !== 0) return;
+        if (window.getSelection().toString()) return;
+        if (event.target.closest('a, button')) return;
+        window.location.href = url;
+    }
+
+    // ── relationship add — inline picker in right panel ───────────────────
+    const _REL_ADD_TYPES = {
+        samples:  [
+            { type: 'sample_parent',  label: 'Parent Sample',  icon: 'bi-flask',    endpoint: 'samples'  },
+            { type: 'sample_child',   label: 'Child Sample',   icon: 'bi-flask',    endpoint: 'samples'  },
+            { type: 'linked_dataset', label: 'Linked Dataset', icon: 'bi-database', endpoint: 'datasets' },
+        ],
+        datasets: [
+            { type: 'linked_sample',  label: 'Linked Sample',  icon: 'bi-flask',    endpoint: 'samples'  },
+            { type: 'dataset_parent', label: 'Parent Dataset', icon: 'bi-database', endpoint: 'datasets' },
+            { type: 'dataset_child',  label: 'Child Dataset',  icon: 'bi-database', endpoint: 'datasets' },
+        ],
+    };
+    let _relAddCtx = {};
+
+    function cgRelAddOpen(btn) {
+        const picker  = document.getElementById('rel-add-picker');
+        const typeEl  = document.getElementById('rel-add-type');
+        const search  = document.getElementById('rel-add-search');
+        const results = document.getElementById('rel-add-results');
+        _relAddCtx = { pid: btn.dataset.pid, sourceId: btn.dataset.sourceId, resType: btn.dataset.resType };
+        typeEl.innerHTML = (_REL_ADD_TYPES[_relAddCtx.resType] || []).map(t =>
+            `<option value="${t.type}" data-endpoint="${t.endpoint}">${t.label}</option>`
+        ).join('');
+        search.value = '';
+        results.style.display = 'none';
+        results.innerHTML = '';
+        picker.style.display = '';
+        search.focus();
+    }
+
+    function cgRelAddClose() {
+        document.getElementById('rel-add-picker').style.display = 'none';
+    }
+
+    (function() {
+        document.addEventListener('DOMContentLoaded', () => {
+            const search  = document.getElementById('rel-add-search');
+            const typeEl  = document.getElementById('rel-add-type');
+            const results = document.getElementById('rel-add-results');
+            if (!search) return;
+
+            const doSearch = () => {
+                const q = search.value.trim();
+                const opt = typeEl.options[typeEl.selectedIndex];
+                if (!q || !opt) { results.style.display = 'none'; return; }
+                const endpoint = opt.dataset.endpoint;
+                fetch(`/${_relAddCtx.pid}/api/${endpoint}?q=${encodeURIComponent(q)}`)
+                    .then(r => r.json())
+                    .then(items => {
+                        if (!items.length) { results.style.display = 'none'; return; }
+                        results.innerHTML = items.map(item =>
+                            `<button type="button" class="list-group-item list-group-item-action py-1"
+                                     style="font-size:var(--fs-sm);"
+                                     data-id="${item.id}" data-name="${escHtml(item.name)}">
+                                ${escHtml(item.name)}
+                                <span class="text-muted ms-1 mfid" style="font-size:var(--fs-xs);">${item.id}</span>
+                             </button>`
+                        ).join('');
+                        results.style.display = '';
+                        results.querySelectorAll('button').forEach(b => {
+                            b.addEventListener('click', () => _cgRelAddLink(typeEl.value, b.dataset.id, b.dataset.name));
+                        });
+                    });
+            };
+            search.addEventListener('input', doSearch);
+            typeEl.addEventListener('change', () => { search.value = ''; results.style.display = 'none'; });
+        });
+    })();
+
+    async function _cgRelAddLink(linkType, targetId, targetName) {
+        const results = document.getElementById('rel-add-results');
+        results.style.display = 'none';
+        document.getElementById('rel-add-search').value = '';
+        try {
+            const resp = await fetch(`/${_relAddCtx.pid}/api/relationships`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ link_type: linkType, source_id: _relAddCtx.sourceId, target_id: targetId }),
+            });
+            const data = await resp.json();
+            if (!resp.ok || data.error) {
+                cgToast('Could not add: ' + (data.error || resp.status), 'bi-exclamation-circle', 3500);
+            } else {
+                cgToast(`Added: ${targetName}`, 'bi-check-circle');
+                cgRelAddClose();
+                // Reload to reflect new relationship in server-rendered panel
+                setTimeout(() => window.location.reload(), 600);
+            }
+        } catch(err) {
+            cgToast('Could not add: ' + err.message, 'bi-exclamation-circle', 3500);
+        }
+    }
+
+    // ── relationship removal with inline confirmation ──────────────────────
+    function cgRelRemove(event, btn) {
+        event.stopPropagation();
+        const item = btn.closest('.rel-item');
+        if (!item) return;
+        if (item.classList.contains('rel-confirming')) return;
+
+        item.classList.add('rel-confirming');
+        btn.style.display = 'none';
+
+        const confirmEl = document.createElement('span');
+        confirmEl.className = 'rel-confirm-btns';
+        confirmEl.innerHTML =
+            `<span class="text-muted" style="font-size:var(--fs-xs);">Remove?</span>
+             <button class="btn btn-sm btn-danger py-0 px-2" style="font-size:var(--fs-xs);">Remove</button>
+             <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--fs-xs);">Cancel</button>`;
+        item.appendChild(confirmEl);
+
+        confirmEl.querySelector('.btn-danger').addEventListener('click', async e => {
+            e.stopPropagation();
+            const { linkType, sourceId, targetId, pid } = item.dataset;
+            confirmEl.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            try {
+                const resp = await fetch(`/${pid}/api/relationships`, {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ link_type: linkType, source_id: sourceId, target_id: targetId }),
+                });
+                const data = await resp.json();
+                if (!resp.ok || data.error) {
+                    cgToast('Remove failed: ' + (data.error || resp.status), 'bi-exclamation-circle', 3500);
+                    _cgRelCancelConfirm(item, btn, confirmEl);
+                } else {
+                    item.style.transition = 'opacity 0.2s';
+                    item.style.opacity = '0';
+                    setTimeout(() => item.remove(), 220);
+                }
+            } catch(err) {
+                cgToast('Remove failed: ' + err.message, 'bi-exclamation-circle', 3500);
+                _cgRelCancelConfirm(item, btn, confirmEl);
+            }
+        });
+
+        confirmEl.querySelector('.btn-outline-secondary').addEventListener('click', e => {
+            e.stopPropagation();
+            _cgRelCancelConfirm(item, btn, confirmEl);
+        });
+    }
+
+    function _cgRelCancelConfirm(item, btn, confirmEl) {
+        item.classList.remove('rel-confirming');
+        confirmEl.remove();
+        btn.style.display = '';
+    }
+
+    </script>
+
+    <div class="container-fluid px-4" id="content">
       <div class="row">
-        <!-- sidebar, which will move to the top on a small screen -->
-        {% block sidebar %}
-        <div class="col-sm-3">
-            <nav id="toc" data-toggle="toc" class="sticky-top" style="top: 5em;"></nav>
-        </div>
-        {% endblock %}
-        <!-- main content area -->
-        <div class="{% block main_col_class %}col-sm-9{% endblock %} pe-4">  {% block content %}{% endblock %}</div>
+        {% block sidebar %}{% endblock %}
+        <div class="{% block main_col_class %}col-12{% endblock %} pe-4 pt-3">{% block content %}{% endblock %}</div>
       </div>
     </div>
     <div id="footer">
         {% block footer %}
         {% endblock %}
+        <button id="backToTop" title="Back to top"
+                onclick="window.scrollTo({top:0, behavior:'smooth'})">
+            <i class="bi bi-arrow-up"></i>
+        </button>
+    </div>
+    <!-- ── thumbnail lightbox ────────────────────────────────────────────── -->
+    <div id="cgLightbox" onclick="if(event.target===this)cgLbClose()"
+         style="display:none; position:fixed; inset:0; z-index:5000;
+                background:rgba(0,0,0,0.88); align-items:center; justify-content:center; gap:1rem;">
+        <button onclick="cgLbNav(-1)" class="cg-lb-nav">&#8249;</button>
+        <div style="text-align:center; max-width:88vw;">
+            <img id="cgLbImg" src="" alt="" style="max-width:88vw; max-height:80vh; border-radius:6px; display:block;">
+            <div id="cgLbLabel" style="color:rgba(255,255,255,0.75); font-size: var(--fs-sm); margin-top:0.6rem; font-family:'IBM Plex Sans',sans-serif;"></div>
+            <div id="cgLbCounter" style="color:rgba(255,255,255,0.4); font-size: var(--fs-sm); margin-top:0.2rem; font-family:'IBM Plex Mono',monospace;"></div>
+        </div>
+        <button onclick="cgLbNav(1)" class="cg-lb-nav">&#8250;</button>
+        <button onclick="cgLbClose()" style="position:absolute; top:1rem; right:1.25rem;
+                background:none; border:none; color:rgba(255,255,255,0.6); font-size: var(--fs-2xl);
+                cursor:pointer; line-height:1;">&#x2715;</button>
+    </div>
+
+    <div id="cg-toast-container" aria-live="polite" aria-atomic="false"></div>
+
+    <!-- ── command palette ──────────────────────────────────────────────── -->
+    <div id="cgPaletteBackdrop" style="display:none; position:fixed; inset:0; z-index:3000;
+         background:rgba(3,30,45,0.55); backdrop-filter:blur(2px);" onclick="cgPaletteClose()"></div>
+    <div id="cgPalette" style="display:none; position:fixed; top:12vh; left:50%; z-index:3001;
+         transform:translateX(-50%); width:min(640px,94vw); border-radius:0.6rem; overflow:hidden;
+         box-shadow:0 20px 60px rgba(0,0,0,0.45); border:1px solid rgba(168,196,205,0.2);">
+        <div style="background:var(--cg-navy); padding:0.75rem 1rem; display:flex; align-items:center; gap:0.6rem; border-bottom:1px solid rgba(168,196,205,0.15);">
+            <i class="bi bi-search" style="color:var(--cg-accent); font-size:1rem; flex-shrink:0;"></i>
+            <input id="cgPaletteInput" type="text" placeholder="Jump to project, sample, or dataset…"
+                   autocomplete="off" spellcheck="false"
+                   style="flex:1; background:transparent; border:none; outline:none;
+                          color:#fff; font-size: var(--fs-lg); font-family:'IBM Plex Sans',sans-serif;"
+                   oninput="cgPaletteSearch(this.value)">
+            <kbd style="font-size: var(--fs-xs); color:rgba(168,196,205,0.5); border:1px solid rgba(168,196,205,0.2);
+                        border-radius:3px; padding:1px 5px; font-family:'IBM Plex Mono',monospace;">Esc</kbd>
+        </div>
+        <div id="cgPaletteResults" style="background:var(--bs-body-bg); max-height:60vh; overflow-y:auto;"></div>
+        <div style="background:var(--bs-tertiary-bg); padding:0.3rem 1rem; display:flex; gap:1.5rem; border-top:1px solid var(--bs-border-color);">
+            <span style="font-size: var(--fs-xs); color:var(--bs-secondary-color);">
+                <kbd style="font-size: var(--fs-2xs);">↑↓</kbd> navigate &nbsp;
+                <kbd style="font-size: var(--fs-2xs);">↵</kbd> open &nbsp;
+                <kbd style="font-size: var(--fs-2xs);">Esc</kbd> close
+            </span>
+        </div>
     </div>
 
     <script>
     // ── dark mode ────────────────────────────────────────────────────────
-    function applyTheme(theme) {
+    function applyTheme(theme, animate) {
         document.documentElement.setAttribute('data-bs-theme', theme);
         localStorage.setItem('theme', theme);
         const btn = document.getElementById('darkModeToggle');
-        if (btn) btn.innerHTML = theme === 'dark'
-            ? '<i class="bi bi-sun"></i>'
-            : '<i class="bi bi-moon"></i>';
+        if (!btn) return;
+        if (animate) {
+            const old = btn.querySelector('i');
+            if (old) { old.style.cssText = 'transition:opacity .12s,transform .15s;opacity:0;transform:scale(0.5) rotate(30deg);'; }
+            setTimeout(() => {
+                btn.innerHTML = theme === 'dark' ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon"></i>';
+                const ni = btn.querySelector('i');
+                if (ni) { ni.style.cssText = 'opacity:0;transform:scale(0.5) rotate(-30deg);transition:opacity .18s,transform .2s;'; }
+                requestAnimationFrame(() => { if (ni) { ni.style.opacity='1'; ni.style.transform=''; } });
+            }, 120);
+        } else {
+            btn.innerHTML = theme === 'dark' ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon"></i>';
+        }
     }
     document.addEventListener('DOMContentLoaded', () => {
-        applyTheme(localStorage.getItem('theme') || 'light');
+        applyTheme(localStorage.getItem('theme') || 'light', false);
         document.getElementById('darkModeToggle').addEventListener('click', () => {
-            applyTheme(document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark');
+            applyTheme(document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark', true);
         });
     });
     </script>
 
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        document.querySelectorAll('.mfid').forEach(el => {
-            const text = el.textContent.trim();
-            if (!text) return;
-            const btn = document.createElement('button');
-            btn.className = 'mfid-copy-btn';
-            btn.title = 'Copy ID';
-            btn.innerHTML = '<i class="bi bi-clipboard"></i>';
-            btn.addEventListener('click', e => {
-                e.stopPropagation();
-                e.preventDefault();
-                navigator.clipboard.writeText(text).then(() => {
-                    btn.innerHTML = '<i class="bi bi-clipboard-check" style="color:var(--bs-success);"></i>';
-                    setTimeout(() => { btn.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1500);
-                });
+    // ── command palette ──────────────────────────────────────────────────
+    (function () {
+        const RECENT_RESOURCES_KEY = 'cg_recent_resources';
+        const MAX_RECENT_RES = 12;
+
+        function getRecentResources() {
+            try { return JSON.parse(localStorage.getItem(RECENT_RESOURCES_KEY) || '[]'); } catch { return []; }
+        }
+        window.cgTrackResource = function(type, id, name, projectId) {
+            let list = getRecentResources().filter(r => r.id !== id);
+            list.unshift({ type, id, name, projectId });
+            if (list.length > MAX_RECENT_RES) list = list.slice(0, MAX_RECENT_RES);
+            try { localStorage.setItem(RECENT_RESOURCES_KEY, JSON.stringify(list)); } catch {}
+        };
+
+        // Detect current page resource and track it
+        (function trackCurrentPage() {
+            // Sample page: URL is /<pid>/samples/<id>
+            const sm = location.pathname.match(/^\/([^/]+)\/samples\/([^/]+)/);
+            if (sm) {
+                const h1 = document.querySelector('h1, .fs-4.fw-semibold');
+                cgTrackResource('sample', sm[2], h1?.textContent?.trim() || sm[2], sm[1]);
+                return;
+            }
+            // Dataset page: URL is /<pid>/datasets/<id>
+            const dm = location.pathname.match(/^\/([^/]+)\/dataset\/([^/]+)/);
+            if (dm) {
+                const h1 = document.querySelector('h1, .fs-4.fw-semibold');
+                cgTrackResource('dataset', dm[2], h1?.textContent?.trim() || dm[2], dm[1]);
+                return;
+            }
+            // Project overview page: URL is /<pid>/ — guard with #projectCard so
+            // system pages like /search and /users aren't misclassified as projects.
+            const pm = location.pathname.match(/^\/([^/]+)\/?$/);
+            if (pm && document.getElementById('projectCard')) {
+                const pid = pm[1];
+                const h1 = document.querySelector('h1, .fs-4.fw-semibold');
+                cgTrackResource('project', pid, h1?.textContent?.trim() || pid, null);
+            }
+        })();
+
+        let _paletteOpen = false;
+        let _paletteIdx  = -1;
+        let _paletteItems = [];
+        let _searchTimer = null;
+
+        // Detect current project from breadcrumb, fall back to most recently visited
+        function _currentProject() {
+            const crumb = document.querySelector('.cg-breadcrumb .breadcrumb-item a[href]');
+            if (crumb) {
+                const m = crumb.getAttribute('href').match(/^\/([^/]+)\/?$/);
+                if (m) return m[1];
+            }
+            try {
+                const recent = JSON.parse(localStorage.getItem('cg_recent_projects') || '[]');
+                return recent.length ? recent[0].pid : null;
+            } catch { return null; }
+        }
+
+        window.cgPaletteOpen = function cgPaletteOpen() {
+            if (_paletteOpen) return;
+            _paletteOpen = true;
+            document.getElementById('cgPaletteBackdrop').style.display = '';
+            const palette = document.getElementById('cgPalette');
+            palette.style.display = '';
+            palette.style.animation = 'cgPaletteIn 0.18s cubic-bezier(0.34,1.56,0.64,1) both';
+            const inp = document.getElementById('cgPaletteInput');
+            inp.value = '';
+            setTimeout(() => inp.focus(), 30);
+            _renderRecentResources();
+        }
+        window.cgPaletteClose = function() {
+            if (!_paletteOpen) return;
+            _paletteOpen = false;
+            document.getElementById('cgPaletteBackdrop').style.display = 'none';
+            document.getElementById('cgPalette').style.display = 'none';
+            _paletteIdx = -1; _paletteItems = [];
+        };
+
+        function _icon(type) {
+            if (type === 'sample')  return 'bi-flask';
+            if (type === 'dataset') return 'bi-database';
+            if (type === 'project') return 'bi-collection';
+            return 'bi-dot';
+        }
+        function _url(r) {
+            if (r.type === 'project') return '/' + r.id + '/';
+            if (r.type === 'sample')  return '/' + r.projectId + '/samples/' + r.id;
+            if (r.type === 'dataset') return '/' + r.projectId + '/datasets/' + r.id;
+            return '#';
+        }
+        function _label(type) {
+            return type === 'sample' ? 'Sample' : type === 'dataset' ? 'Dataset' : 'Project';
+        }
+
+        function _buildResultsHtml(groups, searchQ) {
+            _paletteItems = [];
+            let html = '';
+            for (const g of groups) {
+                if (!g.items.length) continue;
+                html += `<div style="padding:0.3rem 1rem 0.1rem; font-size: var(--fs-2xs); font-weight:700;
+                                     text-transform:uppercase; letter-spacing:0.07em;
+                                     color:var(--bs-secondary-color);">${g.heading}</div>`;
+                for (const item of g.items) {
+                    const url = item.url || _url(item);
+                    const idx = _paletteItems.length;
+                    _paletteItems.push(url);
+                    html += `<a href="${url}" class="cgpr-item d-flex align-items-center gap-3 px-4 py-2"
+                               data-idx="${idx}" style="text-decoration:none; color:var(--bs-body-color);
+                               border-bottom:1px solid var(--bs-border-color); transition:background 0.08s;"
+                               onmouseenter="cgPaletteHover(${idx})"
+                               onclick="cgPaletteClose()">
+                        <i class="bi ${_icon(item.type)}" style="color:var(--cg-accent-mid); flex-shrink:0;"></i>
+                        <div style="min-width:0; flex:1;">
+                            <div class="text-truncate" style="font-size: var(--fs-md);">${escHtmlP(item.name || item.id)}</div>
+                            ${item.projectId ? `<div class="text-truncate" style="font-size: var(--fs-xs); color:var(--bs-secondary-color);">${escHtmlP(item.projectId)}</div>` : ''}
+                        </div>
+                        <span style="font-size: var(--fs-xs); color:var(--bs-secondary-color); flex-shrink:0;">${_label(item.type)}</span>
+                    </a>`;
+                }
+            }
+            // "Search all" footer link when a query is present
+            if (searchQ) {
+                const pid = _currentProject();
+                const searchUrl = pid
+                    ? `/${pid}/search?q=${encodeURIComponent(searchQ)}`
+                    : `/search?q=${encodeURIComponent(searchQ)}`;
+                const idx = _paletteItems.length;
+                _paletteItems.push(searchUrl);
+                html += `<a href="${searchUrl}" class="cgpr-item d-flex align-items-center gap-3 px-4 py-2"
+                           data-idx="${idx}" style="text-decoration:none; color:var(--cg-link);
+                           border-top:1px solid var(--bs-border-color); font-size: var(--fs-sm);"
+                           onmouseenter="cgPaletteHover(${idx})"
+                           onclick="cgPaletteClose()">
+                    <i class="bi bi-search" style="flex-shrink:0;"></i>
+                    Search all for <em style="margin-left:0.3em;">${escHtmlP(searchQ)}</em>
+                </a>`;
+            }
+            if (!_paletteItems.length && !searchQ) {
+                html = '<div class="text-center text-muted py-4" style="font-size: var(--fs-md);">No recent resources yet</div>';
+            }
+            document.getElementById('cgPaletteResults').innerHTML = html;
+            _paletteIdx = -1;
+        }
+
+        function escHtmlP(s) {
+            return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function _renderRecentResources() {
+            const recents = getRecentResources();
+            const groups = [{ heading: 'Recently visited', items: recents }];
+            _buildResultsHtml(groups);
+        }
+
+        window.cgPaletteSearch = function(q) {
+            clearTimeout(_searchTimer);
+            if (!q.trim()) { _renderRecentResources(); return; }
+            _searchTimer = setTimeout(() => _doSearch(q.trim()), 200);
+        };
+
+        function _doSearch(q) {
+            const pid = _currentProject();
+            const ql  = q.toLowerCase();
+
+            // Filter recent resources client-side first for instant feel
+            const recentMatches = getRecentResources()
+                .filter(r => (r.name||'').toLowerCase().includes(ql) || (r.id||'').toLowerCase().includes(ql))
+                .slice(0, 4);
+
+            const groups = [];
+            if (recentMatches.length) groups.push({ heading: 'Recent matches', items: recentMatches });
+
+            // Search recent projects by ID/label
+            try {
+                const recentProjects = JSON.parse(localStorage.getItem('cg_recent_projects') || '[]');
+                const projectMatches = recentProjects
+                    .filter(p => (p.pid||'').toLowerCase().includes(ql) || (p.label||'').toLowerCase().includes(ql))
+                    .slice(0, 4)
+                    .map(p => ({ type: 'project', id: p.pid, name: p.label || p.pid }));
+                if (projectMatches.length) groups.push({ heading: 'Projects', items: projectMatches });
+            } catch {}
+
+            if (!pid) {
+                // No project context — show recent matches + global search link
+                _buildResultsHtml(groups, q);
+                return;
+            }
+
+            // Fetch from current project
+            Promise.all([
+                fetch(`/${pid}/api/samples?q=${encodeURIComponent(q)}`)
+                    .then(r => r.ok ? r.json() : [])
+                    .then(items => items.map(s => ({ type:'sample', id:s.id, name:s.name, projectId:pid })))
+                    .catch(() => []),
+                fetch(`/${pid}/api/datasets?q=${encodeURIComponent(q)}`)
+                    .then(r => r.ok ? r.json() : [])
+                    .then(items => items.map(d => ({ type:'dataset', id:d.id, name:d.name, projectId:pid })))
+                    .catch(() => []),
+            ]).then(([samples, datasets]) => {
+                if (samples.length) groups.push({ heading: 'Samples in this project', items: samples.slice(0,6) });
+                if (datasets.length) groups.push({ heading: 'Datasets in this project', items: datasets.slice(0,6) });
+                _buildResultsHtml(groups, q);
             });
-            el.appendChild(btn);
+        }
+
+        window.cgPaletteHover = function(idx) {
+            document.querySelectorAll('.cgpr-item').forEach((el, i) => {
+                el.style.background = i === idx ? 'var(--cg-hover-bg)' : '';
+            });
+            _paletteIdx = idx;
+        };
+
+        // Keyboard nav within palette
+        document.getElementById('cgPaletteInput').addEventListener('keydown', e => {
+            if (e.key === 'Escape') { cgPaletteClose(); return; }
+            const items = document.querySelectorAll('.cgpr-item');
+            if (!items.length) return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                _paletteIdx = (_paletteIdx + 1) % items.length;
+                items.forEach((el, i) => { el.style.background = i === _paletteIdx ? 'var(--cg-hover-bg)' : ''; });
+                items[_paletteIdx].scrollIntoView({ block:'nearest' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                _paletteIdx = (_paletteIdx - 1 + items.length) % items.length;
+                items.forEach((el, i) => { el.style.background = i === _paletteIdx ? 'var(--cg-hover-bg)' : ''; });
+                items[_paletteIdx].scrollIntoView({ block:'nearest' });
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (_paletteIdx >= 0 && items[_paletteIdx]) {
+                    items[_paletteIdx].click();
+                }
+            }
+        });
+
+        // Global Ctrl+K / Cmd+K trigger
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                _paletteOpen ? cgPaletteClose() : cgPaletteOpen();
+            }
+        });
+
+        // Add palette open animation keyframe dynamically
+        const style = document.createElement('style');
+        style.textContent = '@keyframes cgPaletteIn { from { opacity:0; transform:translateX(-50%) translateY(-12px) scale(0.97); } to { opacity:1; transform:translateX(-50%) translateY(0) scale(1); } }';
+        document.head.appendChild(style);
+    })();
+    </script>
+
+    <script>
+    // ── recent projects switcher ─────────────────────────────────────────
+    (function () {
+        const RECENT_KEY = 'cg_recent_projects';
+        const MAX_RECENT = 8;
+
+        function getRecent() {
+            try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; }
+        }
+        function saveRecent(list) {
+            try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch {}
+        }
+
+        // Detect current project from first breadcrumb link (href="/<pid>/")
+        const _SYSTEM_PATHS = new Set(['search', 'users', 'user', 'instruments', 'login', 'logout', 'account']);
+        const firstCrumb = document.querySelector('.cg-breadcrumb .breadcrumb-item a[href]');
+        if (firstCrumb) {
+            const m = firstCrumb.getAttribute('href').match(/^\/([^/]+)\/?$/);
+            if (m && !_SYSTEM_PATHS.has(m[1])) {
+                const pid = m[1];
+                const label = firstCrumb.textContent.trim();
+                let recents = getRecent().filter(r => r.pid !== pid);
+                recents.unshift({ pid, label });
+                if (recents.length > MAX_RECENT) recents = recents.slice(0, MAX_RECENT);
+                saveRecent(recents);
+            }
+        }
+
+        window.toggleRecentProjects = function(e) {
+            e.stopPropagation();
+            const dropdown = document.getElementById('recentProjectsDropdown');
+            if (!dropdown) return;
+
+            // Prefer the full project list stored by project_overview; fall back to recents
+            let items = null;
+            let useAll = false;
+            try {
+                const stored = localStorage.getItem('cg_all_projects');
+                if (stored) { items = JSON.parse(stored); useAll = true; }
+            } catch {}
+            if (!items || !items.length) { items = getRecent(); useAll = false; }
+
+            const label = document.getElementById('recentProjectsLabel');
+            if (label) label.textContent = useAll ? 'Projects' : 'Recent projects';
+
+            const list = dropdown.querySelector('.cg-recent-list');
+            list.innerHTML = '';
+
+            if (items.length === 0) {
+                const empty = document.createElement('span');
+                empty.className = 'cg-recent-label';
+                empty.textContent = 'No projects yet';
+                list.appendChild(empty);
+            } else {
+                const m = location.pathname.match(/^\/([^/]+)/);
+                const activePid = m ? m[1] : null;
+                items.forEach(r => {
+                    const a = document.createElement('a');
+                    a.className = 'cg-recent-item' + (r.pid === activePid ? ' active' : '');
+                    a.href = '/' + r.pid + '/';
+                    a.textContent = r.pid;
+                    list.appendChild(a);
+                });
+            }
+            dropdown.classList.toggle('open');
+        };
+
+        document.addEventListener('click', () => {
+            const d = document.getElementById('recentProjectsDropdown');
+            if (d) d.classList.remove('open');
+        });
+    })();
+    </script>
+
+    <script>
+    // ── user menu ────────────────────────────────────────────────────────
+    (function () {
+        const avatarEl = document.getElementById('navUserAvatar');
+        if (avatarEl) {
+            const avatarSeed = {{ (current_user_name or current_user_orcid) | tojson }};
+            makeAvatar(avatarEl, avatarSeed, '2rem', '0.65rem');
+        }
+
+        let _open = false;
+        window.toggleUserMenu = function(e) {
+            e.stopPropagation();
+            const menu = document.getElementById('userMenuDropdown');
+            if (!menu) return;
+            _open = !_open;
+            menu.style.display = _open ? '' : 'none';
+        };
+        document.addEventListener('click', () => {
+            if (!_open) return;
+            _open = false;
+            const menu = document.getElementById('userMenuDropdown');
+            if (menu) menu.style.display = 'none';
+        });
+    })();
+    </script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const btt = document.getElementById('backToTop');
+        if (btt) {
+            window.addEventListener('scroll', () => {
+                btt.classList.toggle('btt-visible', window.scrollY > 300);
+            }, { passive: true });
+        }
+
+        // ── initialize animated section bodies ────────────────────────────
+        document.querySelectorAll('.res-section-body').forEach(body => {
+            _initSectionBody(body, body.previousElementSibling);
+        });
+
+        // ── correct keyboard shortcut label for OS ────────────────────────
+        const _isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+        const _kbdEl = document.querySelector('.cg-nav-kbd');
+        if (_kbdEl) {
+            _kbdEl.textContent = _isMac ? '⌘K' : 'Ctrl K';
+            const _searchBtn = _kbdEl.closest('button');
+            if (_searchBtn) _searchBtn.title = `Quick search (${_isMac ? '⌘K' : 'Ctrl+K'})`;
+        }
+
+        // ── breadcrumb project link: restore overview tab/scroll state ────
+        document.querySelectorAll('.cg-breadcrumb .breadcrumb-item a[href]').forEach(link => {
+            const m = link.getAttribute('href').match(/^\/([^/]+)\/?$/);
+            if (!m) return;
+            const pid = m[1];
+            link.addEventListener('click', e => {
+                const stored = localStorage.getItem('cg_overview_state_' + pid);
+                if (stored) {
+                    e.preventDefault();
+                    window.location.href = '/' + pid + '/' + stored;
+                }
+            });
         });
     });
     </script>
+    <script>
+    (function() {
+        function applyNavbarHeight() {
+            const nav = document.querySelector('.cg-navbar');
+            if (!nav) return;
+            const h = nav.getBoundingClientRect().height;
+            document.documentElement.style.setProperty('--cg-navbar-height', h + 'px');
+        }
+        applyNavbarHeight();
+        window.addEventListener('resize', applyNavbarHeight);
+    })();
+    </script>
+{% block panels %}{% endblock %}
 </body>
 </html>
