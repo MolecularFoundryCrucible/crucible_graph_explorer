@@ -36,4 +36,4 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-nano-crucible = { path = "../nano-crucible", editable = true }
+nano-crucible = { git = "https://github.com/MolecularFoundryCrucible/nano-crucible.git", branch = "dev" }
