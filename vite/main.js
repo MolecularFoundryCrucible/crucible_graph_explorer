@@ -1,3 +1,5 @@
+import './src/styles.css'
+
 // Lazy loaders — Vite code-splits these into separate chunks.
 // Each chunk only downloads when the page actually needs it.
 window.loadEntityGraph  = () => import('./src/sample-graph.js').then(m => m.initEntityGraph);
