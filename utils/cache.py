@@ -18,7 +18,7 @@ def get_user_projects(orcid: str, client=None) -> list:
     if client is None:
         from utils.auth import get_user_client
         client = get_user_client()
-    projects = client.projects.list(orcid=orcid)
+    projects = client.projects.list(orcid=orcid, limit = 10000)
     _user_projects_cache[orcid] = (projects, time.time())
     # Keep membership cache in sync so is_user_in_project never needs its own call
     _project_membership_cache[orcid] = (

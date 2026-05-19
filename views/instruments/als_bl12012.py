@@ -71,7 +71,7 @@ def _run_job(job_id, tmpdir, project_id, dataset_name, app):
 
             # 3. match samples
             _push(job_id, {'type': 'info', 'message': f'Matching {len(df)} samples to Crucible project…'})
-            samples = client.samples.list(project_id=project_id)
+            samples = client.samples.list(project_id=project_id, limit=None)
             by_name = {s['sample_name']: s for s in samples}
             df['sample_id'] = df['sample_name'].map(lambda n: by_name.get(n, {}).get('unique_id'))
             unmatched = df[df['sample_id'].isna()]['sample_name'].tolist()
