@@ -186,7 +186,7 @@ def execute_chat_tool(name, inputs, crucible_client, pc, get_entity_graph_nx):
                 if q in d['dataset_name'].lower() or q in d.get('measurement', '').lower()
             ]
         elif name == 'list_samples_for_dataset':
-            result = crucible_client.samples.list(dataset_id=inputs['dataset_id'])
+            result = crucible_client.samples.list(dataset_id=inputs['dataset_id'], limit=1000)
         elif name == 'get_entity_graph':
             entity_type = inputs['entity_type']
             entity_id   = inputs['entity_id']

@@ -14,7 +14,7 @@ def create_blueprint(auth):
     @bp.route("/instruments/")
     @auth.oidc_auth('orcid')
     def instrument_list():
-        instruments = get_user_client().instruments.list()
+        instruments = get_user_client().instruments.list(limit=None)
         return render_template('instrument_list.html', instruments=instruments)
 
     @bp.route("/instrument/<instrument_id>")
@@ -40,7 +40,7 @@ def create_blueprint(auth):
     @bp.route("/api/instruments")
     @auth.oidc_auth('orcid')
     def api_instruments_json():
-        instruments = get_user_client().instruments.list()
+        instruments = get_user_client().instruments.list(limit=None)
         return jsonify([
             {'name': i.get('instrument_name', ''), 'id': i.get('unique_id', '')}
             for i in instruments

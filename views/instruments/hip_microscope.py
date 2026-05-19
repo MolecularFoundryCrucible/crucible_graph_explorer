@@ -401,7 +401,7 @@ def create_blueprint(auth, helpers):
         q = request.args.get('q', '').lower()
         if not project_id or not is_user_in_project(project_id):
             abort(403)
-        samples = get_user_client().samples.list(project_id=project_id)
+        samples = get_user_client().samples.list(project_id=project_id, limit=None)
         if q:
             samples = [s for s in samples if q in (s.get('sample_name') or '').lower()]
         return jsonify([{'id': s['unique_id'], 'name': s['sample_name']} for s in samples[:20]])
