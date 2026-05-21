@@ -22,7 +22,7 @@ def create_blueprint(auth):
     def instrument_detail(instrument_id):
         import views.instruments as instrument_views
         client = get_user_client()
-        instrument = client.instruments.get(instrument_id=instrument_id)
+        instrument = client.instruments.get(instrument_id=instrument_id, include_metadata=True)
         if not instrument:
             abort(404)
         instrument_name = instrument.get('instrument_name', '')
