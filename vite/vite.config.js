@@ -8,7 +8,10 @@ export default {
     manifest: true,
     outDir: 'dist',
     rollupOptions: {
-      input: './main.js'
+      input: './main.js',
+      output: {
+        chunkFileNames: 'assets/chunks/[name]-[hash].js',
+      }
     }
   },
 
