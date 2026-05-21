@@ -97,8 +97,6 @@
     {{ mrow("Data Type",   ds.get('data_type')) }}
     {% set sz = ds.get('size') %}
     {{ mrow("Size",        sz | humanize_size if sz else None) }}
-    {{ mrow("Source",      ds.get('source_folder')) }}
-    {{ mrow("SHA-256",     ds.get('sha256_hash_file_to_upload')) }}
 
     <div class="meta-divider">
         <span class="meta-divider-label">Dates</span>
