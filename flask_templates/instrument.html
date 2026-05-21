@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'macros.html' import section_metadata %}
 {% block title %}{{ instrument.get('instrument_name') }} — Instrument{% endblock %}
 
 {% block sidebar %}{% endblock %}
@@ -117,6 +118,11 @@
         {% endif %}
 
     </div>
+
+    <!-- ── scientific metadata — collapsed by default ────────────────────── -->
+    {% if instrument.get('scientific_metadata') %}
+    {{ section_metadata(instrument.get('scientific_metadata')) }}
+    {% endif %}
 
     <!-- ── recent datasets ───────────────────────────────────────────────── -->
     {% if recent_datasets %}
