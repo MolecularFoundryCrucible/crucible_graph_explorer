@@ -230,6 +230,43 @@
         }, duration);
     }
 
+    // ── auto-attach copy buttons to all .mfid elements ─────────────────────
+    // Skips .mfid inside .rel-item (handled by resource_sidebar macro) and
+    // short text (guards against .mfid being used for non-ID badges like counts).
+    (function() {
+        function attachCopyBtn(mfidEl) {
+            if (mfidEl.dataset.copyAttached) return;
+            if (mfidEl.closest('.rel-item')) return;
+            const id = mfidEl.textContent.trim();
+            if (id.length < 6) return;
+            mfidEl.dataset.copyAttached = '1';
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'rel-copy-btn';
+            btn.title = 'Copy ID';
+            btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                navigator.clipboard.writeText(id).then(() => cgToast('ID copied', 'bi-clipboard-check'));
+            });
+            mfidEl.appendChild(btn);
+        }
+        function scan(root) {
+            (root.matches && root.matches('.mfid') ? [root] : [])
+                .concat(Array.from(root.querySelectorAll ? root.querySelectorAll('.mfid') : []))
+                .forEach(attachCopyBtn);
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            scan(document.body);
+            new MutationObserver(muts => {
+                muts.forEach(m => m.addedNodes.forEach(n => {
+                    if (n.nodeType === 1) scan(n);
+                }));
+            }).observe(document.body, { childList: true, subtree: true });
+        });
+    })();
+
     // ── thumbnail lightbox ─────────────────────────────────────────────────
     // _lb() is a lazy getter because #cgLightbox lives after this <script> block in the DOM
     (function() {

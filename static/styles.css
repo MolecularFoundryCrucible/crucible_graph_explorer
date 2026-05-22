@@ -762,6 +762,9 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 }
 .rel-item:hover .rel-copy-btn { opacity: 0.5; }
 .rel-copy-btn:hover { opacity: 1 !important; color: var(--cg-accent-mid); }
+/* Copy button injected as a child of any .mfid (outside .rel-item rows). */
+.mfid > .rel-copy-btn { margin-left: 0.3rem; vertical-align: baseline; }
+.mfid:hover > .rel-copy-btn { opacity: 0.55; }
 .rel-remove-btn {
     opacity: 0; flex-shrink: 0; border: none; background: none;
     padding: 0.15rem 0.35rem; border-radius: 3px;
