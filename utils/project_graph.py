@@ -41,13 +41,14 @@ def generate_project_cache(project_id, crucible_client, include_metadata=True, s
     pc['datasets_by_id'] = {ds['unique_id']: ds for ds in pc['datasets']}
 
     # Pull in datasets linked to project samples but not in the project dataset list.
-    # These synthetic dicts only have unique_id/dataset_name; use them as-is since we
-    # can't fetch full info here without extra API calls. Callers must use .get() for
-    # optional fields like measurement, instrument_name, etc.
+    # These are cross-project links: synthetic dicts with only unique_id/dataset_name,
+    # tagged so the UI can group them separately rather than mixing them in as if
+    # their metadata fields were genuinely empty.
     for s in pc['samples_by_id'].values():
         for ds in s.get('datasets') or []:
             uid = ds['unique_id']
             if uid not in pc['datasets_by_id']:
+                ds['cross_project'] = True
                 pc['datasets_by_id'][uid] = ds
                 pc['datasets'].append(ds)
 

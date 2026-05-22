@@ -572,7 +572,10 @@ function toggleSidebar() {
         return MONTH_NAMES[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
     }
 
+    const CROSS_PROJECT_LABEL = 'Linked from other projects';
+
     function groupLabel(item, field) {
+        if (item.cross_project) return CROSS_PROJECT_LABEL;
         const val = item[field];
         if (!val) return '(none)';
         if (field === 'owner_orcid') return OWNER_MAP[val] || val;
@@ -609,10 +612,16 @@ function toggleSidebar() {
             keys.sort((a, b) => {
                 if (a === '(no date)') return  1;
                 if (b === '(no date)') return -1;
+                if (a === CROSS_PROJECT_LABEL) return  1;
+                if (b === CROSS_PROJECT_LABEL) return -1;
                 return (groups[b][0].timestamp || '').localeCompare(groups[a][0].timestamp || '');
             });
         } else {
-            keys.sort((a, b) => a.localeCompare(b));
+            keys.sort((a, b) => {
+                if (a === CROSS_PROJECT_LABEL) return  1;
+                if (b === CROSS_PROJECT_LABEL) return -1;
+                return a.localeCompare(b);
+            });
         }
 
         const sorted = {};

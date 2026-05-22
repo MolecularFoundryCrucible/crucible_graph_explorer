@@ -37,6 +37,7 @@ def _slim_dataset(ds):
         'data_format':     ds.get('data_format') or '',
         'owner_orcid':     ds.get('owner_orcid') or '',
         'timestamp':       ds.get('timestamp') or '',
+        'cross_project':   bool(ds.get('cross_project')),
     }
 
 
