@@ -181,22 +181,26 @@ def create_blueprint(auth):
             sample_info = pc['samples_by_id'].get(sid)
             if not sample_info:
                 continue
-            paths = list(nx.all_simple_paths(G, sample_id, sid))
-            name = sample_info['sample_name']
-            descendants_path[name] = [
-                pc['samples_by_id'].get(x, {}).get('sample_name', x) for x in paths[0]
-            ]
+            try:
+                path = nx.shortest_path(G, sample_id, sid)
+                descendants_path[sample_info['sample_name']] = [
+                    pc['samples_by_id'].get(x, {}).get('sample_name', x) for x in path
+                ]
+            except nx.NetworkXNoPath:
+                pass
 
         ancestors_path = {}
         for sid in ancestors:
             sample_info = pc['samples_by_id'].get(sid)
             if not sample_info:
                 continue
-            paths = list(nx.all_simple_paths(G, sid, sample_id))
-            name = sample_info['sample_name']
-            ancestors_path[name] = [
-                pc['samples_by_id'].get(x, {}).get('sample_name', x) for x in paths[0]
-            ]
+            try:
+                path = nx.shortest_path(G, sid, sample_id)
+                ancestors_path[sample_info['sample_name']] = [
+                    pc['samples_by_id'].get(x, {}).get('sample_name', x) for x in path
+                ]
+            except nx.NetworkXNoPath:
+                pass
 
         self_info = pc['samples_by_id'].get(sample_id)
         if not self_info:
