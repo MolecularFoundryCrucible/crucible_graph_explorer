@@ -155,6 +155,55 @@
     </div>
 </div>
 {% endif %}
+
+<!-- ── child dataset thumbnails — collapsed by default ───────────────── -->
+{% if child_datasets %}
+{% set ns = namespace(total=0) %}
+{% for cd in child_datasets %}
+  {% set ns.total = ns.total + (child_dataset_thumbnails.get(cd['unique_id'], []) | length) %}
+{% endfor %}
+{% if ns.total > 0 %}
+<div class="res-section" id="section-child-thumbnails">
+    <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-images text-muted"></i>
+        <span>Child Dataset Thumbnails</span>
+        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
+            {{ns.total}}
+        </span>
+        <i class="bi bi-chevron-right res-section-chevron"></i>
+    </div>
+    <div class="res-section-body" style="display:none;">
+        {% for cd in child_datasets %}
+        {% set cd_thumbs = child_dataset_thumbnails.get(cd['unique_id'], []) %}
+        {% if cd_thumbs %}
+        <div class="px-3 pt-3 pb-1">
+            <a href="/{{project_id}}/datasets/{{cd['unique_id']}}"
+               class="fw-medium text-decoration-none"
+               style="font-size: var(--fs-sm); color: var(--bs-secondary-color);">
+                <i class="bi bi-database me-1"></i>{{cd['dataset_name']}}
+            </a>
+        </div>
+        <div class="row row-cols-1 row-cols-md-3 g-3 p-3 pt-1">
+            {% for thumb in cd_thumbs %}
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-header small fw-semibold">{{thumb['thumbnail_name']}}</div>
+                    <img class="card-img-bottom cg-thumb-contain"
+                         data-lb-src="data:image/png;base64, {{thumb['thumbnail_b64str']}}"
+                         data-lb-label="{{thumb['thumbnail_name']}} — {{cd['dataset_name']}}"
+                         onclick="cgLbOpenSection(this)"
+                         src="data:image/png;base64, {{thumb['thumbnail_b64str']}}"
+                         alt="{{thumb['thumbnail_name']}}">
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endif %}
 {% endblock %}
 
 {% block bottom_sections %}

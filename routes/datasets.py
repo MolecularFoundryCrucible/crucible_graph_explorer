@@ -62,6 +62,16 @@ def create_blueprint(auth):
         # all_projects already fetched from cache above
         logger.debug("dataset parallel fetch=%.3fs", time.perf_counter() - t0)
 
+        child_dataset_thumbnails = {}
+        if child_datasets:
+            with ThreadPoolExecutor() as ex:
+                child_thumb_futures = {
+                    cd['unique_id']: ex.submit(client.datasets.get_thumbnails, cd['unique_id'])
+                    for cd in child_datasets
+                }
+            for uid, fut in child_thumb_futures.items():
+                child_dataset_thumbnails[uid] = _safe(fut, f'child_thumbnails/{uid}', [])
+
         markdown_html = None
         if ds.get('measurement') == 'MDNote':
             md_file = next((f for f in associated_files if f['filename'].endswith('.md')), None)
@@ -94,6 +104,7 @@ def create_blueprint(auth):
                                samples=samples,
                                files=associated_files,
                                thumbnails=thumbnails,
+                               child_dataset_thumbnails=child_dataset_thumbnails,
                                markdown_html=markdown_html,
                                custom_views=dataset_views.get_views(ds.get('measurement'), project_id, dsid),
                                prev_sibling=prev_sibling,
