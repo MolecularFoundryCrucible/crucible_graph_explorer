@@ -209,14 +209,18 @@
       <i class="bi bi-diagram-3"></i>
       Relationships
       {% set total = (rel_parents|length) + (rel_children|length) + (rel_associated|length) %}
-      <span class="ms-auto d-flex align-items-center gap-2">
-        {% if total %}<span class="mfid" style="font-size: var(--fs-xs);">{{ total }}</span>{% endif %}
-        <button class="btn btn-sm px-2" style="font-size:var(--fs-sm); border:1px solid var(--cg-accent-mid); color:var(--cg-link); line-height:1.4;"
+      {% if total %}<span class="mfid" style="font-size: var(--fs-xs);">{{ total }}</span>{% endif %}
+      <span class="ms-auto d-flex align-items-center gap-1">
+        <button class="rel-panel-btn rel-edit-btn" onclick="cgRelEditToggle(this)" title="Toggle edit mode">
+          <i class="bi bi-pencil"></i>
+        </button>
+        <button class="rel-panel-btn rel-add-btn"
                 onclick="cgRelAddOpen(this)"
                 data-pid="{{pid}}"
                 data-source-id="{{res['unique_id']}}"
-                data-res-type="{{res_url_seg}}">
-          <i class="bi bi-plus"></i>Add
+                data-res-type="{{res_url_seg}}"
+                title="Add relationship">
+          <i class="bi bi-plus-lg"></i>
         </button>
       </span>
     </div>
@@ -253,7 +257,7 @@
              data-link-type="{{_parent_ltype}}" data-source-id="{{res['unique_id']}}" data-target-id="{{item['unique_id']}}" data-pid="{{pid}}">
           <i class="bi {{ rel_item_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0;"></i>
           <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
-          <button class="rel-remove-btn" onclick="cgRelRemove(event, this)" title="Remove relationship"><i class="bi bi-x"></i></button>
+          <button class="rel-remove-btn" onclick="cgRelRemove(event, this)" title="Remove relationship"><i class="bi bi-trash3"></i></button>
         </div>
         {% endfor %}
       </div>
@@ -276,7 +280,7 @@
              data-link-type="{{_child_ltype}}" data-source-id="{{res['unique_id']}}" data-target-id="{{item['unique_id']}}" data-pid="{{pid}}">
           <i class="bi {{ rel_item_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0;"></i>
           <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
-          <button class="rel-remove-btn" onclick="cgRelRemove(event, this)" title="Remove relationship"><i class="bi bi-x"></i></button>
+          <button class="rel-remove-btn" onclick="cgRelRemove(event, this)" title="Remove relationship"><i class="bi bi-trash3"></i></button>
         </div>
         {% endfor %}
       </div>
@@ -303,7 +307,7 @@
             <span class="rel-item-sub mfid">{{item['unique_id']}}</span>
             {% if item.get(rel_assoc_sub_field) %}<span class="rel-item-sub">{{item[rel_assoc_sub_field]}}</span>{% endif %}
           </span>
-          <button class="rel-remove-btn" onclick="cgRelRemove(event, this)" title="Remove relationship"><i class="bi bi-x"></i></button>
+          <button class="rel-remove-btn" onclick="cgRelRemove(event, this)" title="Remove relationship"><i class="bi bi-trash3"></i></button>
         </div>
         {% endfor %}
       </div>
