@@ -13,3 +13,8 @@ wheels/
 .env
 example_data
 crucible-downloads
+
+# AI / dev tooling
+.claude/
+.superpowers/
+docs/superpowers/
