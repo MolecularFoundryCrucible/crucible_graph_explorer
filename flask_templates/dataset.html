@@ -292,7 +292,7 @@
         {% set basename = file['filename'].split('/')|last %}
         <div class="list-row" style="padding:0; gap:0; flex-wrap:nowrap;">
             <div style="flex:1; min-width:0; overflow:hidden; display:flex; align-items:center; padding:0.5rem 1rem; gap:0.5rem;">
-                {% if file.get('storage_path') %}
+                {% if file.get('has_download_link') %}
                 <i class="bi bi-file-earmark text-muted flex-shrink-0" style="font-size: var(--fs-md);"></i>
                 {% else %}
                 <i class="bi bi-hourglass-split text-muted flex-shrink-0" style="font-size: var(--fs-md);"></i>
@@ -302,7 +302,7 @@
             <span class="text-muted small text-nowrap px-2 border-start d-flex align-items-center" style="flex-shrink:0;">
                 {{file['size'] | humanize_size}}
             </span>
-            {% if file.get('storage_path') %}
+            {% if file.get('has_download_link') %}
             <button class="btn btn-sm btn-outline-secondary border-0 border-start rounded-0 px-3"
                     style="flex-shrink:0; height:100%; border-radius:0 !important;"
                     onclick="shareFile(event, '{{file['mfid']}}')"

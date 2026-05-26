@@ -62,6 +62,28 @@ def create_blueprint(auth):
         # all_projects already fetched from cache above
         logger.debug("dataset parallel fetch=%.3fs", time.perf_counter() - t0)
 
+        # Probe download availability for each file in parallel. A file is
+        # considered downloadable unless get_download_link returns 404
+        # (transient errors are treated optimistically as downloadable).
+        if associated_files:
+            with ThreadPoolExecutor() as ex:
+                link_futures = {
+                    f['mfid']: ex.submit(client.files.get_download_link, f['mfid'])
+                    for f in associated_files
+                }
+            for f in associated_files:
+                fut = link_futures.get(f['mfid'])
+                try:
+                    fut.result()
+                    f['has_download_link'] = True
+                except Exception as err:
+                    status = getattr(getattr(err, 'response', None), 'status_code', None)
+                    if status == 404:
+                        f['has_download_link'] = False
+                    else:
+                        logger.warning("download_link probe failed for %s: %s", f['mfid'], err)
+                        f['has_download_link'] = True
+
         child_dataset_thumbnails = {}
         if child_datasets:
             with ThreadPoolExecutor() as ex:
