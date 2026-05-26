@@ -5,6 +5,7 @@ import os
 import h5py
 import numpy as np
 import requests
+from utils.auth import get_user_client
 from flask import Blueprint, abort, current_app, render_template
 
 MEASUREMENT_TYPES = ['arres_ek', 'arres_mm']
@@ -93,10 +94,10 @@ def _build_payload(data):
 
 def _fetch_h5_bytes(dsid):
     """Download the first .h5 file for a dataset and return its bytes."""
-    ds = current_app.crucible_client.get_dataset(dsid)
-    associated_files = current_app.crucible_client.get_associated_files(dsid)
+    ds = get_user_client().datasets.get(dsid)
+    associated_files = get_user_client().datasets.get_associated_files(dsid)
     try:
-        download_links = current_app.crucible_client.get_dataset_download_links(dsid)
+        download_links = get_user_client().datasets.get_download_links(dsid)
     except Exception:
         download_links = {}
 
@@ -105,7 +106,7 @@ def _fetch_h5_bytes(dsid):
         return None, None, 'No .h5 file found for this dataset.'
 
     basename = os.path.basename(h5_file['filename'])
-    url = download_links.get(f"{ds['unique_id']}/{basename}")
+    url = download_links.get(h5_file['mfid'])
     if not url:
         return None, None, 'Download link not available for the .h5 file.'
 

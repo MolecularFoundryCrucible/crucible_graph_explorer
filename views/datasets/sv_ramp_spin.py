@@ -17,6 +17,7 @@ import fsspec
 import h5py
 import numpy as np
 import requests as _requests
+from utils.auth import get_user_client
 from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request
 from matplotlib import colormaps
 from PIL import Image
@@ -66,13 +67,14 @@ def _ensure_meta(dsid, crucible_client):
     entry = _cache.get(dsid)
 
     if entry is None:
-        associated = crucible_client.get_associated_files(dsid)
+        associated = crucible_client.datasets.get_associated_files(dsid)
         match = next((f for f in associated if f['filename'].endswith('.h5')), None)
         if not match:
             abort(404)
         filename = os.path.basename(match['filename'])
-        links = crucible_client.get_dataset_download_links(dsid)
-        url = links.get(f'{dsid}/{filename}')
+        mfid = match['mfid']
+        links = crucible_client.datasets.get_download_links(dsid)
+        url = links.get(mfid)
         if not url:
             abort(404)
 
@@ -92,7 +94,7 @@ def _ensure_meta(dsid, crucible_client):
 
         frame_bytes = int(shape[1]) * int(shape[2]) * dtype.itemsize
         entry = {
-            'filename': filename, 'url': url, 'url_at': now,
+            'filename': filename, 'mfid': mfid, 'url': url, 'url_at': now,
             'sv_array': sv_array, 'imavg_up': imavg_up,
             'imavg_down': imavg_down, 'asym_array': asym_array,
             'n_frames': shape[0], 'up_offset': up_offset,
@@ -102,8 +104,8 @@ def _ensure_meta(dsid, crucible_client):
         _cache[dsid] = entry
 
     elif (now - entry['url_at']) >= _URL_TTL:
-        links = crucible_client.get_dataset_download_links(dsid)
-        entry['url'] = links.get(f'{dsid}/{entry["filename"]}')
+        links = crucible_client.datasets.get_download_links(dsid)
+        entry['url'] = links.get(entry['mfid'])
         entry['url_at'] = now
 
     return entry
@@ -210,8 +212,8 @@ def create_blueprint(auth, helpers):
     def view(project_id, dsid):
         if not is_user_in_project(project_id):
             abort(403)
-        ds = current_app.crucible_client.get_dataset(dsid)
-        meta = _ensure_meta(dsid, current_app.crucible_client)
+        ds = get_user_client().datasets.get(dsid)
+        meta = _ensure_meta(dsid, get_user_client())
         return render_template(
             'dataset_views/sv_ramp_spin.html',
             ds=ds, project_id=project_id,
@@ -233,7 +235,7 @@ def create_blueprint(auth, helpers):
         if fi is None:
             abort(400)
 
-        meta = _ensure_meta(dsid, current_app.crucible_client)
+        meta = _ensure_meta(dsid, get_user_client())
         if not (0 <= fi < meta['n_frames']):
             abort(400)
 
@@ -261,7 +263,7 @@ def create_blueprint(auth, helpers):
         if any(v is None for v in [x0, y0, x1, y1]):
             abort(400)
 
-        meta = _ensure_meta(dsid, current_app.crucible_client)
+        meta = _ensure_meta(dsid, get_user_client())
         H, W = meta['shape'][1], meta['shape'][2]
         x0, x1 = sorted([max(0, x0), min(W - 1, x1)])
         y0, y1 = sorted([max(0, y0), min(H - 1, y1)])

@@ -15,6 +15,7 @@ import fsspec
 import h5py
 import numpy as np
 import requests as _requests
+from utils.auth import get_user_client
 from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request
 from matplotlib import colormaps
 from PIL import Image
@@ -54,13 +55,14 @@ def _ensure_meta(dsid, crucible_client):
     entry = _cache.get(dsid)
 
     if entry is None:
-        associated = crucible_client.get_associated_files(dsid)
+        associated = crucible_client.datasets.get_associated_files(dsid)
         match = next((f for f in associated if f['filename'].endswith('.h5')), None)
         if not match:
             abort(404)
         filename = os.path.basename(match['filename'])
-        links = crucible_client.get_dataset_download_links(dsid)
-        url = links.get(f'{dsid}/{filename}')
+        mfid = match['mfid']
+        links = crucible_client.datasets.get_download_links(dsid)
+        url = links.get(mfid)
         if not url:
             abort(404)
 
@@ -81,7 +83,7 @@ def _ensure_meta(dsid, crucible_client):
         # Bytes for one channel within a chunk: H × W × itemsize
         ch_bytes = int(shape[2]) * int(shape[3]) * dtype.itemsize
         entry = {
-            'filename': filename, 'url': url, 'url_at': now,
+            'filename': filename, 'mfid': mfid, 'url': url, 'url_at': now,
             'n_acq': shape[0], 'shape': shape, 'dtype': dtype,
             'ch_bytes': ch_bytes, 'chunk_offsets': chunk_offsets,
             'avg_up': None, 'avg_down': None,
@@ -89,8 +91,8 @@ def _ensure_meta(dsid, crucible_client):
         _cache[dsid] = entry
 
     elif (now - entry['url_at']) >= _URL_TTL:
-        links = crucible_client.get_dataset_download_links(dsid)
-        entry['url'] = links.get(f'{dsid}/{entry["filename"]}')
+        links = crucible_client.datasets.get_download_links(dsid)
+        entry['url'] = links.get(entry['mfid'])
         entry['url_at'] = now
 
     return entry
@@ -198,8 +200,8 @@ def create_blueprint(auth, helpers):
     def view(project_id, dsid):
         if not is_user_in_project(project_id):
             abort(403)
-        ds   = current_app.crucible_client.get_dataset(dsid)
-        meta = _ensure_meta(dsid, current_app.crucible_client)
+        ds   = get_user_client().datasets.get(dsid)
+        meta = _ensure_meta(dsid, get_user_client())
         return render_template(
             'dataset_views/spleem_image.html',
             ds=ds, project_id=project_id,
@@ -219,7 +221,7 @@ def create_blueprint(auth, helpers):
         if fi is None:
             abort(400)
 
-        meta = _ensure_meta(dsid, current_app.crucible_client)
+        meta = _ensure_meta(dsid, get_user_client())
         if fi not in meta['chunk_offsets']:
             abort(404)
 
@@ -252,7 +254,7 @@ def create_blueprint(auth, helpers):
         vmin    = request.args.get('vmin', type=float)
         vmax    = request.args.get('vmax', type=float)
 
-        meta = _ensure_meta(dsid, current_app.crucible_client)
+        meta = _ensure_meta(dsid, get_user_client())
         _ensure_averages(meta)
         arr = _channel_arr(meta['avg_up'], meta['avg_down'], channel)
         return Response(_arr_to_png(arr, channel, vmin, vmax), mimetype='image/png')
@@ -270,7 +272,7 @@ def create_blueprint(auth, helpers):
         if any(v is None for v in [x0, y0, x1, y1]):
             abort(400)
 
-        meta = _ensure_meta(dsid, current_app.crucible_client)
+        meta = _ensure_meta(dsid, get_user_client())
         _ensure_averages(meta)
         arr  = _channel_arr(meta['avg_up'], meta['avg_down'], channel)
         H, W = arr.shape
