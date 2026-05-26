@@ -1,5 +1,5 @@
 {
-  "name": "demo-tailwind",
+  "name": "crucible-graph-explorer",
   "version": "0.0.1",
   "description": "",
   "scripts": {
@@ -11,9 +11,6 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.33",
-    "tailwindcss": "^3.4.1",
     "vite": "^5.4.21"
   },
   "dependencies": {
