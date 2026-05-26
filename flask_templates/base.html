@@ -322,6 +322,10 @@
         window.location.href = url;
     }
 
+    function escHtml(s) {
+        return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
     // ── relationship add — inline picker in right panel ───────────────────
     const _REL_ADD_TYPES = {
         samples:  [
@@ -337,11 +341,25 @@
     };
     let _relAddCtx = {};
 
+    function cgRelEditToggle(btn) {
+        const panel = btn.closest('.rel-panel');
+        const editing = panel.classList.toggle('rel-editing');
+        btn.classList.toggle('active', editing);
+        btn.querySelector('i').className = editing ? 'bi bi-pencil-fill' : 'bi bi-pencil';
+        if (editing) cgRelAddClose();
+    }
+
     function cgRelAddOpen(btn) {
         const picker  = document.getElementById('rel-add-picker');
         const typeEl  = document.getElementById('rel-add-type');
         const search  = document.getElementById('rel-add-search');
         const results = document.getElementById('rel-add-results');
+        // Exit edit mode when adding
+        const panel = picker.closest('.rel-panel');
+        if (panel && panel.classList.contains('rel-editing')) {
+            const editBtn = panel.querySelector('.rel-edit-btn');
+            if (editBtn) cgRelEditToggle(editBtn);
+        }
         _relAddCtx = { pid: btn.dataset.pid, sourceId: btn.dataset.sourceId, resType: btn.dataset.resType };
         typeEl.innerHTML = (_REL_ADD_TYPES[_relAddCtx.resType] || []).map(t =>
             `<option value="${t.type}" data-endpoint="${t.endpoint}">${t.label}</option>`
@@ -429,15 +447,15 @@
         const confirmEl = document.createElement('span');
         confirmEl.className = 'rel-confirm-btns';
         confirmEl.innerHTML =
-            `<span class="text-muted" style="font-size:var(--fs-xs);">Remove?</span>
-             <button class="btn btn-sm btn-danger py-0 px-2" style="font-size:var(--fs-xs);">Remove</button>
+            `<span class="text-danger" style="font-size:var(--fs-xs); opacity:0.7;">Remove?</span>
+             <button class="btn btn-sm btn-danger py-0 px-2" style="font-size:var(--fs-xs);"><i class="bi bi-trash3 me-1"></i>Remove</button>
              <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--fs-xs);">Cancel</button>`;
         item.appendChild(confirmEl);
 
         confirmEl.querySelector('.btn-danger').addEventListener('click', async e => {
             e.stopPropagation();
             const { linkType, sourceId, targetId, pid } = item.dataset;
-            confirmEl.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            confirmEl.innerHTML = '<span class="spinner-border spinner-border-sm text-danger"></span>';
             try {
                 const resp = await fetch(`/${pid}/api/relationships`, {
                     method: 'DELETE',
