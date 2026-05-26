@@ -58,4 +58,4 @@ def test_is_user_in_project_uses_user_client(app):
             result = is_user_in_project('proj-a', orcid='orcid-1')
 
     assert result is True
-    mock_user_client.projects.list.assert_called_once_with(orcid='orcid-1')
+    mock_user_client.projects.list.assert_called_once_with(orcid='orcid-1', limit=10000)
