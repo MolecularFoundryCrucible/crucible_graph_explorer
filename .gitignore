@@ -18,3 +18,9 @@ crucible-downloads
 .claude/
 .superpowers/
 docs/superpowers/
+
+# Notebooks (research/analysis, not part of the app)
+*.ipynb
+
+# Cache files
+cache/

@@ -6,7 +6,6 @@ from flask_pyoidc.user_session import UserSession
 
 from utils.auth import get_user_client
 from utils.cache import get_project
-from utils.graph import get_entity_graph_nx, get_project_graph, _to_nx
 
 logger = logging.getLogger(__name__)
 
@@ -44,19 +43,22 @@ def create_blueprint(auth):
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         pc = get_project(project_id, orcid)
-        G = get_entity_graph_nx(entity_id)
+
+        raw = client.graphs.get(entity_id, recursive=True)
+        raw_nodes = raw.get('nodes', [])
+        raw_edges = raw.get('links') or raw.get('edges', [])
 
         nodes = []
-        edges = [{'source': src, 'target': tgt} for src, tgt in G.edges()]
         dataset_ids = []
 
-        for node_id, attrs in G.nodes(data=True):
-            ntype = attrs.get('entity_type', entity_type)
+        for n in raw_nodes:
+            node_id = n['id']
+            ntype = n.get('entity_type', entity_type)
             if ntype == 'sample':
                 sample = pc['samples_by_id'].get(node_id, {})
                 nodes.append({
                     'id': node_id,
-                    'label': sample.get('sample_name', attrs.get('name', node_id[:13])),
+                    'label': sample.get('sample_name', n.get('name', node_id[:13])),
                     'type': 'sample',
                     'sampleType': sample.get('sample_type', ''),
                     'description': sample.get('description', ''),
@@ -77,16 +79,18 @@ def create_blueprint(auth):
                 pass
 
         for node_id in dataset_ids:
-            attrs = G.nodes[node_id]
+            n = next((x for x in raw_nodes if x['id'] == node_id), {})
             ds = pc['datasets_by_id'].get(node_id, {})
             nodes.append({
                 'id': node_id,
-                'label': ds.get('dataset_name', attrs.get('name', node_id[:13])),
+                'label': ds.get('dataset_name', n.get('name', node_id[:13])),
                 'type': 'dataset',
                 'measurement': ds.get('measurement', ''),
                 'url': f'/{project_id}/datasets/{node_id}',
                 'thumbnail': thumbnails.get(node_id)
             })
+
+        edges = [{'source': e['source'], 'target': e['target']} for e in raw_edges]
 
         return jsonify({
             'nodes': nodes,
@@ -106,21 +110,23 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/api/project-graph-data")
     @auth.oidc_auth('orcid')
     def project_graph_data(project_id):
-
+        client = get_user_client()
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         pc = get_project(project_id, orcid)
-        G = get_project_graph(project_id)
+
+        raw = client.graphs.project(project_id)
+        raw_nodes = raw.get('nodes', [])
+        raw_edges = raw.get('links') or raw.get('edges', [])
 
         nodes = []
-        edges = [{'source': src, 'target': tgt} for src, tgt in G.edges()]
-
-        for node_id, attrs in G.nodes(data=True):
-            if attrs.get('entity_type') == 'sample':
+        for n in raw_nodes:
+            node_id = n['id']
+            if n.get('entity_type') == 'sample':
                 sample = pc['samples_by_id'].get(node_id, {})
                 nodes.append({
                     'id': node_id,
-                    'label': sample.get('sample_name', attrs.get('name', node_id[:13])),
+                    'label': sample.get('sample_name', n.get('name', node_id[:13])),
                     'type': 'sample',
                     'description': sample.get('description', ''),
                     'url': f'/{project_id}/samples/{node_id}'
@@ -129,12 +135,13 @@ def create_blueprint(auth):
                 ds = pc['datasets_by_id'].get(node_id, {})
                 nodes.append({
                     'id': node_id,
-                    'label': ds.get('dataset_name', attrs.get('name', node_id[:13])),
+                    'label': ds.get('dataset_name', n.get('name', node_id[:13])),
                     'type': 'dataset',
                     'measurement': ds.get('measurement', ''),
                     'url': f'/{project_id}/datasets/{node_id}'
                 })
 
+        edges = [{'source': e['source'], 'target': e['target']} for e in raw_edges]
         return jsonify({'nodes': nodes, 'edges': edges})
 
     return bp

@@ -279,17 +279,16 @@ def create_blueprint(auth, helpers):
             messages = list(history)
             try:
                 while True:
-                    response = anthropic_client.messages.create(
+                    with anthropic_client.messages.stream(
                         model=CHAT_MODEL,
                         system=system_prompt,
                         messages=messages,
                         tools=CHAT_TOOL_DEFS,
-                        max_tokens=4096
-                    )
-
-                    for block in response.content:
-                        if block.type == 'text' and block.text:
-                            yield f"data: {json.dumps({'type': 'text', 'delta': block.text})}\n\n"
+                        max_tokens=4096,
+                    ) as stream:
+                        for text in stream.text_stream:
+                            yield f"data: {json.dumps({'type': 'text', 'delta': text})}\n\n"
+                        response = stream.get_final_message()
 
                     if response.stop_reason == 'tool_use':
                         assistant_content = []
