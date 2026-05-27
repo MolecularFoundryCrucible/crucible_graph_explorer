@@ -47,4 +47,4 @@ def render_markdown(md_content: str, project_id: str) -> str:
         r'\[\[sample:([^\]|]+)(?:\|([^\]]+))?\]\]',
         replace_sample_link, md_content
     )
-    return md_lib.markdown(md_content, extensions=['extra', 'codehilite', 'tables'])
+    return md_lib.markdown(md_content, extensions=['extra', 'codehilite'])
