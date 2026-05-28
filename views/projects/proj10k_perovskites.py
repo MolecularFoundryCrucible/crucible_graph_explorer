@@ -40,9 +40,9 @@ def create_blueprint(auth, helpers):
             try:
                 for sp in solid_precursors:
                     for ds in sp['datasets']:
-                        if ds['measurement'] == 'Solid Precursor synthesis':
-                            full_ds = pc['datasets_by_id'].get(ds['unique_id'])
-                            if full_ds and full_ds.get('scientific_metadata'):
+                        full_ds = pc['datasets_by_id'].get(ds['unique_id'])
+                        if full_ds and full_ds.get('measurement') == 'Solid Precursor synthesis':
+                            if full_ds.get('scientific_metadata'):
                                 precursor_compositions.append(full_ds['scientific_metadata'].get('name'))
             except Exception as err:
                 print(f"Failed to get solid precursor details {s['sample_name']}: {err}")
@@ -50,7 +50,8 @@ def create_blueprint(auth, helpers):
             if len(precursor_compositions) < 2:
                 precursor_compositions += [None] * (2 - len(precursor_compositions))
 
-            sr = [ds for ds in s['datasets'] if ds['measurement'] == 'spin_run']
+            sr = [ds for ds in s['datasets']
+                  if pc['datasets_by_id'].get(ds['unique_id'], {}).get('measurement') == 'spin_run']
             if sr:
                 sr = pc['datasets_by_id'].get(sr[0]['unique_id'])
                 anneal_temp = sr['scientific_metadata'].get('heater_sv_temp', '?') if sr else '?'
@@ -79,7 +80,8 @@ def create_blueprint(auth, helpers):
 
         img_dsid = {
             tf['unique_id']: next(
-                (ds['unique_id'] for ds in tf['datasets'] if ds['measurement'] == 'sample well image'),
+                (ds['unique_id'] for ds in tf['datasets']
+                 if pc['datasets_by_id'].get(ds['unique_id'], {}).get('measurement') == 'sample well image'),
                 None
             )
             for tf in thin_films
