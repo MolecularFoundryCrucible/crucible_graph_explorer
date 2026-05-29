@@ -110,19 +110,19 @@
     <div class="res-section-header" onclick="toggleGraphSection(this)">
         <i class="bi bi-diagram-3 text-muted"></i>
         <span>{% block graph_section_title %}Entity Graph{% endblock %}</span>
-        <div class="d-flex gap-2 ms-auto me-2" onclick="event.stopPropagation()">
+        <div class="d-flex gap-1 ms-auto me-2 flex-wrap" onclick="event.stopPropagation()">
             {% block extra_graph_buttons %}{% endblock %}
-            <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);">
-                <i class="bi bi-arrow-left-right me-1"></i>Vertical
+            <button id="toggleLayoutBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);" title="Toggle layout direction">
+                <i class="bi bi-arrow-left-right"></i><span class="cg-btn-label d-none d-lg-inline ms-1">Vertical</span>
             </button>
-            <button id="fitBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);">
-                <i class="bi bi-bounding-box me-1"></i>Fit
+            <button id="fitBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);" title="Fit graph">
+                <i class="bi bi-bounding-box"></i><span class="cg-btn-label d-none d-lg-inline ms-1">Fit</span>
             </button>
-            <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);">
-                <i class="bi bi-image me-1"></i>Thumbnails
+            <button id="toggleThumbnailsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);" title="Toggle thumbnails">
+                <i class="bi bi-image"></i><span class="cg-btn-label d-none d-lg-inline ms-1">Thumbnails</span>
             </button>
-            <button id="fullscreenBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);">
-                <i class="bi bi-fullscreen me-1"></i>Fullscreen
+            <button id="fullscreenBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);" title="Fullscreen">
+                <i class="bi bi-fullscreen"></i><span class="cg-btn-label d-none d-lg-inline ms-1">Fullscreen</span>
             </button>
         </div>
         <i class="bi bi-chevron-right res-section-chevron" style="margin-left: 0;"></i>
