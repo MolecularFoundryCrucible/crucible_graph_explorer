@@ -144,6 +144,11 @@ a:hover { color: var(--cg-link-hover); }
 .cg-breadcrumb {
     font-size: var(--fs-sm); overflow: hidden;
 }
+/* On small screens, hide all but the last breadcrumb item to save navbar space */
+@media (max-width: 575.98px) {
+    .cg-breadcrumb .breadcrumb-item:not(:last-child) { display: none; }
+    .cg-breadcrumb .breadcrumb-item:last-child::before { display: none; }
+}
 .cg-breadcrumb .breadcrumb-item a {
     color: rgba(168,196,205,0.75); text-decoration: none;
     transition: color 0.15s;
@@ -281,6 +286,10 @@ a:hover { color: var(--cg-link-hover); }
     color: var(--cg-accent-mid); padding-top: 0.15rem;
 }
 [data-bs-theme="dark"] .meta-key { color: var(--cg-accent); }
+@media (max-width: 479px) {
+    .meta-row { flex-direction: column; gap: 0.05rem; }
+    .meta-key { min-width: 0; padding-top: 0.4rem; }
+}
 .meta-divider { display: flex; align-items: center; gap: 0.6rem; margin: 0.9rem 0 0.4rem; }
 .meta-divider-label {
     font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase;
@@ -549,7 +558,7 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
     border-top: 2px solid var(--bs-border-color);
     background: var(--bs-tertiary-bg);
 }
-.cg-sibling-nav { display: flex; align-items: center; gap: 0.3rem; position: relative; }
+.cg-sibling-nav { display: flex; align-items: center; gap: 0.3rem; position: relative; flex-wrap: wrap; }
 .cg-sib-btn {
     display: inline-flex; align-items: center; justify-content: center;
     width: 1.6rem; height: 1.6rem; border-radius: 0.25rem;
@@ -724,7 +733,7 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
 
 /* ── relationship panel (right sidebar, xl+ screens) ───────────── */
 .rel-panel {
-    min-width: 340px; flex: 1; max-width: 500px;
+    min-width: clamp(280px, 28vw, 340px); flex: 1; max-width: 500px;
     background: color-mix(in srgb, var(--cg-accent) 5%, var(--bs-body-bg));
     border: 1px solid var(--bs-border-color);
     border-left: 2px solid color-mix(in srgb, var(--cg-accent-mid) 30%, transparent);
