@@ -110,8 +110,6 @@
                style="font-size:var(--fs-md);">{{pc['project_id']}}</a>
         </h1>
         <div class="d-flex align-items-center gap-2">
-            <span id="spend-badge" class="badge text-bg-secondary fw-normal"
-                  style="display:none; font-family:'IBM Plex Mono',monospace;" title="API token spend"></span>
             <button class="btn btn-sm btn-outline-secondary" id="clear-btn">Clear</button>
         </div>
     </div>
@@ -158,23 +156,6 @@ function clearAbout() {
     url.searchParams.delete('about');
     window.history.replaceState({}, '', url);
 }
-
-async function fetchSpend() {
-    try {
-        const resp = await fetch('/api/key-info');
-        if (!resp.ok) return;
-        const data = await resp.json();
-        const spend = data?.spend;
-        const max   = data?.max_budget;
-        if (spend == null) return;
-        const badge = document.getElementById('spend-badge');
-        badge.textContent = max != null
-            ? `$${spend.toFixed(2)} / $${max.toFixed(2)}`
-            : `$${spend.toFixed(2)} spent`;
-        badge.style.display = '';
-    } catch { /* silently ignore */ }
-}
-fetchSpend();
 
 let history = [];       // [{role: 'user'|'assistant', content: '...'}]
 let streaming = false;
