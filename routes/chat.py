@@ -313,6 +313,14 @@ def create_blueprint(auth, helpers):
                             q.put(_sse({'type': 'text', 'delta': text}))
                         for ev in _drain(deps.sse_events):
                             q.put(ev)
+                        u = result.usage()
+                        q.put(_sse({
+                            'type': 'usage',
+                            'input_tokens':  u.input_tokens,
+                            'output_tokens': u.output_tokens,
+                            'requests':      u.requests,
+                            'tool_calls':    u.tool_calls,
+                        }))
                 except Exception as e:
                     q.put(_sse({'type': 'error', 'message': str(e)}))
                 finally:

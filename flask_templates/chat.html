@@ -375,6 +375,21 @@ function handleEvent(event) {
             resultEl.textContent = event.result;
         }
 
+    } else if (event.type === 'usage') {
+        if (_currentBubble) {
+            const u = document.createElement('div');
+            u.className = 'text-muted mt-1';
+            u.style.fontSize = 'var(--fs-2xs)';
+            const parts = [
+                `↑ ${event.input_tokens.toLocaleString()} in`,
+                `↓ ${event.output_tokens.toLocaleString()} out`,
+            ];
+            if (event.requests > 1)   parts.push(`${event.requests} requests`);
+            if (event.tool_calls > 0) parts.push(`${event.tool_calls} tool calls`);
+            u.textContent = parts.join(' · ');
+            _currentBubble.parentElement.appendChild(u);
+        }
+
     } else if (event.type === 'error') {
         removeTypingIndicator();
         appendError(event.message);
