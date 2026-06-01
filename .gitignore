@@ -28,3 +28,4 @@ cache/
 
 # Mac
 .DS_Store
+.secret

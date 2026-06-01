@@ -23,16 +23,16 @@ steps:
       - '--set-env-vars'
       - >-
         OIDC_REDIRECT_URI=https://${_SERVICE_NAME}-${PROJECT_NUMBER}.${_REGION}.run.app/redirect_uri,
-        ANTHROPIC_BASE_URL=${_ANTHROPIC_BASE_URL},
-        ANTHROPIC_MODEL=${_ANTHROPIC_MODEL},
+        CHAT_MODEL=${_CHAT_MODEL},
+        VERTEX_PROJECT_ID=${PROJECT_ID},
+        VERTEX_REGION=${_REGION},
         CRUCIBLE_DOWNLOAD_DIR=/tmp/crucible-downloads
       - '--set-secrets'
       - >-
         CRUCIBLE_API_KEY=crucible_admin_apikey:latest,
         PYOIDC_SECRET=pyoidc_secret_key:latest,
         ORCID_CLIENT_ID=orcid_client_id_esb:latest,
-        ORCID_CLIENT_SECRET=orcid_client_secret_esb:latest,
-        ANTHROPIC_AUTH_TOKEN=mfdata-cborg-api-key:latest
+        ORCID_CLIENT_SECRET=orcid_client_secret_esb:latest
       - '--service-account'
       - 'graph-explorer-cloudrun@mf-crucible.iam.gserviceaccount.com'
       - '--allow-unauthenticated'
@@ -42,7 +42,6 @@ substitutions:
   _REGION: 'us-central1'
   _IMAGE_PATH: '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_SERVICE_NAME}-${BRANCH_NAME}/app'
   _SERVICE_URL: 'https://${_SERVICE_NAME}-${PROJECT_NUMBER}.us-central1.run.app'
-  _ANTHROPIC_BASE_URL: 'https://api.cborg.lbl.gov'
-  _ANTHROPIC_MODEL: 'anthropic/claude-sonnet'
+  _CHAT_MODEL: 'gemini-2.5-pro'
 images:
   - '${_IMAGE_PATH}'
