@@ -37,12 +37,28 @@ class PrefixMiddleware:
         self.prefix = "/" + prefix.strip("/") if prefix.strip("/") else ""
 
     def __call__(self, environ, start_response):
-        if self.prefix:
-            environ["SCRIPT_NAME"] = self.prefix
-            path = environ.get("PATH_INFO", "")
-            if path.startswith(self.prefix):
-                environ["PATH_INFO"] = path[len(self.prefix):] or "/"
-        return self.wsgi_app(environ, start_response)
+        if not self.prefix:
+            return self.wsgi_app(environ, start_response)
+
+        environ["SCRIPT_NAME"] = self.prefix
+        path = environ.get("PATH_INFO", "")
+        if path.startswith(self.prefix):
+            environ["PATH_INFO"] = path[len(self.prefix):] or "/"
+
+        # flask-pyoidc redirects to request.full_path, which lacks SCRIPT_NAME;
+        # re-add the prefix to internal-absolute redirect targets so the proxy can route them.
+        def _fixup_start_response(status, headers, exc_info=None):
+            if status.startswith("3"):
+                headers = [
+                    (k, self.prefix + v if k.lower() == "location"
+                        and v.startswith("/") and not v.startswith("//")
+                        and not v.startswith(self.prefix + "/") and v != self.prefix
+                        else v)
+                    for k, v in headers
+                ]
+            return start_response(status, headers, exc_info)
+
+        return self.wsgi_app(environ, _fixup_start_response)
 
 
 # Honor X-Forwarded-Proto/Host from Cloud Run; PrefixMiddleware owns the path prefix.
