@@ -78,8 +78,8 @@
 {% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
-    <li class="breadcrumb-item"><a href="/{{project_id}}/datasets/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{project_id}}/datasets/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
     <li class="breadcrumb-item active" aria-current="page">Edit Note</li>
 {% endblock %}
 
@@ -92,7 +92,7 @@
     </div>
     <div>
         <button id="mdnote-save-btn" class="btn btn-primary">Save</button>
-        <a href="/{{project_id}}/datasets/{{ds['unique_id']}}" class="btn btn-outline-secondary ms-2">Cancel</a>
+        <a href="{{ base }}/{{project_id}}/datasets/{{ds['unique_id']}}" class="btn btn-outline-secondary ms-2">Cancel</a>
     </div>
 </div>
 

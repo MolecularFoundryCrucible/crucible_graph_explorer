@@ -26,7 +26,7 @@
 {% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/{{pid}}/">{{pid}}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{pid}}/">{{pid}}</a></li>
     <li class="breadcrumb-item active" aria-current="page">{{res_name}}</li>
 {% endblock %}
 
@@ -51,13 +51,13 @@
     <div class="cg-sibling-nav">
       {% if sibling_count > 1 %}
         {% if prev_sibling %}
-        <a class="cg-sib-btn" href="/{{pid}}/{{res_url_seg}}/{{prev_sibling['unique_id']}}" title="{{prev_sibling[rel_item_name_field]}}"><i class="bi bi-chevron-left"></i></a>
+        <a class="cg-sib-btn" href="{{ base }}/{{pid}}/{{res_url_seg}}/{{prev_sibling['unique_id']}}" title="{{prev_sibling[rel_item_name_field]}}"><i class="bi bi-chevron-left"></i></a>
         {% else %}
         <button class="cg-sib-btn" disabled><i class="bi bi-chevron-left"></i></button>
         {% endif %}
         <span class="cg-sib-label">{{sibling_index}}&thinsp;/&thinsp;{{sibling_count}}{% if sibling_label %}<span class="cg-sib-type">{{sibling_label}}</span>{% endif %}</span>
         {% if next_sibling %}
-        <a class="cg-sib-btn" href="/{{pid}}/{{res_url_seg}}/{{next_sibling['unique_id']}}" title="{{next_sibling[rel_item_name_field]}}"><i class="bi bi-chevron-right"></i></a>
+        <a class="cg-sib-btn" href="{{ base }}/{{pid}}/{{res_url_seg}}/{{next_sibling['unique_id']}}" title="{{next_sibling[rel_item_name_field]}}"><i class="bi bi-chevron-right"></i></a>
         {% else %}
         <button class="cg-sib-btn" disabled><i class="bi bi-chevron-right"></i></button>
         {% endif %}
@@ -65,7 +65,7 @@
         <div id="sibJumpDropdown" class="cg-sib-dropdown" style="display:none;">
           {% for sib in siblings %}
           <a class="cg-sib-item {% if sib['unique_id'] == res['unique_id'] %}active{% endif %}"
-             href="/{{pid}}/{{res_url_seg}}/{{sib['unique_id']}}">{{sib[rel_item_name_field]}}</a>
+             href="{{ base }}/{{pid}}/{{res_url_seg}}/{{sib['unique_id']}}">{{sib[rel_item_name_field]}}</a>
           {% endfor %}
         </div>
       {% endif %}
@@ -162,7 +162,7 @@
 
     function goBackToProject() {
         const stored = localStorage.getItem('cg_overview_state_' + _PID);
-        window.location.href = '/' + _PID + '/' + (stored || '');
+        window.location.href = '{{ base }}/' + _PID + '/' + (stored || '');
     }
 
     const resColor = hashColor({{ (res_type or res_name) | tojson }});

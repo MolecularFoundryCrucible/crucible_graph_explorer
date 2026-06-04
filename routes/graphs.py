@@ -62,7 +62,7 @@ def create_blueprint(auth):
                     'type': 'sample',
                     'sampleType': sample.get('sample_type', ''),
                     'description': sample.get('description', ''),
-                    'url': f'/{project_id}/samples/{node_id}'
+                    'url': f'{flask.request.script_root}/{project_id}/samples/{node_id}'
                 })
             else:
                 dataset_ids.append(node_id)
@@ -86,7 +86,7 @@ def create_blueprint(auth):
                 'label': ds.get('dataset_name', n.get('name', node_id[:13])),
                 'type': 'dataset',
                 'measurement': ds.get('measurement', ''),
-                'url': f'/{project_id}/datasets/{node_id}',
+                'url': f'{flask.request.script_root}/{project_id}/datasets/{node_id}',
                 'thumbnail': thumbnails.get(node_id)
             })
 
@@ -129,7 +129,7 @@ def create_blueprint(auth):
                     'label': sample.get('sample_name', n.get('name', node_id[:13])),
                     'type': 'sample',
                     'description': sample.get('description', ''),
-                    'url': f'/{project_id}/samples/{node_id}'
+                    'url': f'{flask.request.script_root}/{project_id}/samples/{node_id}'
                 })
             else:
                 ds = pc['datasets_by_id'].get(node_id, {})
@@ -138,7 +138,7 @@ def create_blueprint(auth):
                     'label': ds.get('dataset_name', n.get('name', node_id[:13])),
                     'type': 'dataset',
                     'measurement': ds.get('measurement', ''),
-                    'url': f'/{project_id}/datasets/{node_id}'
+                    'url': f'{flask.request.script_root}/{project_id}/datasets/{node_id}'
                 })
 
         edges = [{'source': e['source'], 'target': e['target']} for e in raw_edges]

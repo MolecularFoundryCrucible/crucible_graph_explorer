@@ -94,7 +94,7 @@
         ] %}
         {% for href, icon, label, desc in tiles %}
         <div class="col-12 col-sm-4">
-            <a href="{{ href }}" class="cg-nav-tile d-flex align-items-center gap-3 p-3 rounded border">
+            <a href="{{ base }}{{ href }}" class="cg-nav-tile d-flex align-items-center gap-3 p-3 rounded border">
                 <i class="bi {{ icon }} fs-4 flex-shrink-0" style="color: var(--cg-accent-mid);"></i>
                 <div>
                     <div class="fw-semibold" style="font-size: var(--fs-lg);">{{ label }}</div>
@@ -551,7 +551,7 @@
         (function fetchStats() {
             const ids = PROJECTS.map(p => p.project_id).join(',');
             if (!ids) return;
-            fetch('/api/dashboard-stats?ids=' + encodeURIComponent(ids))
+            fetch('{{ base }}/api/dashboard-stats?ids=' + encodeURIComponent(ids))
                 .then(r => r.ok ? r.json() : null)
                 .then(data => { if (data) { projectStats = data; render(); } })
                 .catch(() => {});

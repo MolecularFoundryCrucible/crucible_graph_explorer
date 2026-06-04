@@ -10,7 +10,7 @@
   <div class="cg-sidebar-content">
 
     <!-- ── navigation zone ─────────────────────────────────────────── -->
-    <a href="/" class="cg-sidebar-action cg-sidebar-home">
+    <a href="{{ base }}/" class="cg-sidebar-action cg-sidebar-home">
       <i class="bi bi-house"></i>
       <span>Dashboard</span>
     </a>
@@ -35,7 +35,7 @@
         <span>{{ action.label }}</span>
       </button>
       {% else %}
-      <a href="{{ action.url }}"
+      <a href="{{ base }}{{ action.url }}"
          {% if action.get('section') %}onclick="event.preventDefault();document.getElementById('{{ action.section }}')?.scrollIntoView({behavior:'smooth',block:'start'})"{% endif %}
          class="cg-sidebar-action">
         <i class="bi {{ action.icon }}"></i>
@@ -50,7 +50,7 @@
 
   <!-- collapsed icon rail -->
   <div class="cg-sidebar-icon-rail" id="sidebarIconRail">
-    <button class="cg-rail-btn" onclick="window.location.href='/'" title="Dashboard">
+    <button class="cg-rail-btn" onclick="window.location.href='{{ base }}/'" title="Dashboard">
       <i class="bi bi-house"></i>
     </button>
     <button class="cg-rail-btn" onclick="goBackToProject()" title="Back to project">
@@ -62,7 +62,7 @@
       <i class="bi {{ action.icon }}"></i>
     </button>
     {% else %}
-    <a class="cg-rail-btn" href="{{ action.url }}" title="{{ action.label }}">
+    <a class="cg-rail-btn" href="{{ base }}{{ action.url }}" title="{{ action.label }}">
       <i class="bi {{ action.icon }}"></i>
     </a>
     {% endif %}

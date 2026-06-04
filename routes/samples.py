@@ -51,7 +51,7 @@ def create_blueprint(auth):
             children=[{'unique_id': cid} for cid in child_ids],
         )
         clear_project_cache(project_id, orcid)
-        return redirect(f'/{project_id}/samples/{result["unique_id"]}')
+        return redirect(f'{request.script_root}/{project_id}/samples/{result["unique_id"]}')
 
     @bp.route("/<project_id>/samples/<sample_id>/edit", methods=['GET'])
     @auth.oidc_auth('orcid')
@@ -98,7 +98,7 @@ def create_blueprint(auth):
             children=[{'unique_id': cid} for cid in new_child_ids],
         )
         clear_project_cache(project_id, orcid)
-        return redirect(f'/{project_id}/samples/{sample_id}')
+        return redirect(f'{request.script_root}/{project_id}/samples/{sample_id}')
 
     @bp.route("/<project_id>/samples/<sample_id>/upload-photo", methods=['GET'])
     @auth.oidc_auth('orcid')

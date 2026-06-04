@@ -2,7 +2,7 @@
 {% block title %}New Sample — {{ pc['project_id'] }}{% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/{{ pc['project_id'] }}/">{{ pc['project_id'] }}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{ pc['project_id'] }}/">{{ pc['project_id'] }}</a></li>
     <li class="breadcrumb-item active" aria-current="page">New Sample</li>
 {% endblock %}
 
@@ -75,7 +75,7 @@
         <button type="submit" class="btn btn-primary">
             <i class="bi bi-plus-circle me-1"></i>Create Sample
         </button>
-        <a href="/{{ pc['project_id'] }}/" class="btn btn-outline-secondary">Cancel</a>
+        <a href="{{ base }}/{{ pc['project_id'] }}/" class="btn btn-outline-secondary">Cancel</a>
     </div>
 </form>
 

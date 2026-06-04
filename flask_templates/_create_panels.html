@@ -243,7 +243,7 @@ function cgTypeahead(inputId, resultsId, pid, endpoint) {
     const results = document.getElementById(resultsId);
     const q = input.value.trim();
     if (!q) { results.style.display = 'none'; return; }
-    fetch(`/${pid}/api/${endpoint}?q=${encodeURIComponent(q)}`)
+    fetch(`{{ base }}/${pid}/api/${endpoint}?q=${encodeURIComponent(q)}`)
         .then(r => r.json())
         .then(items => {
             if (!items.length) { results.style.display = 'none'; return; }
@@ -356,7 +356,7 @@ class CgLinkBuilder {
             const q = searchEl.value.trim();
             const typeDef = this.types.find(t => t.type === typeEl.value);
             if (!typeDef || !q) { resultsEl.style.display = 'none'; return; }
-            fetch(`/${this.pid}/api/${typeDef.endpoint}?q=${encodeURIComponent(q)}`)
+            fetch(`{{ base }}/${this.pid}/api/${typeDef.endpoint}?q=${encodeURIComponent(q)}`)
                 .then(r => r.json())
                 .then(items => {
                     if (!items.length) { resultsEl.style.display = 'none'; return; }
@@ -561,7 +561,7 @@ async function cgSubmitDataset(pid) {
             btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Uploading ${i+1}/${_dsFiles.length}…`;
             const fd = new FormData();
             fd.append('file', _dsFiles[i]);
-            const ur = await fetch(`/${selectedPid}/api/datasets/${data.id}/upload-file`, {
+            const ur = await fetch(`{{ base }}/${selectedPid}/api/datasets/${data.id}/upload-file`, {
                 method: 'POST', body: fd,
             });
             if (!ur.ok) {
@@ -584,7 +584,7 @@ async function cgSubmitNote(pid) {
     const errEl = document.getElementById('nt-error');
     if (!name) { errEl.textContent = 'Title is required.'; errEl.style.display = ''; return; }
     _cgSetSubmitting('nt-submit', 'nt-error', true);
-    const resp = await fetch(`/${selectedPid}/api/datasets/create`, {
+    const resp = await fetch(`{{ base }}/${selectedPid}/api/datasets/create`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
@@ -600,7 +600,7 @@ async function cgSubmitNote(pid) {
         errEl.style.display = '';
         return;
     }
-    window.location.href = `/${selectedPid}/datasets/${data.id}/mdnote-edit`;
+    window.location.href = `{{ base }}/${selectedPid}/datasets/${data.id}/mdnote-edit`;
 }
 
 // ── open panel functions ──────────────────────────────────────────────────────
@@ -676,7 +676,7 @@ function cgOpenDatasetPanel(editData) {
     dsLinks.reset();
     cgOpenPanel('cgDatasetPanel');
     if (!_instrumentsLoaded) {
-        fetch('/api/instruments')
+        fetch('{{ base }}/api/instruments')
             .then(r => r.json())
             .then(instruments => {
                 _instrumentsLoaded = true;
@@ -718,7 +718,7 @@ async function _cgConfirmDeletion(btnId, pid, resourceId) {
     const reason = document.getElementById(btnId + '-reason')?.value.trim() || null;
     if (wrap) { wrap.innerHTML = '<span class="spinner-border spinner-border-sm text-danger"></span>'; }
     try {
-        const resp = await fetch(`/${pid}/api/resources/${resourceId}/request-deletion`, {
+        const resp = await fetch(`{{ base }}/${pid}/api/resources/${resourceId}/request-deletion`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ reason }),

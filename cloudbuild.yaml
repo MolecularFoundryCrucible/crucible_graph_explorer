@@ -22,7 +22,8 @@ steps:
       - 'managed'
       - '--set-env-vars'
       - >-
-        OIDC_REDIRECT_URI=https://${_SERVICE_NAME}-${PROJECT_NUMBER}.${_REGION}.run.app/redirect_uri,
+        URL_PREFIX=/explore,
+        OIDC_REDIRECT_URI=https://crucible.lbl.gov/explore/redirect_uri,
         CHAT_MODEL=${_CHAT_MODEL},
         VERTEX_PROJECT_ID=${PROJECT_ID},
         VERTEX_REGION=${_REGION},
@@ -31,16 +32,16 @@ steps:
       - >-
         CRUCIBLE_API_KEY=crucible_admin_apikey:latest,
         PYOIDC_SECRET=pyoidc_secret_key:latest,
-        ORCID_CLIENT_ID=orcid_client_id_esb:latest,
-        ORCID_CLIENT_SECRET=orcid_client_secret_esb:latest
+        ORCID_CLIENT_ID=orcid_client_id:latest,
+        ORCID_CLIENT_SECRET=orcid_client_secret:latest
       - '--service-account'
       - 'graph-explorer-cloudrun@mf-crucible.iam.gserviceaccount.com'
       - '--allow-unauthenticated'
 
 substitutions:
-  _SERVICE_NAME: 'crucible-graph-explorer'
+  _SERVICE_NAME: 'crucible-graph-explorer-${BRANCH_NAME}'
   _REGION: 'us-central1'
-  _IMAGE_PATH: '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_SERVICE_NAME}-${BRANCH_NAME}/app'
+  _IMAGE_PATH: '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_SERVICE_NAME}/app'
   _SERVICE_URL: 'https://${_SERVICE_NAME}-${PROJECT_NUMBER}.us-central1.run.app'
   _CHAT_MODEL: 'gemini-2.5-pro'
 images:

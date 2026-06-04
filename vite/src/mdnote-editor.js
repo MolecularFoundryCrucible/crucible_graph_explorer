@@ -73,7 +73,7 @@ export function initMDNoteEditor({ containerId, previewId, projectId, initialCon
     const query = innerMatch[2];
     const apiPath = type === 'sample' ? 'samples' : 'datasets';
 
-    return fetch(`/${projectId}/api/${apiPath}?q=${encodeURIComponent(query)}`)
+    return fetch(`${window.SCRIPT_ROOT || ''}/${projectId}/api/${apiPath}?q=${encodeURIComponent(query)}`)
       .then(r => r.json())
       .then(items => ({
         from: match.from,

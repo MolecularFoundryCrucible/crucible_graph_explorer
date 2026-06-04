@@ -42,8 +42,8 @@
 
 {% block breadcrumb %}
 {% if project_id %}
-    <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
-    <li class="breadcrumb-item"><a href="/{{project_id}}/dataset/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{project_id}}/dataset/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
 {% endif %}
     <li class="breadcrumb-item active" aria-current="page">SV Ramp Spin Viewer</li>
 {% endblock %}
@@ -60,7 +60,7 @@
         <span class="text-muted ms-2 small">{{ds['dataset_name']}}</span>
     </div>
     {% if project_id and ds['unique_id'] %}
-    <a href="/{{project_id}}/dataset/{{ds['unique_id']}}" class="btn btn-sm btn-outline-secondary">
+    <a href="{{ base }}/{{project_id}}/dataset/{{ds['unique_id']}}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-database me-1"></i>Dataset
     </a>
     {% endif %}

@@ -2,8 +2,8 @@
 {% block title %}{{ instrument.instrument_name }} — Dataset List{% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/instruments/">Instruments</a></li>
-    <li class="breadcrumb-item"><a href="/instrument/{{ instrument.unique_id }}">{{ instrument.instrument_name }}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/instruments/">Instruments</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/instrument/{{ instrument.unique_id }}">{{ instrument.instrument_name }}</a></li>
     <li class="breadcrumb-item active" aria-current="page">Dataset List</li>
 {% endblock %}
 
@@ -21,7 +21,7 @@
 <div class="list-group">
     {% for ds in datasets if ds.measurement == 'full team05 session' %}
     {% set date = ds.get('timestamp', '')[:10] %}
-    <a href="/{{ ds.project_id }}/datasets/{{ ds.unique_id }}"
+    <a href="{{ base }}/{{ ds.project_id }}/datasets/{{ ds.unique_id }}"
        class="list-group-item list-group-item-action py-2">
         <div class="d-flex align-items-center gap-3">
             <span class="text-muted small text-nowrap" style="min-width: 6rem;">{{ date or '—' }}</span>
@@ -43,7 +43,7 @@
 <div class="list-group">
     {% for ds in datasets %}
     {% set date = ds.get('timestamp', '')[:10] %}
-    <a href="/{{ ds.project_id }}/datasets/{{ ds.unique_id }}"
+    <a href="{{ base }}/{{ ds.project_id }}/datasets/{{ ds.unique_id }}"
        class="list-group-item list-group-item-action py-2">
         <div class="d-flex align-items-center gap-3">
             <span class="text-muted small text-nowrap" style="min-width: 6rem;">{{ date or '—' }}</span>

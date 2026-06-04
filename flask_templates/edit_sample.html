@@ -2,8 +2,8 @@
 {% block title %}Edit Sample — {{ sample['sample_name'] }}{% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/{{ pc['project_id'] }}/">{{ pc['project_id'] }}</a></li>
-    <li class="breadcrumb-item"><a href="/{{ pc['project_id'] }}/samples/{{ sample['unique_id'] }}">{{ sample['sample_name'] }}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{ pc['project_id'] }}/">{{ pc['project_id'] }}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{ pc['project_id'] }}/samples/{{ sample['unique_id'] }}">{{ sample['sample_name'] }}</a></li>
     <li class="breadcrumb-item active" aria-current="page">Edit</li>
 {% endblock %}
 
@@ -47,7 +47,7 @@
         <label class="form-label fw-semibold">Existing parents</label>
         <div class="d-flex flex-wrap gap-1">
             {% for p in direct_parents %}
-            <a href="/{{ pc['project_id'] }}/samples/{{ p['unique_id'] }}"
+            <a href="{{ base }}/{{ pc['project_id'] }}/samples/{{ p['unique_id'] }}"
                class="badge rounded-pill border text-body fw-normal text-decoration-none"
                style="background:var(--bs-tertiary-bg);">{{ p['sample_name'] }}</a>
             {% endfor %}
@@ -78,7 +78,7 @@
         <label class="form-label fw-semibold">Existing children</label>
         <div class="d-flex flex-wrap gap-1">
             {% for c in direct_children %}
-            <a href="/{{ pc['project_id'] }}/samples/{{ c['unique_id'] }}"
+            <a href="{{ base }}/{{ pc['project_id'] }}/samples/{{ c['unique_id'] }}"
                class="badge rounded-pill border text-body fw-normal text-decoration-none"
                style="background:var(--bs-tertiary-bg);">{{ c['sample_name'] }}</a>
             {% endfor %}
@@ -111,7 +111,7 @@
         <button type="submit" class="btn btn-primary">
             <i class="bi bi-check-lg me-1"></i>Save Changes
         </button>
-        <a href="/{{ pc['project_id'] }}/samples/{{ sample['unique_id'] }}" class="btn btn-outline-secondary">Cancel</a>
+        <a href="{{ base }}/{{ pc['project_id'] }}/samples/{{ sample['unique_id'] }}" class="btn btn-outline-secondary">Cancel</a>
     </div>
 </form>
 
