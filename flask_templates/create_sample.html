@@ -81,8 +81,8 @@
 
 <script>
 const PROJECT_ID = {{ pc['project_id'] | tojson }};
-const API = `/${PROJECT_ID}/api/samples`;
-const TYPE_API = `/${PROJECT_ID}/api/sample-types`;
+const API = cgUrl(`/${PROJECT_ID}/api/samples`);
+const TYPE_API = cgUrl(`/${PROJECT_ID}/api/sample-types`);
 
 // ── Sample type typeahead ─────────────────────────────────────────────────
 async function searchType() {

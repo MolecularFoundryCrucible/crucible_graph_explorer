@@ -117,7 +117,7 @@
             previewId: 'mdnote-preview',
             projectId: '{{ project_id }}',
             initialContent,
-            saveUrl: '/{{ project_id }}/datasets/{{ ds["unique_id"] }}/mdnote-edit'
+            saveUrl: cgUrl('/{{ project_id }}/datasets/{{ ds["unique_id"] }}/mdnote-edit')
         });
     }
 

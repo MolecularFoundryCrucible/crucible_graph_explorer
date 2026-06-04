@@ -256,7 +256,7 @@
             const starred   = getStarred().has(p.project_id);
             const color     = hashColor(p.project_id);
             const borderCol = starred ? '#ffc107' : color;
-            const url       = `/${esc(p.project_id)}/`;
+            const url       = cgUrl(`/${esc(p.project_id)}/`);
             const org       = p.organization ? `<span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1" style="background:var(--bs-tertiary-bg);font-size: var(--fs-xs);max-width:100%;"><i class="bi bi-building"></i><span class="text-truncate">${esc(p.organization)}</span></span>` : '';
             const lead      = (p.project_lead_name || p.project_lead_email) ? `<span class="badge fw-normal border text-body-secondary d-inline-flex align-items-center gap-1" style="background:var(--bs-tertiary-bg);font-size: var(--fs-xs);max-width:100%;"><i class="bi bi-person"></i><span class="text-truncate">${esc(p.project_lead_name || p.project_lead_email)}</span></span>` : '';
             return `
@@ -299,7 +299,7 @@
 
         function listRowHTML(p) {
             const starred = getStarred().has(p.project_id);
-            const url     = `/${esc(p.project_id)}/`;
+            const url     = cgUrl(`/${esc(p.project_id)}/`);
             const color   = starred ? '#ffc107' : hashColor(p.project_id);
             const title   = p.title && p.title !== p.project_id
                 ? `<div class="text-muted text-truncate" style="font-size: var(--fs-sm);">${esc(p.title)}</div>` : '';
@@ -337,7 +337,7 @@
         // ── hidden project rows ───────────────────────────────────────────────
 
         function hiddenRowHTML(p) {
-            const url   = `/${esc(p.project_id)}/`;
+            const url   = cgUrl(`/${esc(p.project_id)}/`);
             const color = hashColor(p.project_id);
             const orgText  = p.organization
                 ? `<span class="text-truncate" style="font-size: var(--fs-sm); color:var(--bs-secondary-color);"><i class="bi bi-building me-1" style="font-size: var(--fs-xs); opacity:0.7;"></i>${esc(p.organization)}</span>`

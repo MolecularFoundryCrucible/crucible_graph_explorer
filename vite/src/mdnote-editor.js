@@ -32,9 +32,10 @@ function wikiLinkPlugin(md, projectId) {
       : rest.slice(pipeIdx + 1);
 
     if (!silent) {
+      const prefix = window.SCRIPT_ROOT || '';
       const href = type === 'sample'
-        ? `/${projectId}/samples/${id}`
-        : `/${projectId}/datasets/${id}`;
+        ? `${prefix}/${projectId}/samples/${id}`
+        : `${prefix}/${projectId}/datasets/${id}`;
 
       const tokenOpen = state.push('link_open', 'a', 1);
       tokenOpen.attrSet('href', href);

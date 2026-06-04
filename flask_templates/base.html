@@ -17,7 +17,12 @@
     {% block head %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script>window.SCRIPT_ROOT = {{ base|tojson }};</script>
+    <script>
+      window.SCRIPT_ROOT = {{ base|tojson }};
+      // Single chokepoint for client-side URLs. Always build internal URLs with cgUrl()
+      // so the deployment prefix (SCRIPT_ROOT, e.g. /explore) is never dropped.
+      window.cgUrl = (path = '') => window.SCRIPT_ROOT + (String(path).startsWith('/') ? path : '/' + path);
+    </script>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -42,7 +42,7 @@ function makePlotConfig(filename) {
 
 <script>
 (async () => {
-    const url = `/dataset-view/rga-tey-run-plots/{{ project_id }}/{{ ds['unique_id'] }}/tey-data`;
+    const url = cgUrl(`/dataset-view/rga-tey-run-plots/{{ project_id }}/{{ ds['unique_id'] }}/tey-data`);
     let payload;
     try {
         const resp = await fetch(url);
@@ -127,7 +127,7 @@ function makePlotConfig(filename) {
 
 <script>
 (async () => {
-    const url = `/dataset-view/rga-tey-run-plots/{{ project_id }}/{{ ds['unique_id'] }}/rga-data`;
+    const url = cgUrl(`/dataset-view/rga-tey-run-plots/{{ project_id }}/{{ ds['unique_id'] }}/rga-data`);
     let payload;
     try {
         const resp = await fetch(url);

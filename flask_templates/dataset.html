@@ -64,7 +64,7 @@
 {{ mrow("Measurement",  ds.get('measurement')) }}
 {{ mrow("Session",      ds.get('session_name')) }}
 {{ mrow("Instrument",   ds.get('instrument_name')) }}
-{{ mrow_link("Project", ds.get('project_id'), '/' + (ds.get('project_id') or '') + '/') }}
+{{ mrow_link("Project", ds.get('project_id'), base + '/' + (ds.get('project_id') or '') + '/') }}
 {{ mrow("Timestamp",    ds.get('timestamp') | humanize_date) }}
 
 {# ── Advanced toggle button ── #}
@@ -219,7 +219,7 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for sample in samples %}
-        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{project_id}}/samples/{{sample["unique_id"]}}')">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '{{ base }}/{{project_id}}/samples/{{sample["unique_id"]}}')">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{sample['sample_name']}}</span>
             <span class="mfid small ms-auto">{{sample['unique_id']}}</span>
         </div>
@@ -241,7 +241,7 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for pd in parent_datasets %}
-        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{project_id}}/datasets/{{pd["unique_id"]}}')">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '{{ base }}/{{project_id}}/datasets/{{pd["unique_id"]}}')">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{pd['dataset_name']}}</span>
             <span class="mfid small ms-auto">{{pd['unique_id']}}</span>
         </div>
@@ -263,7 +263,7 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for cd in child_datasets %}
-        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{project_id}}/datasets/{{cd["unique_id"]}}')">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '{{ base }}/{{project_id}}/datasets/{{cd["unique_id"]}}')">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{cd['dataset_name']}}</span>
             <span class="mfid small ms-auto">{{cd['unique_id']}}</span>
         </div>

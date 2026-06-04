@@ -68,7 +68,7 @@
 (async () => {
     const dsid = {{ ds['unique_id'] | tojson }};
     const projectId = {{ project_id | tojson }};
-    const dataUrl = `/dataset-view/pollux-oospec/${projectId}/${dsid}/data`;
+    const dataUrl = cgUrl(`/dataset-view/pollux-oospec/${projectId}/${dsid}/data`);
 
     // --- Fetch data ---
     let payload;

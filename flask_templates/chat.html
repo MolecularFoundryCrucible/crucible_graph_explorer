@@ -144,7 +144,7 @@
 
 <script>
 const PROJECT_ID = {{ pc['project_id'] | tojson }};
-const API_URL = `/${PROJECT_ID}/api/chat`;
+const API_URL = cgUrl(`/${PROJECT_ID}/api/chat`);
 const STORAGE_KEY = `chat_history_${PROJECT_ID}_{{ orcid | tojson }}`;
 const ABOUT_TYPE = {{ (about_type or '') | tojson }};
 const ABOUT_ID   = {{ (about_id or '')   | tojson }};

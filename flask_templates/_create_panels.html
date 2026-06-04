@@ -492,7 +492,7 @@ async function cgSubmitSample(pid) {
     const meta = cgParseMetaJson('sp-meta-json', 'sp-meta-error');
     if (meta === undefined) return;
     _cgSetSubmitting('sp-submit', 'sp-error', true);
-    const url    = isEdit ? `/${selectedPid}/api/samples/${editId}/update` : `/${selectedPid}/api/samples/create`;
+    const url    = isEdit ? cgUrl(`/${selectedPid}/api/samples/${editId}/update`) : cgUrl(`/${selectedPid}/api/samples/create`);
     const method = isEdit ? 'PATCH' : 'POST';
     const body   = {
         sample_name: name,
@@ -531,7 +531,7 @@ async function cgSubmitDataset(pid) {
     const meta = cgParseMetaJson('ds-meta-json', 'ds-meta-error');
     if (meta === undefined) return;
     _cgSetSubmitting('ds-submit', 'ds-error', true);
-    const url    = isEdit ? `/${selectedPid}/api/datasets/${editId}/update` : `/${selectedPid}/api/datasets/create`;
+    const url    = isEdit ? cgUrl(`/${selectedPid}/api/datasets/${editId}/update`) : cgUrl(`/${selectedPid}/api/datasets/create`);
     const method = isEdit ? 'PATCH' : 'POST';
     const body   = {
         dataset_name:    name,

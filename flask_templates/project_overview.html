@@ -535,8 +535,8 @@ function toggleSidebar() {
                     const sgb = localStorage.getItem('pref_sample_groupby') || 'sample_type';
                     const dgb = localStorage.getItem('pref_dataset_groupby') || 'measurement';
                     const url  = r.type === 'sample'
-                        ? `/${PID}/samples/${r.id}?sgb=${encodeURIComponent(sgb)}`
-                        : `/${PID}/datasets/${r.id}?dgb=${encodeURIComponent(dgb)}`;
+                        ? cgUrl(`/${PID}/samples/${r.id}?sgb=${encodeURIComponent(sgb)}`)
+                        : cgUrl(`/${PID}/datasets/${r.id}?dgb=${encodeURIComponent(dgb)}`);
                     return `<a href="${url}" class="cg-recent-chip">
                         <i class="bi ${icon}" style="color:var(--cg-accent-mid);font-size:0.8em;flex-shrink:0;"></i>
                         <span>${_esc(r.name)}</span>
