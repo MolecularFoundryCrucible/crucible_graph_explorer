@@ -667,9 +667,9 @@
             return 'bi-dot';
         }
         function _url(r) {
-            if (r.type === 'project') return '/' + r.id + '/';
-            if (r.type === 'sample')  return '/' + r.projectId + '/samples/' + r.id;
-            if (r.type === 'dataset') return '/' + r.projectId + '/datasets/' + r.id;
+            if (r.type === 'project') return '{{ base }}/' + r.id + '/';
+            if (r.type === 'sample')  return '{{ base }}/' + r.projectId + '/samples/' + r.id;
+            if (r.type === 'dataset') return '{{ base }}/' + r.projectId + '/datasets/' + r.id;
             return '#';
         }
         function _label(type) {

@@ -83,7 +83,7 @@
 (function () {
     const dsid      = {{ ds['unique_id'] | tojson }};
     const projectId = {{ project_id | tojson }};
-    const base      = `/dataset-view/sv-ramp-gcs/${projectId}/${dsid}`;
+    const base      = `{{ base }}/dataset-view/sv-ramp-gcs/${projectId}/${dsid}`;
 
     const svArray   = {{ sv_array   | tojson }};
     const imavg     = {{ imavg_array | tojson }};

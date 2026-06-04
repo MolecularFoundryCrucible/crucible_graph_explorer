@@ -62,7 +62,7 @@
 (async () => {
     const dsid      = {{ ds['unique_id'] | tojson }};
     const projectId = {{ project_id | tojson }};
-    const base      = `/dataset-view/hyperspec-picam-mcl-gcs/${projectId}/${dsid}`;
+    const base      = `{{ base }}/dataset-view/hyperspec-picam-mcl-gcs/${projectId}/${dsid}`;
 
     // ── State ────────────────────────────────────────────────────────────────
     let currentXi = null, currentYi = null;

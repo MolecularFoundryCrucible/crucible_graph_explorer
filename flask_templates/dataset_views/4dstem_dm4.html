@@ -88,7 +88,7 @@
 (async () => {
     const dsid      = {{ ds['unique_id'] | tojson }};
     const projectId = {{ project_id | tojson }};
-    const base      = `/dataset-view/4dstem-dm4/${projectId}/${dsid}`;
+    const base      = `{{ base }}/dataset-view/4dstem-dm4/${projectId}/${dsid}`;
     const detRows   = {{ det_rows }};
     const detCols   = {{ det_cols }};
     const detYAxis  = {{ det_y_axis | tojson }};

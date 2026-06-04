@@ -206,7 +206,7 @@ def create_blueprint(auth, helpers):
             'dataset_views/spleem_image.html',
             ds=ds, project_id=project_id,
             n_acq=meta['n_acq'],
-            base_url=f'{URL_PREFIX}/{project_id}/{dsid}',
+            base_url=f'{request.script_root}{URL_PREFIX}/{project_id}/{dsid}',
         )
 
     @bp.route('/<project_id>/<dsid>/frame')
