@@ -470,7 +470,9 @@
     }
 </script>
 <input type="file" id="_dsUploadInput" multiple style="display:none;">
+{% endblock %}
 
+{% block panels %}{% include '_create_panels.html' %}
 <!-- ── request-ingestion modal ───────────────────────────────────────── -->
 {% if files %}
 <div class="modal fade" id="ingestModal" tabindex="-1" aria-labelledby="ingestModalLabel" aria-hidden="true">
@@ -532,5 +534,3 @@
 </div>
 {% endif %}
 {% endblock %}
-
-{% block panels %}{% include '_create_panels.html' %}{% endblock %}
