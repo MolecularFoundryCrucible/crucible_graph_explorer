@@ -47,19 +47,6 @@ def humanize_size_filter(n):
     return humanize_size(n)
 
 
-@app.template_filter('humanize_date')
-def humanize_date_filter(value):
-    if not value:
-        return None
-    s = str(value)
-    # ISO datetime: take just the date part, format nicely
-    try:
-        from datetime import datetime
-        dt = datetime.fromisoformat(s.replace('Z', '+00:00'))
-        return dt.strftime('%b %-d, %Y')
-    except Exception:
-        return s[:10] if len(s) >= 10 else s
-
 
 app.jinja_env.globals['abbrev_name'] = abbrev_name
 
