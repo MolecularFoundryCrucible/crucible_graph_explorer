@@ -20,6 +20,16 @@ steps:
       - 'us-central1'
       - '--platform'
       - 'managed'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
+      - '--concurrency'
+      - '8'
+      - '--timeout'
+      - '300'
+      - '--min-instances'
+      - '1'
       - '--set-env-vars'
       - >-
         URL_PREFIX=/explore,
