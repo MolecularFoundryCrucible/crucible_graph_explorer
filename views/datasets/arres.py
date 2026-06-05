@@ -155,6 +155,8 @@ def create_blueprint(auth, helpers):
             title=ds['dataset_name'],
             scan_type=data['type'],
             payload=_build_payload(data),
+            project_id=project_id,
+            ds=ds,
         )
 
     return bp

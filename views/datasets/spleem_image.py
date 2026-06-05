@@ -291,4 +291,50 @@ def create_blueprint(auth, helpers):
             'intensity': arr[yi, xi].tolist(),
         })
 
+    @bp.route('/<project_id>/<dsid>/linecut_frame')
+    @auth.oidc_auth('orcid')
+    def linecut_frame(project_id, dsid):
+        if not is_user_in_project(project_id):
+            abort(403)
+        fi      = request.args.get('fi', type=int)
+        x0      = request.args.get('x0', type=int)
+        y0      = request.args.get('y0', type=int)
+        x1      = request.args.get('x1', type=int)
+        y1      = request.args.get('y1', type=int)
+        channel = request.args.get('channel', default='up')
+        if any(v is None for v in [fi, x0, y0, x1, y1]):
+            abort(400)
+
+        meta = _ensure_meta(dsid, get_user_client())
+        if fi not in meta['chunk_offsets']:
+            abort(404)
+
+        H, W     = meta['shape'][2], meta['shape'][3]
+        ch_bytes = meta['ch_bytes']
+        dtype    = meta['dtype']
+        x0, x1  = max(0, x0), min(W - 1, x1)
+        y0, y1  = max(0, y0), min(H - 1, y1)
+
+        if channel in ('diff', 'asym'):
+            raw   = _fetch_chunk(meta['url'], meta['chunk_offsets'], fi, ch_bytes)
+            chunk = np.frombuffer(raw, dtype=dtype).reshape(2, H, W).astype(np.float64)
+            arr   = _channel_arr(chunk[0], chunk[1], channel)
+        elif channel == 'up':
+            raw = _fetch_channel(meta['url'], meta['chunk_offsets'], fi, 0, ch_bytes)
+            arr = np.frombuffer(raw, dtype=dtype).reshape(H, W).astype(np.float64)
+        else:
+            raw = _fetch_channel(meta['url'], meta['chunk_offsets'], fi, 1, ch_bytes)
+            arr = np.frombuffer(raw, dtype=dtype).reshape(H, W).astype(np.float64)
+
+        n  = max(int(np.hypot(x1 - x0, y1 - y0)), 2)
+        xs = np.linspace(x0, x1, n)
+        ys = np.linspace(y0, y1, n)
+        xi = np.clip(np.round(xs).astype(int), 0, W - 1)
+        yi = np.clip(np.round(ys).astype(int), 0, H - 1)
+
+        return jsonify({
+            'distance':  np.sqrt((xs - x0) ** 2 + (ys - y0) ** 2).tolist(),
+            'intensity': arr[yi, xi].tolist(),
+        })
+
     return bp

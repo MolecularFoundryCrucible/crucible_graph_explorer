@@ -43,7 +43,7 @@
 {% block breadcrumb %}
 {% if project_id %}
     <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
-    <li class="breadcrumb-item"><a href="/{{project_id}}/dataset/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
+    <li class="breadcrumb-item"><a href="/{{project_id}}/datasets/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
 {% endif %}
     <li class="breadcrumb-item active" aria-current="page">SV Ramp Spin Viewer</li>
 {% endblock %}
@@ -54,49 +54,24 @@
 {% block content %}
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-    <div>
-        <i class="bi bi-activity me-1 text-primary"></i>
-        <span class="fw-semibold">SV Ramp Spin Viewer</span>
-        <span class="text-muted ms-2 small">{{ds['dataset_name']}}</span>
-    </div>
+    <h1 class="fs-4 fw-semibold mb-0" style="overflow-wrap:break-word;"><i class="bi bi-activity me-1 text-primary"></i>{{ds['dataset_name']}}</h1>
     {% if project_id and ds['unique_id'] %}
-    <a href="/{{project_id}}/dataset/{{ds['unique_id']}}" class="btn btn-sm btn-outline-secondary">
+    <a href="/{{project_id}}/datasets/{{ds['unique_id']}}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-database me-1"></i>Dataset
     </a>
     {% endif %}
 </div>
 
-<!-- ── Full-image IV curve ─────────────────────────────────────────────────── -->
-<h2 class="fs-6 fw-semibold mb-1">IV Curves — Full Image
-    <span class="text-muted fw-normal small">(click to jump to frame)</span>
-</h2>
-<div id="iv-plot" style="height: 280px;"></div>
-
-<!-- ── ROI IV curve (hidden until ROI drawn) ──────────────────────────────── -->
-<div id="roi-plot-section" class="d-none">
-    <hr class="my-3">
-    <div class="d-flex align-items-center gap-2 mb-1">
-        <h2 class="fs-6 fw-semibold mb-0">IV Curves — ROI</h2>
-        <span id="roi-label" class="badge bg-secondary small"></span>
-        <button id="btn-reset-roi" class="btn btn-sm btn-outline-danger ms-auto">
-            <i class="bi bi-x-circle me-1"></i>Clear ROI
-        </button>
-    </div>
-    <div id="roi-plot" style="height: 280px;"></div>
-</div>
-
-<hr class="my-3">
-
-<!-- ── Frame viewer ───────────────────────────────────────────────────────── -->
-<div class="row g-3 align-items-start">
-    <div class="col-md-6">
+<!-- ── Frame viewer + IV/ROI plots ────────────────────────────────────────── -->
+<div class="row g-3 justify-content-center">
+    <div class="col-md-5">
 
         <!-- Channel tabs -->
-        <div class="d-flex gap-1 mb-2 border-bottom">
-            <span class="tab-stat active" data-ch="up">Spin Up</span>
-            <span class="tab-stat" data-ch="down">Spin Down</span>
-            <span class="tab-stat" data-ch="diff">Difference</span>
-            <span class="tab-stat" data-ch="asym">Asymmetry</span>
+        <div class="d-flex justify-content-center gap-1 mb-2 border-bottom">
+            <span class="tab-stat active" data-ch="up"><i class="bi bi-arrow-up-circle me-1"></i>Spin Up</span>
+            <span class="tab-stat" data-ch="down"><i class="bi bi-arrow-down-circle me-1"></i>Spin Down</span>
+            <span class="tab-stat" data-ch="diff"><i class="bi bi-subtract me-1"></i>Difference</span>
+            <span class="tab-stat" data-ch="asym"><i class="bi bi-percent me-1"></i>Asymmetry</span>
         </div>
 
         <!-- SV readout + nav -->
@@ -104,12 +79,8 @@
             <span class="badge bg-primary fs-6 px-3 py-2" id="sv-badge">SV — V</span>
             <span class="text-muted small" id="frame-badge">frame — / {{n_frames}}</span>
             <div class="ms-auto d-flex gap-1">
-                <button id="btn-prev" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-chevron-left"></i>
-                </button>
-                <button id="btn-next" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-chevron-right"></i>
-                </button>
+                <button id="btn-prev" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-left"></i></button>
+                <button id="btn-next" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-right"></i></button>
             </div>
         </div>
 
@@ -125,6 +96,9 @@
             <input id="input-vmax" type="number" class="form-control form-control-sm" style="width:8rem;" placeholder="auto">
             <button id="btn-apply" class="btn btn-sm btn-outline-primary">Apply</button>
             <button id="btn-auto" class="btn btn-sm btn-outline-secondary">Auto</button>
+            <button id="btn-clear-all-roi" class="btn btn-sm btn-outline-danger ms-auto d-none">
+                <i class="bi bi-x-circle me-1"></i>Clear all
+            </button>
         </div>
 
         <!-- Frame image with ROI canvas overlay -->
@@ -137,11 +111,24 @@
                 </div>
             </div>
         </div>
-        <div class="text-muted small mt-1">
-            <i class="bi bi-bounding-box me-1"></i>Click and drag on image to select ROI
-        </div>
 
     </div>
+
+    <!-- IV curve + ROI plot stacked -->
+    <div class="col-md-5">
+        <h2 class="fs-6 fw-semibold mb-1">IV Curves — Full Image
+            <span class="text-muted fw-normal small">(click to jump to frame)</span>
+        </h2>
+        <div id="iv-plot" style="height: 260px;"></div>
+
+        <div class="d-flex align-items-center gap-2 mt-3 mb-1">
+            <span class="fw-semibold small">IV Curves — ROI</span>
+            <span id="roi-label" class="badge bg-secondary small">draw an ROI on the image</span>
+        </div>
+        <div id="roi-plot" style="height: 260px;"></div>
+        <div id="roi-list" class="mt-2"></div>
+    </div>
+
 </div>
 
 {% endblock %}
@@ -279,6 +266,12 @@
         if (roiStart && roiCurrent) drawBox(roiStart, roiCurrent);
     }
 
+    // ── ROI state ──────────────────────────────────────────────────────────
+    const ROI_COLORS = ['#0d6efd','#dc3545','#198754','#fd7e14','#6f42c1','#0dcaf0','#d63384','#20c997'];
+    let rois = [];      // [{id, x0,y0,x1,y1, color, visible, data}]
+    let nextRoiId = 0;
+
+    // ── Canvas helpers ─────────────────────────────────────────────────────
     function imgToData(cssX, cssY) {
         const r = canvas.getBoundingClientRect();
         return {
@@ -287,25 +280,37 @@
         };
     }
 
-    function drawBox(a, b) {
+    function redrawAllBoxes() {
         canvas.width  = img.offsetWidth;
         canvas.height = img.offsetHeight;
-        const scaleX = canvas.width  / img.naturalWidth;
-        const scaleY = canvas.height / img.naturalHeight;
-        const x = Math.min(a.x, b.x) * scaleX;
-        const y = Math.min(a.y, b.y) * scaleY;
-        const w = Math.abs(b.x - a.x) * scaleX;
-        const h = Math.abs(b.y - a.y) * scaleY;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([]);
-        ctx.strokeRect(x, y, w, h);
-        ctx.strokeStyle = 'black';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
-        ctx.strokeRect(x, y, w, h);
-        ctx.setLineDash([]);
+        const sx = canvas.width  / img.naturalWidth;
+        const sy = canvas.height / img.naturalHeight;
+
+        // Draw completed ROIs
+        rois.forEach(roi => {
+            if (!roi.visible) return;
+            const x = roi.x0 * sx, y = roi.y0 * sy;
+            const w = (roi.x1 - roi.x0) * sx, h = (roi.y1 - roi.y0) * sy;
+            ctx.strokeStyle = roi.color; ctx.lineWidth = 2; ctx.setLineDash([]);
+            ctx.strokeRect(x, y, w, h);
+            ctx.strokeStyle = 'white'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+            ctx.strokeRect(x, y, w, h);
+            ctx.setLineDash([]);
+        });
+
+        // Draw in-progress box
+        if (roiDragging && roiStart && roiCurrent) {
+            const x = Math.min(roiStart.x, roiCurrent.x) * sx;
+            const y = Math.min(roiStart.y, roiCurrent.y) * sy;
+            const w = Math.abs(roiCurrent.x - roiStart.x) * sx;
+            const h = Math.abs(roiCurrent.y - roiStart.y) * sy;
+            ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.setLineDash([]);
+            ctx.strokeRect(x, y, w, h);
+            ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+            ctx.strokeRect(x, y, w, h);
+            ctx.setLineDash([]);
+        }
     }
 
     canvas.addEventListener('mousedown', (e) => {
@@ -317,74 +322,125 @@
     canvas.addEventListener('mousemove', (e) => {
         if (!roiDragging) return;
         roiCurrent = imgToData(e.clientX, e.clientY);
-        drawBox(roiStart, roiCurrent);
+        redrawAllBoxes();
     });
 
     canvas.addEventListener('mouseup', async (e) => {
         if (!roiDragging) return;
         roiDragging = false;
         roiCurrent = imgToData(e.clientX, e.clientY);
-        drawBox(roiStart, roiCurrent);
 
         const x0 = Math.min(roiStart.x, roiCurrent.x);
         const y0 = Math.min(roiStart.y, roiCurrent.y);
         const x1 = Math.max(roiStart.x, roiCurrent.x);
         const y1 = Math.max(roiStart.y, roiCurrent.y);
+        roiStart = roiCurrent = null;
 
-        if (x1 - x0 < 3 || y1 - y0 < 3) return;
+        if (x1 - x0 < 3 || y1 - y0 < 3) { redrawAllBoxes(); return; }
 
-        await fetchROI(x0, y0, x1, y1);
+        const id    = nextRoiId++;
+        const color = ROI_COLORS[id % ROI_COLORS.length];
+        const roi   = { id, x0, y0, x1, y1, color, visible: true, data: null };
+        rois.push(roi);
+        redrawAllBoxes();
+        renderRoiList();
+        document.getElementById('btn-clear-all-roi').classList.remove('d-none');
+
+        // Fetch data
+        document.getElementById('roi-label').textContent = 'loading…';
+        const res  = await fetch(`${base}/roi?x0=${x0}&y0=${y0}&x1=${x1}&y1=${y1}`);
+        roi.data   = await res.json();
+        document.getElementById('roi-label').textContent = `${rois.length} ROI${rois.length > 1 ? 's' : ''}`;
+        renderRoiPlot();
     });
 
-    // ── ROI fetch + plot ───────────────────────────────────────────────────
-    let roiPlotInited = false;
+    // ── ROI list UI ────────────────────────────────────────────────────────
+    function renderRoiList() {
+        const el = document.getElementById('roi-list');
+        if (rois.length === 0) { el.innerHTML = ''; return; }
+        el.innerHTML = rois.map(roi => `
+            <div class="d-flex align-items-center gap-2 py-1 border-bottom" data-roi="${roi.id}">
+                <div style="width:12px;height:12px;border-radius:2px;background:${roi.color};flex-shrink:0;"></div>
+                <span class="small text-muted flex-grow-1">x: ${roi.x0}–${roi.x1}, y: ${roi.y0}–${roi.y1}</span>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input roi-toggle" type="checkbox" ${roi.visible ? 'checked' : ''}
+                           data-roi="${roi.id}" title="Toggle ROI ${roi.id + 1}">
+                </div>
+                <button class="btn btn-sm p-0 lh-1 text-danger roi-delete" data-roi="${roi.id}" title="Remove">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>`).join('');
 
-    async function fetchROI(x0, y0, x1, y1) {
-        const section = document.getElementById('roi-plot-section');
-        const label   = document.getElementById('roi-label');
-        section.classList.remove('d-none');
-        label.textContent = `loading…`;
-
-        const res  = await fetch(`${base}/roi?x0=${x0}&y0=${y0}&x1=${x1}&y1=${y1}`);
-        const data = await res.json();
-        label.textContent = `x: ${x0}–${x1}, y: ${y0}–${y1}`;
-
-        const roiLayout = {
-            xaxis: { title: { text: 'Sample Voltage (V)' }, showgrid: true },
-            yaxis: { title: { text: 'Mean Intensity (counts)' }, showgrid: true, exponentformat: 'e' },
-            yaxis2: { title: { text: 'Asymmetry' }, overlaying: 'y', side: 'right', showgrid: false, zeroline: true },
-            legend: { orientation: 'h', y: 1.1 },
-            margin: { t: 10, r: 80, b: 50, l: 70 },
-        };
-
-        const traces = [
-            { x: svArray, y: data.imavg_up,   type: 'scattergl', mode: 'lines', name: 'Spin Up (ROI)',
-              line: { color: '#0d6efd', width: 1.5 },
-              hovertemplate: 'SV: %{x:.2f} V<br>Intensity: %{y:.3e}<extra></extra>' },
-            { x: svArray, y: data.imavg_down, type: 'scattergl', mode: 'lines', name: 'Spin Down (ROI)',
-              line: { color: '#dc3545', width: 1.5 },
-              hovertemplate: 'SV: %{x:.2f} V<br>Intensity: %{y:.3e}<extra></extra>' },
-            { x: svArray, y: data.asym,       type: 'scattergl', mode: 'lines', name: 'Asymmetry (ROI)',
-              yaxis: 'y2', line: { color: '#198754', width: 1.5, dash: 'dot' },
-              hovertemplate: 'SV: %{x:.2f} V<br>Asym: %{y:.4f}<extra></extra>' },
-        ];
-
-        if (roiPlotInited) {
-            Plotly.react('roi-plot', traces, roiLayout, { responsive: true });
-        } else {
-            Plotly.newPlot('roi-plot', traces, roiLayout, { responsive: true });
-            roiPlotInited = true;
-        }
-
-        section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        el.querySelectorAll('.roi-toggle').forEach(chk => {
+            chk.addEventListener('change', () => {
+                const roi = rois.find(r => r.id === +chk.dataset.roi);
+                if (roi) { roi.visible = chk.checked; redrawAllBoxes(); renderRoiPlot(); }
+            });
+        });
+        el.querySelectorAll('.roi-delete').forEach(btn => {
+            btn.addEventListener('click', () => {
+                rois = rois.filter(r => r.id !== +btn.dataset.roi);
+                redrawAllBoxes();
+                renderRoiList();
+                renderRoiPlot();
+                if (rois.length === 0) {
+                    document.getElementById('btn-clear-all-roi').classList.add('d-none');
+                    document.getElementById('roi-label').textContent = 'draw an ROI on the image';
+                }
+            });
+        });
     }
 
-    document.getElementById('btn-reset-roi').addEventListener('click', () => {
-        roiStart = null;
-        roiCurrent = null;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        document.getElementById('roi-plot-section').classList.add('d-none');
-        roiPlotInited = false;
+    // ── ROI plot ───────────────────────────────────────────────────────────
+    const roiLayout = {
+        xaxis: { title: { text: 'Sample Voltage (V)' }, showgrid: true },
+        yaxis: { title: { text: 'Mean Intensity (counts)' }, showgrid: true, exponentformat: 'e' },
+        yaxis2: { title: { text: 'Asymmetry' }, overlaying: 'y', side: 'right', showgrid: false, zeroline: true },
+        showlegend: false,
+        margin: { t: 10, r: 80, b: 50, l: 70 },
+    };
+
+    const emptyRoiAnnotation = [{ text: 'Draw an ROI on the image', showarrow: false,
+        xref: 'paper', yref: 'paper', x: 0.5, y: 0.5,
+        font: { size: 13, color: 'var(--bs-secondary-color)' } }];
+
+    Plotly.newPlot('roi-plot', [], { ...roiLayout, annotations: emptyRoiAnnotation }, { responsive: true });
+
+    function renderRoiPlot() {
+        const visible = rois.filter(r => r.visible && r.data);
+        if (visible.length === 0) {
+            Plotly.react('roi-plot', [], { ...roiLayout, annotations: emptyRoiAnnotation }, { responsive: true });
+            return;
+        }
+        const traces = [];
+        visible.forEach((roi, i) => {
+            const n = i + 1;
+            traces.push(
+                { x: svArray, y: roi.data.imavg_up,   type: 'scattergl', mode: 'lines',
+                  name: `ROI ${n} Up`, legendgroup: `roi${roi.id}`,
+                  line: { color: roi.color, width: 1.5 },
+                  hovertemplate: `ROI ${n} Up: %{y:.3e}<extra></extra>` },
+                { x: svArray, y: roi.data.imavg_down, type: 'scattergl', mode: 'lines',
+                  name: `ROI ${n} Down`, legendgroup: `roi${roi.id}`,
+                  line: { color: roi.color, width: 1.5, dash: 'dash' },
+                  hovertemplate: `ROI ${n} Down: %{y:.3e}<extra></extra>` },
+                { x: svArray, y: roi.data.asym,       type: 'scattergl', mode: 'lines',
+                  name: `ROI ${n} Asym`, legendgroup: `roi${roi.id}`, yaxis: 'y2',
+                  line: { color: roi.color, width: 1.5, dash: 'dot' },
+                  hovertemplate: `ROI ${n} Asym: %{y:.4f}<extra></extra>` },
+            );
+        });
+        Plotly.react('roi-plot', traces, { ...roiLayout, annotations: [] }, { responsive: true });
+    }
+
+    document.getElementById('btn-clear-all-roi').addEventListener('click', () => {
+        rois = [];
+        nextRoiId = 0;
+        redrawAllBoxes();
+        renderRoiList();
+        renderRoiPlot();
+        document.getElementById('btn-clear-all-roi').classList.add('d-none');
+        document.getElementById('roi-label').textContent = 'draw an ROI on the image';
     });
 
     loadFrame(0);

@@ -19,7 +19,7 @@
     pointer-events: none;
 }
 .img-wrapper { position: relative; }
-#linecut-canvas {
+#linecut-canvas, #frame-linecut-canvas {
     position: absolute; inset: 0;
     width: 100%; height: 100%;
     cursor: crosshair;
@@ -55,7 +55,7 @@
 
 {% block breadcrumb %}
     <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
-    <li class="breadcrumb-item"><a href="/{{project_id}}/dataset/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
+    <li class="breadcrumb-item"><a href="/{{project_id}}/datasets/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
     <li class="breadcrumb-item active" aria-current="page">SPLEEM Image Viewer</li>
 {% endblock %}
 
@@ -65,18 +65,14 @@
 {% block content %}
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-    <div>
-        <i class="bi bi-image me-1 text-primary"></i>
-        <span class="fw-semibold">SPLEEM Image Viewer</span>
-        <span class="text-muted ms-2 small">{{ds['dataset_name']}}</span>
-    </div>
-    <a href="/{{project_id}}/dataset/{{ds['unique_id']}}" class="btn btn-sm btn-outline-secondary">
+    <h1 class="fs-4 fw-semibold mb-0" style="overflow-wrap:break-word;"><i class="bi bi-image me-1 text-primary"></i>{{ds['dataset_name']}}</h1>
+    <a href="/{{project_id}}/datasets/{{ds['unique_id']}}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-database me-1"></i>Dataset
     </a>
 </div>
 
 <!-- ── Top-level view switcher ───────────────────────────────────────────── -->
-<div class="d-flex gap-0 border-bottom mb-3">
+<div class="d-flex justify-content-center gap-0 border-bottom mb-3">
     <span class="view-tab active" data-view="frames">
         <i class="bi bi-collection me-1"></i>Frames
     </span>
@@ -85,38 +81,30 @@
     </span>
 </div>
 
-<!-- ── Frames view ────────────────────────────────────────────────────────── -->
-<div id="view-frames">
-    <div class="row g-3">
-        <div class="col-md-5">
+<!-- ── Two-column persistent layout ──────────────────────────────────────── -->
+<div class="row g-3 justify-content-center">
 
-            <!-- Channel tabs -->
-            <div class="d-flex gap-1 mb-2 border-bottom" id="frame-ch-tabs">
-                <span class="tab-stat active" data-ch="up">Spin Up</span>
-                <span class="tab-stat" data-ch="down">Spin Down</span>
-                <span class="tab-stat" data-ch="diff">Difference</span>
-                <span class="tab-stat" data-ch="asym">Asymmetry</span>
+    <!-- Left: image content (switches between frames / average) -->
+    <div class="col-md-5">
+
+        <!-- ── Frames view ─────────────────────────────────────────────── -->
+        <div id="view-frames">
+            <div class="d-flex justify-content-center gap-1 mb-2 border-bottom" id="frame-ch-tabs">
+                <span class="tab-stat active" data-ch="up"><i class="bi bi-arrow-up-circle me-1"></i>Spin Up</span>
+                <span class="tab-stat" data-ch="down"><i class="bi bi-arrow-down-circle me-1"></i>Spin Down</span>
+                <span class="tab-stat" data-ch="diff"><i class="bi bi-subtract me-1"></i>Difference</span>
+                <span class="tab-stat" data-ch="asym"><i class="bi bi-percent me-1"></i>Asymmetry</span>
             </div>
-
-            <!-- Acquisition readout + nav -->
             <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                 <span class="badge bg-primary px-3 py-2" id="acq-badge">acq —</span>
                 <span class="text-muted small" id="acq-count">— / {{n_acq}}</span>
                 <div class="ms-auto d-flex gap-1">
-                    <button id="btn-prev" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-chevron-left"></i>
-                    </button>
-                    <button id="btn-next" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-chevron-right"></i>
-                    </button>
+                    <button id="btn-prev" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-left"></i></button>
+                    <button id="btn-next" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-right"></i></button>
                 </div>
             </div>
-
-            <!-- Slider -->
             <input id="frame-slider" type="range" class="form-range mb-2"
                    min="0" max="{{ n_acq - 1 }}" step="1" value="0">
-
-            <!-- Contrast -->
             <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                 <label class="form-label mb-0 small fw-semibold">vmin</label>
                 <input id="f-vmin" type="number" class="form-control form-control-sm" style="width:8rem;" placeholder="auto">
@@ -124,34 +112,27 @@
                 <input id="f-vmax" type="number" class="form-control form-control-sm" style="width:8rem;" placeholder="auto">
                 <button id="f-apply" class="btn btn-sm btn-outline-primary">Apply</button>
                 <button id="f-auto"  class="btn btn-sm btn-outline-secondary">Auto</button>
+                <button class="btn-clear-lc btn btn-sm btn-outline-danger ms-auto d-none">
+                    <i class="bi bi-x-circle me-1"></i>Clear linecut
+                </button>
             </div>
-
-            <!-- Frame image -->
             <div class="img-wrapper">
                 <img id="frame-img" class="view-img" alt="SPLEEM frame" src="">
+                <canvas id="frame-linecut-canvas"></canvas>
                 <div class="img-spinner" id="frame-spinner">
                     <div class="spinner-border text-secondary" role="status"></div>
                 </div>
             </div>
-
         </div>
-    </div>
-</div>
 
-<!-- ── Average view ───────────────────────────────────────────────────────── -->
-<div id="view-average" class="d-none">
-    <div class="row g-3">
-        <div class="col-md-5">
-
-            <!-- Channel tabs -->
-            <div class="d-flex gap-1 mb-2 border-bottom" id="avg-ch-tabs">
-                <span class="tab-stat active" data-ch="up">Spin Up</span>
-                <span class="tab-stat" data-ch="down">Spin Down</span>
-                <span class="tab-stat" data-ch="diff">Difference</span>
-                <span class="tab-stat" data-ch="asym">Asymmetry</span>
+        <!-- ── Average view ────────────────────────────────────────────── -->
+        <div id="view-average" class="d-none">
+            <div class="d-flex justify-content-center gap-1 mb-2 border-bottom" id="avg-ch-tabs">
+                <span class="tab-stat active" data-ch="up"><i class="bi bi-arrow-up-circle me-1"></i>Spin Up</span>
+                <span class="tab-stat" data-ch="down"><i class="bi bi-arrow-down-circle me-1"></i>Spin Down</span>
+                <span class="tab-stat" data-ch="diff"><i class="bi bi-subtract me-1"></i>Difference</span>
+                <span class="tab-stat" data-ch="asym"><i class="bi bi-percent me-1"></i>Asymmetry</span>
             </div>
-
-            <!-- Contrast -->
             <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                 <label class="form-label mb-0 small fw-semibold">vmin</label>
                 <input id="a-vmin" type="number" class="form-control form-control-sm" style="width:8rem;" placeholder="auto">
@@ -159,13 +140,10 @@
                 <input id="a-vmax" type="number" class="form-control form-control-sm" style="width:8rem;" placeholder="auto">
                 <button id="a-apply" class="btn btn-sm btn-outline-primary">Apply</button>
                 <button id="a-auto"  class="btn btn-sm btn-outline-secondary">Auto</button>
-                {% if linecut_exists is defined %}{% endif %}
-                <button id="a-clear-lc" class="btn btn-sm btn-outline-danger ms-auto d-none">
+                <button class="btn-clear-lc btn btn-sm btn-outline-danger ms-auto d-none">
                     <i class="bi bi-x-circle me-1"></i>Clear linecut
                 </button>
             </div>
-
-            <!-- Average image with linecut canvas -->
             <div class="img-wrapper">
                 <img id="avg-img" class="view-img" alt="SPLEEM average" src="">
                 <canvas id="linecut-canvas"></canvas>
@@ -173,22 +151,19 @@
                     <div class="spinner-border text-secondary" role="status"></div>
                 </div>
             </div>
-            <div class="text-muted small mt-1">
-                <i class="bi bi-slash-lg me-1"></i>Click two points on the image to draw a linecut
-            </div>
-
-        </div>
-
-        <!-- Linecut plot -->
-        <div class="col-md-7 d-none" id="linecut-col">
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="fw-semibold small">Linecut</span>
-                <span id="linecut-label" class="badge bg-secondary small"></span>
-            </div>
-            <div id="linecut-plot" style="height: 320px;"></div>
         </div>
 
     </div>
+
+    <!-- Right: linecut plot — always visible ──────────────────────────────── -->
+    <div class="col-md-5" id="linecut-col">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="fw-semibold small">Linecut</span>
+            <span id="linecut-label" class="badge bg-secondary small">draw a line on the image</span>
+        </div>
+        <div id="linecut-plot" style="height: 320px;"></div>
+    </div>
+
 </div>
 
 {% endblock %}
@@ -199,27 +174,41 @@
     const base   = {{ base_url | tojson }};
     const nAcq   = {{ n_acq }};
 
+    // ── State ──────────────────────────────────────────────────────────────
+    let currentView  = 'frames';
+    let currentFi    = 0;
+    let frameCh      = 'up';
+    let frameLoading = false;
+    let avgCh        = 'up';
+    let avgLoaded    = false;
+    let avgLoading   = false;
+    let linecutInited = false;
+    let pt1 = null, pt2 = null;   // shared linecut state
+
+    // ── DOM refs ───────────────────────────────────────────────────────────
+    const frameImg    = document.getElementById('frame-img');
+    const frameSpinner = document.getElementById('frame-spinner');
+    const slider      = document.getElementById('frame-slider');
+    const avgImg      = document.getElementById('avg-img');
+    const avgSpinner  = document.getElementById('avg-spinner');
+    const frameCanvas = document.getElementById('frame-linecut-canvas');
+    const avgCanvas   = document.getElementById('linecut-canvas');
+
     // ── View switcher ──────────────────────────────────────────────────────
     document.querySelectorAll('.view-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             const v = tab.dataset.view;
+            currentView = v;
             document.getElementById('view-frames').classList.toggle('d-none', v !== 'frames');
             document.getElementById('view-average').classList.toggle('d-none', v !== 'average');
             if (v === 'average' && !avgLoaded) loadAverage();
+            if (pt1 && pt2) fetchLinecut();
         });
     });
 
     // ── Frames ─────────────────────────────────────────────────────────────
-    let currentFi = 0;
-    let frameCh   = 'up';
-    let frameLoading = false;
-
-    const frameImg     = document.getElementById('frame-img');
-    const frameSpinner = document.getElementById('frame-spinner');
-    const slider       = document.getElementById('frame-slider');
-
     function loadFrame(fi, force) {
         if (frameLoading && !force) return;
         fi = Math.max(0, Math.min(nAcq - 1, fi));
@@ -237,9 +226,14 @@
         frameLoading = true;
         frameSpinner.style.display = 'flex';
         frameImg.src = url;
+        if (pt1 && pt2 && currentView === 'frames') fetchLinecut();
     }
 
-    frameImg.addEventListener('load',  () => { frameSpinner.style.display = 'none'; frameLoading = false; });
+    frameImg.addEventListener('load', () => {
+        frameSpinner.style.display = 'none';
+        frameLoading = false;
+        syncCanvas(frameCanvas, frameImg);
+    });
     frameImg.addEventListener('error', () => { frameSpinner.style.display = 'none'; frameLoading = false; });
 
     document.querySelectorAll('#frame-ch-tabs .tab-stat').forEach(tab => {
@@ -273,13 +267,6 @@
     loadFrame(0);
 
     // ── Average ────────────────────────────────────────────────────────────
-    let avgCh     = 'up';
-    let avgLoaded = false;
-    let avgLoading = false;
-
-    const avgImg     = document.getElementById('avg-img');
-    const avgSpinner = document.getElementById('avg-spinner');
-
     function loadAverage(force) {
         if (avgLoading && !force) return;
         const vmin = document.getElementById('a-vmin').value !== '' ? parseFloat(document.getElementById('a-vmin').value) : null;
@@ -293,11 +280,15 @@
         avgImg.src = url;
     }
 
-    avgImg.addEventListener('load',  () => {
+    avgImg.addEventListener('load', () => {
         avgSpinner.style.display = 'none';
         avgLoading = false;
+        if (!avgLoaded) {
+            Plotly.newPlot('linecut-plot', [], emptyLinecutLayout(), { responsive: true });
+            linecutInited = true;
+        }
         avgLoaded = true;
-        syncLinecutCanvas();
+        syncCanvas(avgCanvas, avgImg);
     });
     avgImg.addEventListener('error', () => { avgSpinner.style.display = 'none'; avgLoading = false; });
 
@@ -308,8 +299,8 @@
             avgCh = tab.dataset.ch;
             document.getElementById('a-vmin').value = '';
             document.getElementById('a-vmax').value = '';
-            clearLinecut();
             loadAverage(true);
+            if (pt1 && pt2) fetchLinecut();
         });
     });
 
@@ -320,118 +311,99 @@
         loadAverage(true);
     });
 
-    // ── Linecut canvas ─────────────────────────────────────────────────────
-    const canvas = document.getElementById('linecut-canvas');
-    const ctx    = canvas.getContext('2d');
-    let pt1 = null;
-    let pt2 = null;
-    let linecutInited = false;
-
-    function syncLinecutCanvas() {
-        canvas.width  = avgImg.offsetWidth;
-        canvas.height = avgImg.offsetHeight;
-        if (pt1 && pt2) redrawLine();
+    // ── Canvas helpers ─────────────────────────────────────────────────────
+    function syncCanvas(canvasEl, imgEl) {
+        canvasEl.width  = imgEl.offsetWidth;
+        canvasEl.height = imgEl.offsetHeight;
+        if (pt1) redrawLine(canvasEl, imgEl);
     }
 
-    function imgToData(cssX, cssY) {
-        const r = canvas.getBoundingClientRect();
+    function imgToData(canvasEl, imgEl, cssX, cssY) {
+        const r = canvasEl.getBoundingClientRect();
         return {
-            x: Math.round((cssX - r.left) / r.width  * avgImg.naturalWidth),
-            y: Math.round((cssY - r.top)  / r.height * avgImg.naturalHeight),
+            x: Math.round((cssX - r.left) / r.width  * imgEl.naturalWidth),
+            y: Math.round((cssY - r.top)  / r.height * imgEl.naturalHeight),
         };
     }
 
-    function dataToCanvas(dx, dy) {
-        return {
-            x: dx / avgImg.naturalWidth  * canvas.width,
-            y: dy / avgImg.naturalHeight * canvas.height,
-        };
-    }
+    function redrawLine(canvasEl, imgEl) {
+        const ctx = canvasEl.getContext('2d');
+        canvasEl.width  = imgEl.offsetWidth;
+        canvasEl.height = imgEl.offsetHeight;
+        ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+        if (!pt1) return;
 
-    function redrawLine() {
-        canvas.width  = avgImg.offsetWidth;
-        canvas.height = avgImg.offsetHeight;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const toCanvas = (p) => ({
+            x: p.x / imgEl.naturalWidth  * canvasEl.width,
+            y: p.y / imgEl.naturalHeight * canvasEl.height,
+        });
 
-        const drawPoint = (p, color) => {
-            const c = dataToCanvas(p.x, p.y);
+        const drawPt = (p, color) => {
+            const c = toCanvas(p);
             ctx.beginPath();
             ctx.arc(c.x, c.y, 5, 0, 2 * Math.PI);
             ctx.fillStyle = color;
             ctx.fill();
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
+            ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; ctx.stroke();
         };
 
-        drawPoint(pt1, '#0d6efd');
+        drawPt(pt1, '#0d6efd');
         if (pt2) {
-            drawPoint(pt2, '#dc3545');
-            const c1 = dataToCanvas(pt1.x, pt1.y);
-            const c2 = dataToCanvas(pt2.x, pt2.y);
-            ctx.beginPath();
-            ctx.moveTo(c1.x, c1.y);
-            ctx.lineTo(c2.x, c2.y);
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([]);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(c1.x, c1.y);
-            ctx.lineTo(c2.x, c2.y);
-            ctx.strokeStyle = '#0d6efd';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([4, 4]);
-            ctx.stroke();
+            drawPt(pt2, '#dc3545');
+            const c1 = toCanvas(pt1), c2 = toCanvas(pt2);
+            ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(c2.x, c2.y);
+            ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(c2.x, c2.y);
+            ctx.strokeStyle = '#0d6efd'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.stroke();
             ctx.setLineDash([]);
         }
     }
 
-    canvas.addEventListener('click', async (e) => {
-        const pt = imgToData(e.clientX, e.clientY);
-        if (!pt1) {
-            pt1 = pt;
-            pt2 = null;
-            redrawLine();
-        } else if (!pt2) {
-            pt2 = pt;
-            redrawLine();
-            document.getElementById('a-clear-lc').classList.remove('d-none');
-            await fetchLinecut();
-        } else {
-            // Start new linecut
-            pt1 = pt;
-            pt2 = null;
-            redrawLine();
-            clearLinecutPlot();
-        }
-    });
-
-    function clearLinecut() {
-        pt1 = null;
-        pt2 = null;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        clearLinecutPlot();
-        document.getElementById('a-clear-lc').classList.add('d-none');
+    function redrawAllLines() {
+        redrawLine(frameCanvas, frameImg);
+        redrawLine(avgCanvas, avgImg);
     }
 
-    function clearLinecutPlot() {
-        document.getElementById('linecut-col').classList.add('d-none');
-        linecutInited = false;
+    function makeClickHandler(canvasEl, imgEl) {
+        canvasEl.addEventListener('click', async (e) => {
+            const pt = imgToData(canvasEl, imgEl, e.clientX, e.clientY);
+            if (!pt1) {
+                pt1 = pt; pt2 = null;
+                redrawAllLines();
+            } else if (!pt2) {
+                pt2 = pt;
+                redrawAllLines();
+                document.querySelectorAll('.btn-clear-lc').forEach(b => b.classList.remove('d-none'));
+                await fetchLinecut();
+            } else {
+                pt1 = pt; pt2 = null;
+                redrawAllLines();
+                clearLinecutPlot();
+            }
+        });
     }
 
-    document.getElementById('a-clear-lc').addEventListener('click', clearLinecut);
+    makeClickHandler(frameCanvas, frameImg);
+    makeClickHandler(avgCanvas, avgImg);
+
+    // ── Linecut ────────────────────────────────────────────────────────────
+    function currentCh() { return currentView === 'frames' ? frameCh : avgCh; }
 
     async function fetchLinecut() {
-        const col   = document.getElementById('linecut-col');
+        if (!pt1 || !pt2) return;
         const label = document.getElementById('linecut-label');
-        col.classList.remove('d-none');
         label.textContent = 'loading…';
 
-        const url = `${base}/linecut?x0=${pt1.x}&y0=${pt1.y}&x1=${pt2.x}&y1=${pt2.y}&channel=${avgCh}`;
+        const ch = currentCh();
+        let url;
+        if (currentView === 'frames') {
+            url = `${base}/linecut_frame?fi=${currentFi}&x0=${pt1.x}&y0=${pt1.y}&x1=${pt2.x}&y1=${pt2.y}&channel=${ch}`;
+        } else {
+            url = `${base}/linecut?x0=${pt1.x}&y0=${pt1.y}&x1=${pt2.x}&y1=${pt2.y}&channel=${ch}`;
+        }
+
         const res  = await fetch(url);
         const data = await res.json();
-
         label.textContent = `(${pt1.x}, ${pt1.y}) → (${pt2.x}, ${pt2.y})`;
 
         const trace = {
@@ -440,21 +412,43 @@
             line: { color: '#0d6efd', width: 1.5 },
             hovertemplate: 'Distance: %{x:.1f} px<br>Intensity: %{y:.4g}<extra></extra>',
         };
-
+        const yLabel = ch === 'asym' ? 'Asymmetry' : ch === 'diff' ? 'Intensity difference (counts)' : 'Intensity (counts)';
         const layout = {
             xaxis: { title: { text: 'Distance (px)' }, showgrid: true },
-            yaxis: { title: { text: avgCh === 'asym' ? 'Asymmetry' : avgCh === 'diff' ? 'Intensity difference (counts)' : 'Intensity (counts)' },
-                     showgrid: true, exponentformat: 'e' },
+            yaxis: { title: { text: yLabel }, showgrid: true, exponentformat: 'e' },
             margin: { t: 10, r: 20, b: 50, l: 70 },
         };
-
-        if (linecutInited) {
-            Plotly.react('linecut-plot', [trace], layout, { responsive: true });
-        } else {
-            Plotly.newPlot('linecut-plot', [trace], layout, { responsive: true });
-            linecutInited = true;
-        }
+        Plotly.react('linecut-plot', [trace], layout, { responsive: true });
     }
+
+    function clearLinecut() {
+        pt1 = null; pt2 = null;
+        redrawAllLines();
+        clearLinecutPlot();
+        document.querySelectorAll('.btn-clear-lc').forEach(b => b.classList.add('d-none'));
+    }
+
+    function clearLinecutPlot() {
+        document.getElementById('linecut-label').textContent = 'draw a line on the image';
+        if (linecutInited) Plotly.react('linecut-plot', [], emptyLinecutLayout(), { responsive: true });
+    }
+
+    function emptyLinecutLayout() {
+        return {
+            xaxis: { title: { text: 'Distance (px)' }, showgrid: true },
+            yaxis: { title: { text: 'Intensity' }, showgrid: true, exponentformat: 'e' },
+            margin: { t: 10, r: 20, b: 50, l: 70 },
+            annotations: [{ text: 'Draw a linecut on the image', showarrow: false,
+                xref: 'paper', yref: 'paper', x: 0.5, y: 0.5,
+                font: { size: 13, color: 'var(--bs-secondary-color)' } }],
+        };
+    }
+
+    document.querySelectorAll('.btn-clear-lc').forEach(b => b.addEventListener('click', clearLinecut));
+
+    // Init linecut plot immediately
+    Plotly.newPlot('linecut-plot', [], emptyLinecutLayout(), { responsive: true });
+    linecutInited = true;
 
 })();
 </script>
