@@ -569,7 +569,7 @@ function toggleSidebar() {
         if (!val) return '(no date)';
         const d = new Date(val);
         if (isNaN(d)) return '(no date)';
-        return MONTH_NAMES[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+        return MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear();
     }
 
     const CROSS_PROJECT_LABEL = 'Linked from other projects';

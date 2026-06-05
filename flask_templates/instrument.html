@@ -151,7 +151,7 @@
                     {% endif %}
                 </div>
                 {% if ds.get('timestamp') %}
-                <span class="text-muted small text-nowrap flex-shrink-0">{{ ds['timestamp'][:10] }}</span>
+                <time class="text-muted small text-nowrap flex-shrink-0" data-cg-ts="{{ ds['timestamp'] }}">{{ ds['timestamp'] }}</time>
                 {% endif %}
                 <span class="mfid small text-nowrap flex-shrink-0">{{ ds['unique_id'] }}</span>
             </a>

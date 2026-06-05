@@ -17,11 +17,10 @@
 {% if datasets %}
 <div class="list-group">
     {% for ds in datasets %}
-    {% set date = ds.get('timestamp', '')[:10] %}
     <a href="/{{ ds.project_id }}/datasets/{{ ds.unique_id }}"
        class="list-group-item list-group-item-action py-2">
         <div class="d-flex align-items-center gap-3">
-            <span class="text-muted small text-nowrap" style="min-width: 6rem;">{{ date or '—' }}</span>
+            <span class="text-muted small text-nowrap" style="min-width: 6rem;">{% if ds.get('timestamp') %}<time data-cg-ts="{{ ds['timestamp'] }}">{{ ds['timestamp'] }}</time>{% else %}—{% endif %}</span>
             <div class="flex-grow-1 min-width-0">
                 <div class="fw-semibold text-truncate">{{ ds.dataset_name or ds.unique_id }}</div>
                 {% if ds.get('measurement') %}
