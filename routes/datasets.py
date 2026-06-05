@@ -16,6 +16,41 @@ from utils.helpers import render_markdown
 
 logger = logging.getLogger(__name__)
 
+# Ingestion classes selectable in the "Request ingestion" dropdown.
+INGESTION_CLASSES = [
+    'AFMIngestor',
+    'PtychographyH5Ingestor',
+    'SimpleTiledImageScopeFoundryH5Ingestor',
+    'BioGlowIngestor',
+    'QSpleemSVRampIngestor',
+    'QSpleemImageIngestor',
+    'QSpleemARRESEKIngestor',
+    'QSpleemARRESMMIngestor',
+    'CanonCaptureScopeFoundryH5Ingestor',
+    'SingleSpecScopeFoundryH5Ingestor',
+    'HyperspecScopeFoundryH5Ingestor',
+    'HyperspecSweepScopeFoundryH5Ingestor',
+    'ToupcamLiveScopeFoundryH5Ingestor',
+    'CLSyncRasterScanIngestor',
+    'CLHyperspecIngestor',
+    'SpinbotSpecLineIngestor',
+    'SpinbotCameraCaptureIngestor',
+    'SpinbotPhotoRunIngestor',
+    'InSituPlIngestor',
+    'CziIngestor',
+    'DigitalMicrographIngestor',
+    'EmiIngestor',
+    'SerIngestor',
+    'BcfIngestor',
+    'BerkeleyEmdIngestor',
+    'VeloxEmdIngestor',
+    'SpinbotSpecRunIngestor',
+    'ImageIngestor',
+    'NirvanaMultiPosLineScanIngestor',
+    'ScopeFoundryH5Ingestor',
+    'H5Ingestor',
+]
+
 
 def create_blueprint(auth):
     bp = Blueprint('datasets', __name__)
@@ -135,6 +170,7 @@ def create_blueprint(auth):
                                sibling_count=len(ds_siblings),
                                siblings=ds_siblings,
                                sibling_label=group_val or '',
+                               available_ingestors=INGESTION_CLASSES,
                                all_projects=all_projects)
 
     @bp.route("/<project_id>/datasets/<dsid>/mdnote-edit", methods=['GET', 'POST'])
@@ -202,6 +238,48 @@ def create_blueprint(auth):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
         return jsonify({'ok': True, 'filename': filename})
+
+    @bp.route("/<project_id>/api/datasets/<dsid>/request-ingestion", methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def api_dataset_request_ingestion(project_id, dsid):
+        client = get_user_client()
+        body = request.get_json(silent=True) or {}
+        requested_ids = body.get('file_ids')  # None/empty => all files
+        ingestion_class = (body.get('ingestion_class') or '').strip()  # '' => server default
+        if ingestion_class and ingestion_class not in INGESTION_CLASSES:
+            return jsonify({'error': f'Unknown ingestion class: {ingestion_class}'}), 400
+
+        associated_files = client.datasets.get_associated_files(dsid)
+        by_id = {f['mfid']: f for f in associated_files}
+        if requested_ids:
+            targets = [by_id[fid] for fid in requested_ids if fid in by_id]
+        else:
+            targets = associated_files
+        if not targets:
+            return jsonify({'error': 'No files to ingest'}), 400
+
+        results = []
+        for f in targets:
+            ingest_params = {'filename': f['filename'], 'file_size': f.get('size')}
+            if ingestion_class:
+                ingest_params['ingestion_class'] = ingestion_class
+            try:
+                req = client._request(
+                    'post',
+                    f"/datasets/{dsid}/files/{f['mfid']}/ingest",
+                    params=ingest_params,
+                )
+                results.append({'mfid': f['mfid'], 'ok': True,
+                                'request_id': (req or {}).get('id')})
+            except Exception as exc:
+                logger.warning("ingest request failed for %s: %s", f['mfid'], exc)
+                results.append({'mfid': f['mfid'], 'ok': False, 'error': str(exc)})
+
+        return jsonify({
+            'requested': sum(1 for r in results if r['ok']),
+            'total': len(results),
+            'results': results,
+        })
 
     @bp.route("/<project_id>/datasets/<dsid>/files/<file_id>/download_link")
     @auth.oidc_auth('orcid')

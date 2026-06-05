@@ -47,6 +47,9 @@
   {% set _ = sidebar_actions.append({'label': cv['label'], 'url': cv['url'], 'icon': cv.get('icon', 'bi-journal-text')}) %}
 {% endfor %}
 {% set _ = sidebar_actions.append({'label': 'Upload file', 'onclick': 'cgDatasetUploadFile()', 'icon': 'bi-upload'}) %}
+{% if files %}
+  {% set _ = sidebar_actions.append({'label': 'Request ingestion', 'onclick': 'cgOpenIngestModal()', 'icon': 'bi-box-arrow-in-down'}) %}
+{% endif %}
 {{ resource_sidebar(project_id, 'dataset', 'bi-database', ds['dataset_name'], resource_id=ds['unique_id'], actions=sidebar_actions) }}
 {% endblock %}
 
@@ -406,8 +409,128 @@
             icon.className = 'bi bi-download';
         }
     }
+
+    let _ingestModal = null;
+
+    function cgOpenIngestModal() {
+        const el = document.getElementById('ingestModal');
+        if (!el) return;
+        _ingestModal = _ingestModal || new bootstrap.Modal(el);
+        document.getElementById('ingestSelectAll').checked = true;
+        el.querySelectorAll('.ingest-file-cb').forEach(cb => { cb.checked = true; });
+        _ingestModal.show();
+    }
+
+    function cgIngestToggleAll(master) {
+        document.querySelectorAll('#ingestModal .ingest-file-cb')
+            .forEach(cb => { cb.checked = master.checked; });
+    }
+
+    function cgIngestSyncMaster() {
+        const cbs = Array.from(document.querySelectorAll('#ingestModal .ingest-file-cb'));
+        const master = document.getElementById('ingestSelectAll');
+        master.checked = cbs.length > 0 && cbs.every(cb => cb.checked);
+    }
+
+    async function cgSubmitIngest() {
+        const cbs = Array.from(document.querySelectorAll('#ingestModal .ingest-file-cb'));
+        const fileIds = cbs.filter(cb => cb.checked).map(cb => cb.value);
+        if (!fileIds.length) {
+            cgToast('Select at least one file', 'bi-exclamation-circle', 3000);
+            return;
+        }
+        const ingestionClass = document.getElementById('ingestClass').value;
+        const btn = document.getElementById('ingestSubmitBtn');
+        btn.disabled = true;
+        cgToast(`Requesting ingestion for ${fileIds.length} file${fileIds.length > 1 ? 's' : ''}…`,
+                'bi-box-arrow-in-down', 60000);
+        try {
+            const resp = await fetch('/{{project_id}}/api/datasets/{{ds["unique_id"]}}/request-ingestion', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_ids: fileIds, ingestion_class: ingestionClass }),
+            });
+            const data = await resp.json();
+            if (!resp.ok || data.error) {
+                cgToast(`Ingestion request failed: ${data.error || resp.status}`, 'bi-exclamation-circle', 4000);
+            } else {
+                const failed = data.total - data.requested;
+                if (failed > 0) {
+                    cgToast(`${data.requested} requested, ${failed} failed`, 'bi-exclamation-circle', 4000);
+                } else {
+                    cgToast(`Ingestion requested for ${data.requested} file${data.requested > 1 ? 's' : ''}`, 'bi-check-circle');
+                }
+                if (_ingestModal) _ingestModal.hide();
+            }
+        } catch (err) {
+            cgToast(`Ingestion error: ${err.message}`, 'bi-exclamation-circle', 4000);
+        } finally {
+            btn.disabled = false;
+        }
+    }
 </script>
 <input type="file" id="_dsUploadInput" multiple style="display:none;">
+
+<!-- ── request-ingestion modal ───────────────────────────────────────── -->
+{% if files %}
+<div class="modal fade" id="ingestModal" tabindex="-1" aria-labelledby="ingestModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title d-flex align-items-center gap-2" id="ingestModalLabel" style="font-size: var(--fs-xl);">
+          <i class="bi bi-box-arrow-in-down" style="color: var(--cg-accent-mid);"></i>
+          Request Ingestion
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted" style="font-size: var(--fs-sm);">
+          Choose which files to request ingestion for.
+        </p>
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="ingestClass" style="font-size: var(--fs-md);">
+            Ingestion class
+          </label>
+          <select id="ingestClass" class="form-select form-select-sm">
+            <option value="">Server default</option>
+            {% for ing in available_ingestors %}
+            <option value="{{ ing }}">{{ ing }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-check border-bottom pb-2 mb-2">
+          <input class="form-check-input" type="checkbox" id="ingestSelectAll" checked
+                 onchange="cgIngestToggleAll(this)">
+          <label class="form-check-label fw-semibold" for="ingestSelectAll" style="font-size: var(--fs-md);">
+            All files
+          </label>
+        </div>
+        {% for file in files %}
+        {% set basename = file['filename'].split('/')|last %}
+        <div class="form-check d-flex align-items-center gap-2 py-1">
+          <input class="form-check-input ingest-file-cb m-0" type="checkbox"
+                 id="ingest-cb-{{file['mfid']}}" value="{{file['mfid']}}" checked
+                 onchange="cgIngestSyncMaster()">
+          <label class="form-check-label text-truncate" for="ingest-cb-{{file['mfid']}}"
+                 title="{{basename}}" style="flex:1; min-width:0; font-size: var(--fs-md);">
+            {{basename}}
+          </label>
+          <span class="text-muted text-nowrap" style="font-size: var(--fs-xs);">
+            {{file['size'] | humanize_size}}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="ingestSubmitBtn" onclick="cgSubmitIngest()">
+          <i class="bi bi-box-arrow-in-down me-1"></i>Request ingestion
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block panels %}{% include '_create_panels.html' %}{% endblock %}
