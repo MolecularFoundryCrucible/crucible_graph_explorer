@@ -95,7 +95,19 @@ def create_blueprint(auth):
         associated_files = _safe(f_files,    'files',            [])
         child_datasets   = _safe(f_children, 'list_children',    [])
         parent_datasets  = _safe(f_parents,  'list_parents',     [])
-        ingestion_requests = _safe(f_ingreqs, 'ingestion_requests', []) or []
+        # Normalize the ingestion-requests response to a list of dicts. The API
+        # may return a bare list, a paginated wrapper, or a single record.
+        _ingreqs_raw = _safe(f_ingreqs, 'ingestion_requests', [])
+        logger.debug("ingestion_requests raw type=%s keys=%s", type(_ingreqs_raw).__name__,
+                     list(_ingreqs_raw.keys()) if isinstance(_ingreqs_raw, dict) else None)
+        if isinstance(_ingreqs_raw, dict):
+            for _key in ('items', 'results', 'ingestion_requests', 'data'):
+                if isinstance(_ingreqs_raw.get(_key), list):
+                    _ingreqs_raw = _ingreqs_raw[_key]
+                    break
+            else:
+                _ingreqs_raw = [_ingreqs_raw]
+        ingestion_requests = [r for r in (_ingreqs_raw or []) if isinstance(r, dict)]
         # all_projects already fetched from cache above
         logger.debug("dataset parallel fetch=%.3fs", time.perf_counter() - t0)
 
