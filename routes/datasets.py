@@ -82,6 +82,7 @@ def create_blueprint(auth):
             f_files    = ex.submit(client.datasets.get_associated_files, dsid)
             f_children = ex.submit(client.datasets.list_children, dsid)
             f_parents  = ex.submit(client.datasets.list_parents, dsid)
+            f_ingreqs  = ex.submit(client.datasets.get_ingestion_requests, dsid=dsid)
 
         # Critical: let HTTPError propagate so Flask returns a proper error page.
         # Other exceptions are logged and re-raised as 500.
@@ -94,8 +95,23 @@ def create_blueprint(auth):
         associated_files = _safe(f_files,    'files',            [])
         child_datasets   = _safe(f_children, 'list_children',    [])
         parent_datasets  = _safe(f_parents,  'list_parents',     [])
+        ingestion_requests = _safe(f_ingreqs, 'ingestion_requests', []) or []
         # all_projects already fetched from cache above
         logger.debug("dataset parallel fetch=%.3fs", time.perf_counter() - t0)
+
+        # Build an ordered column list from whatever keys the API returns, so the
+        # table adapts to the (unmodeled) ingestion-request schema.
+        ingestion_request_columns = []
+        if ingestion_requests:
+            preferred = ['status', 'ingestion_class', 'filename', 'file_id',
+                         'time_created', 'time_submitted', 'time_completed', 'id']
+            seen = []
+            for r in ingestion_requests:
+                for k in r.keys():
+                    if k not in seen:
+                        seen.append(k)
+            ingestion_request_columns = ([k for k in preferred if k in seen]
+                                         + [k for k in seen if k not in preferred])
 
         # Probe download availability for each file in parallel. A file is
         # considered downloadable unless get_download_link returns 404
@@ -171,6 +187,8 @@ def create_blueprint(auth):
                                siblings=ds_siblings,
                                sibling_label=group_val or '',
                                available_ingestors=INGESTION_CLASSES,
+                               ingestion_requests=ingestion_requests,
+                               ingestion_request_columns=ingestion_request_columns,
                                all_projects=all_projects)
 
     @bp.route("/<project_id>/datasets/<dsid>/mdnote-edit", methods=['GET', 'POST'])
@@ -280,6 +298,26 @@ def create_blueprint(auth):
             'total': len(results),
             'results': results,
         })
+
+    @bp.route("/<project_id>/api/datasets/<dsid>/request-insitu-aggregation", methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def api_dataset_request_insitu_aggregation(project_id, dsid):
+        try:
+            result = get_user_client().datasets.request_insitu_aggregation(dsid)
+        except Exception as exc:
+            logger.warning("insitu aggregation request failed for %s: %s", dsid, exc)
+            return jsonify({'error': str(exc)}), 500
+        return jsonify({'ok': True, 'result': result})
+
+    @bp.route("/<project_id>/api/datasets/<dsid>/request-carrier-segmentation", methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def api_dataset_request_carrier_segmentation(project_id, dsid):
+        try:
+            result = get_user_client().datasets.request_carrier_segmentation(dsid)
+        except Exception as exc:
+            logger.warning("carrier segmentation request failed for %s: %s", dsid, exc)
+            return jsonify({'error': str(exc)}), 500
+        return jsonify({'ok': True, 'result': result})
 
     @bp.route("/<project_id>/datasets/<dsid>/files/<file_id>/download_link")
     @auth.oidc_auth('orcid')

@@ -50,6 +50,13 @@
 {% if files %}
   {% set _ = sidebar_actions.append({'label': 'Request ingestion', 'onclick': 'cgOpenIngestModal()', 'icon': 'bi-box-arrow-in-down'}) %}
 {% endif %}
+{# measurement-specific processing requests — confirm exact measurement strings #}
+{% if ds['measurement'] in ['In Situ PL', 'In Situ UV-Vis'] %}
+  {% set _ = sidebar_actions.append({'label': 'Request aggregation', 'onclick': 'cgRequestInsituAggregation()', 'icon': 'bi-graph-up'}) %}
+{% endif %}
+{% if ds['measurement'] == 'thin film carrier image' %}
+  {% set _ = sidebar_actions.append({'label': 'Request segmentation', 'onclick': 'cgRequestCarrierSegmentation()', 'icon': 'bi-bounding-box'}) %}
+{% endif %}
 {{ resource_sidebar(project_id, 'dataset', 'bi-database', ds['dataset_name'], resource_id=ds['unique_id'], actions=sidebar_actions) }}
 {% endblock %}
 
@@ -328,6 +335,59 @@
     </div>
 </div>
 {% endif %}
+
+<!-- ── ingestion requests — collapsed by default ─────────────────────── -->
+{% if ingestion_requests %}
+<div class="res-section" id="section-ingestion-requests">
+    <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-list-check text-muted"></i>
+        <span>Ingestion Requests</span>
+        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
+            {{ingestion_requests|length}}
+        </span>
+        <i class="bi bi-chevron-right res-section-chevron"></i>
+    </div>
+    <div class="res-section-body" style="display:none;">
+        <div class="p-3" style="overflow-x:auto;">
+            <table class="table table-sm align-middle mb-0" style="font-size: var(--fs-sm);">
+                <thead>
+                    <tr>
+                        {% for col in ingestion_request_columns %}
+                        <th class="text-nowrap text-muted"
+                            style="font-size: var(--fs-2xs); text-transform:uppercase; letter-spacing:0.07em;">
+                            {{ col.replace('_', ' ') }}
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in ingestion_requests %}
+                    <tr>
+                        {% for col in ingestion_request_columns %}
+                        {% set val = req.get(col) %}
+                        <td class="text-nowrap">
+                            {%- if val is none or val == '' -%}
+                                <span class="text-muted">—</span>
+                            {%- elif col == 'status' -%}
+                                {% set s = val|string|lower %}
+                                <span class="badge {% if s in ['complete', 'completed', 'success'] %}text-bg-success{% elif s in ['failed', 'error'] %}text-bg-danger{% elif s in ['requested', 'started', 'in_progress'] %}text-bg-info{% else %}text-bg-secondary{% endif %}">{{ val }}</span>
+                            {%- elif 'time' in col or 'date' in col -%}
+                                <time data-cg-ts="{{ val }}" data-cg-ts-time>{{ val }}</time>
+                            {%- elif col in ['id', 'file_id', 'dataset_id', 'mfid'] -%}
+                                <span class="mfid">{{ val }}</span>
+                            {%- else -%}
+                                {{ val }}
+                            {%- endif -%}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block resource_scripts %}
@@ -467,6 +527,33 @@
         } finally {
             btn.disabled = false;
         }
+    }
+
+    async function cgRequestProcessing(endpoint, label, icon) {
+        if (!confirm(`Request ${label} for this dataset?`)) return;
+        cgToast(`Requesting ${label}…`, icon, 60000);
+        try {
+            const resp = await fetch(
+                '/{{project_id}}/api/datasets/{{ds["unique_id"]}}/' + endpoint,
+                { method: 'POST' }
+            );
+            const data = await resp.json();
+            if (!resp.ok || data.error) {
+                cgToast(`Request failed: ${data.error || resp.status}`, 'bi-exclamation-circle', 4000);
+            } else {
+                cgToast(`${label.charAt(0).toUpperCase() + label.slice(1)} requested`, 'bi-check-circle');
+            }
+        } catch (err) {
+            cgToast(`Error: ${err.message}`, 'bi-exclamation-circle', 4000);
+        }
+    }
+
+    function cgRequestInsituAggregation() {
+        cgRequestProcessing('request-insitu-aggregation', 'in-situ aggregation', 'bi-graph-up');
+    }
+
+    function cgRequestCarrierSegmentation() {
+        cgRequestProcessing('request-carrier-segmentation', 'carrier segmentation', 'bi-bounding-box');
     }
 </script>
 <input type="file" id="_dsUploadInput" multiple style="display:none;">
