@@ -98,8 +98,6 @@ def create_blueprint(auth):
         # Normalize the ingestion-requests response to a list of dicts. The API
         # may return a bare list, a paginated wrapper, or a single record.
         _ingreqs_raw = _safe(f_ingreqs, 'ingestion_requests', [])
-        logger.debug("ingestion_requests raw type=%s keys=%s", type(_ingreqs_raw).__name__,
-                     list(_ingreqs_raw.keys()) if isinstance(_ingreqs_raw, dict) else None)
         if isinstance(_ingreqs_raw, dict):
             for _key in ('items', 'results', 'ingestion_requests', 'data'):
                 if isinstance(_ingreqs_raw.get(_key), list):
