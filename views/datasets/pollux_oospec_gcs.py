@@ -11,6 +11,7 @@ Requires bucket CORS to allow GET from the serving origin (see cors.json).
 
 import os
 
+import requests
 from flask import Blueprint, abort, jsonify, render_template
 
 from utils.auth import get_user_client
