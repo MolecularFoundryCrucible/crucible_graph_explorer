@@ -70,10 +70,20 @@ const H5WASM_URL = 'https://cdn.jsdelivr.net/npm/h5wasm@0.10.2/dist/esm/hdf5_hl.
 const H5_BASE = 'measurement/pollux_oospec_multipos_line_scan';
 
 const getAttr = (obj, name, dflt) => {
+    if (!obj) return dflt;
     const a = obj.attrs[name];
     if (a === undefined || a === null) return dflt;
     const v = (typeof a === 'object' && 'value' in a) ? a.value : a;
     return (v === undefined || v === null) ? dflt : v;
+};
+
+// Read a position field stored either as a dataset child or an attribute.
+const getField = (f, grp, pPath, name, dflt) => {
+    if (grp.keys().includes(name)) {
+        const v = f.get(`${pPath}/${name}`).value;
+        return (Array.isArray(v) || ArrayBuffer.isView(v)) ? v[0] : v;
+    }
+    return getAttr(grp, name, dflt);
 };
 
 // Read a dataset as an array of plain-number rows, regardless of whether
@@ -109,41 +119,72 @@ const colMeanNan = (rows) => {
     return out;
 };
 
+const safeDenomFrom = (blank, dark) => blank.map((b, i) => {
+    const d = b - dark[i];
+    return Math.abs(d) > 1e-6 ? d : NaN;
+});
+
 const parsePollux = (f) => {
     const wavelengths = Array.from(f.get(`${H5_BASE}/wavelengths`).value);
     const posGroup = f.get(`${H5_BASE}/positions`);
     const posNames = posGroup.keys().slice().sort();
 
-    const positions = posNames.map((posName) => {
+    // New-format files store per-point spectra in `spectral_data` and share a
+    // single dark/blank reference (by position index) across all positions;
+    // those reference positions are excluded from the output. Old-format files
+    // carry per-position raw/dark/blank intensity datasets.
+    const firstGrp = f.get(`${H5_BASE}/positions/${posNames[0]}`);
+    const newFormat = firstGrp.keys().includes('spectral_data');
+
+    let sharedDark = null, sharedDenom = null;
+    const refIndices = new Set();
+    if (newFormat) {
+        const settings = f.get(`${H5_BASE}/settings`);
+        const darkIdx  = Number(getAttr(settings, 'dark_idx', 0));
+        const blankIdx = Number(getAttr(settings, 'blank_idx', 1));
+        const darkRows  = read2D(f.get(`${H5_BASE}/positions/${posNames[darkIdx]}/spectral_data`));
+        const blankRows = read2D(f.get(`${H5_BASE}/positions/${posNames[blankIdx]}/spectral_data`));
+        sharedDark  = colMeanNan(darkRows);
+        sharedDenom = safeDenomFrom(colMeanNan(blankRows), sharedDark);
+        refIndices.add(darkIdx).add(blankIdx);
+    }
+
+    const positions = [];
+    posNames.forEach((posName, idx) => {
+        if (refIndices.has(idx)) return;
         const pPath = `${H5_BASE}/positions/${posName}`;
         const grp = f.get(pPath);
-        const raw   = read2D(f.get(`${pPath}/raw_intensities`));     // (n_pts, n_wl)
-        const dark  = Array.from(f.get(`${pPath}/dark_intensities`).value);   // (n_wl,)
-        const blank = Array.from(f.get(`${pPath}/blank_intensities`).value);  // (n_wl,)
 
-        const safeDenom = blank.map((b, i) => {
-            const d = b - dark[i];
-            return Math.abs(d) > 1e-6 ? d : NaN;
-        });
+        let raw, dark, safeDenom;
+        if (newFormat) {
+            raw = read2D(f.get(`${pPath}/spectral_data`));   // (n_pts, n_wl)
+            dark = sharedDark;
+            safeDenom = sharedDenom;
+        } else {
+            raw  = read2D(f.get(`${pPath}/raw_intensities`));              // (n_pts, n_wl)
+            dark = Array.from(f.get(`${pPath}/dark_intensities`).value);  // (n_wl,)
+            const blank = Array.from(f.get(`${pPath}/blank_intensities`).value); // (n_wl,)
+            safeDenom = safeDenomFrom(blank, dark);
+        }
 
         const darkCorrected = raw.map((row) => row.map((v, i) => v - dark[i]));
         const reflectance   = raw.map((row) => row.map((v, i) => (v - dark[i]) / safeDenom[i]));
 
-        return {
+        positions.push({
             pos_name:    posName,
-            sample_name: String(getAttr(grp, 'sample_name', posName)),
-            sample_uuid: String(getAttr(grp, 'sample_uuid', '')),
-            tray_name:   String(getAttr(grp, 'tray_name', '')),
-            integration_time: Number(getAttr(grp, 'integration_time', 0)),
-            x_center: Number(getAttr(grp, 'x_center', 0)),
-            y_center: Number(getAttr(grp, 'y_center', 0)),
+            sample_name: String(getField(f, grp, pPath, 'sample_name', posName)),
+            sample_uuid: String(getField(f, grp, pPath, 'sample_uuid', '')),
+            tray_name:   String(getField(f, grp, pPath, 'tray_name', '')),
+            integration_time: Number(getField(f, grp, pPath, 'integration_time', 0)),
+            x_center: Number(getField(f, grp, pPath, 'x_center', 0)),
+            y_center: Number(getField(f, grp, pPath, 'y_center', 0)),
             mean_raw:            colMeanNan(raw),
             mean_dark_corrected: colMeanNan(darkCorrected),
             mean_reflectance:    colMeanNan(reflectance),
             all_raw:            raw,
             all_dark_corrected: darkCorrected,
             all_reflectance:    reflectance.map((row) => row.map((v) => (Number.isFinite(v) ? v : null))),
-        };
+        });
     });
 
     return { wavelengths, positions };

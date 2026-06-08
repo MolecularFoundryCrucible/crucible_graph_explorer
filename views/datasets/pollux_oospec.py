@@ -58,20 +58,21 @@ def _position_arrays(grp, dark, safe_denom, new_format):
     return raw, dark, safe_denom
 
 
-def _position_meta(grp, pos_name, new_format):
-    if new_format:
-        return {
-            'pos_name':    pos_name,
-            'sample_name': _h5str(grp['sample_name'][()]),
-            'x_center':    float(grp['x_center'][()]),
-            'y_center':    float(grp['y_center'][()]),
-        }
-    attrs = dict(grp.attrs)
+def _h5_field(grp, name, default):
+    """Read a position field stored either as a dataset or an attribute."""
+    if name in grp:
+        return grp[name][()]
+    if name in grp.attrs:
+        return grp.attrs[name]
+    return default
+
+
+def _position_meta(grp, pos_name):
     return {
         'pos_name':    pos_name,
-        'sample_name': str(attrs.get('sample_name', pos_name)),
-        'x_center':    float(attrs.get('x_center', 0)),
-        'y_center':    float(attrs.get('y_center', 0)),
+        'sample_name': _h5str(_h5_field(grp, 'sample_name', pos_name)),
+        'x_center':    float(_h5_field(grp, 'x_center', 0)),
+        'y_center':    float(_h5_field(grp, 'y_center', 0)),
     }
 
 
@@ -92,7 +93,7 @@ def _parse_h5_overview(content_bytes):
                 continue
             raw, d, sd = _position_arrays(grp, dark, safe_denom, new_format)
             refl = (raw - d) / sd
-            meta = _position_meta(grp, pos_name, new_format)
+            meta = _position_meta(grp, pos_name)
             meta.update({
                 'mean_raw':            np.nanmean(raw, axis=0).tolist(),
                 'mean_dark_corrected': np.nanmean(raw - d, axis=0).tolist(),
