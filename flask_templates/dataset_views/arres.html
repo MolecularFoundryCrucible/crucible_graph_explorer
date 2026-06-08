@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ title }} — ARRES {{ scan_type }}{% endblock %}
+{% block title %}{{ ds['dataset_name'] }} — ARRES{% endblock %}
 
 {% block head %}
 {{ super() }}
@@ -54,61 +54,72 @@
 {% block main_col_class %}col-12{% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item active" aria-current="page">
-        <i class="bi bi-graph-up me-1"></i>ARRES {{ scan_type }} — {{ title }}
-    </li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{ project_id }}/"><b>Project</b> {{ project_id }}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{ project_id }}/datasets/{{ ds['unique_id'] }}"><b>Dataset</b> {{ ds['dataset_name'] }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page"><i class="bi bi-graph-up me-1"></i>ARRES</li>
 {% endblock %}
 
 {% block content %}
 <div class="px-3">
     <h5 class="fw-semibold mb-1">
-        <i class="bi bi-graph-up me-2"></i>ARRES {{ scan_type }} Viewer
+        <i class="bi bi-graph-up me-2"></i>ARRES <span id="scanTypeLabel"></span> Viewer
     </h5>
-    <p class="text-muted small mb-3">{{ title }}</p>
+    <p class="text-muted small mb-3">{{ ds['dataset_name'] }}</p>
 
-    <div class="tab-bar" id="arresTabBar">
-        <div class="tab-stat active" data-tab="up">
-            <i class="bi bi-arrow-up-circle me-1"></i>Spin Up
-        </div>
-        <div class="tab-stat" data-tab="down">
-            <i class="bi bi-arrow-down-circle me-1"></i>Spin Down
-        </div>
-        <div class="tab-stat" data-tab="diff">
-            <i class="bi bi-subtract me-1"></i>Up &minus; Down
-        </div>
-        <div class="tab-stat" data-tab="pol">
-            <i class="bi bi-percent me-1"></i>Polarization
-        </div>
+    <!-- Loading / error states -->
+    <div id="loading" class="text-muted">
+        <span class="spinner-border spinner-border-sm me-2"></span>Loading ARRES data…
     </div>
+    <div id="load-error" class="alert alert-warning d-none"></div>
 
-    <div class="contrast-bar">
-        <label>vmin</label>
-        <input type="number" id="inputVmin" class="form-control form-control-sm" step="any">
-        <label>vmax</label>
-        <input type="number" id="inputVmax" class="form-control form-control-sm" step="any">
-        <button class="btn btn-sm btn-outline-secondary" id="btnApply">
-            <i class="bi bi-check2 me-1"></i>Apply
-        </button>
-        <button class="btn btn-sm btn-outline-secondary" id="btnAuto">
-            <i class="bi bi-stars me-1"></i>Auto 1–99%
-        </button>
-        <button class="btn btn-sm btn-outline-secondary" id="btnFull">
-            <i class="bi bi-arrows-fullscreen me-1"></i>Full range
-        </button>
-        <div class="vr mx-1"></div>
-        <div class="form-check form-switch mb-0" id="logScaleWrapper">
-            <input class="form-check-input" type="checkbox" id="chkLog">
-            <label class="form-check-label" for="chkLog">Log scale</label>
+    <div id="viewer" style="display:none;">
+        <div class="tab-bar" id="arresTabBar">
+            <div class="tab-stat active" data-tab="up">
+                <i class="bi bi-arrow-up-circle me-1"></i>Spin Up
+            </div>
+            <div class="tab-stat" data-tab="down">
+                <i class="bi bi-arrow-down-circle me-1"></i>Spin Down
+            </div>
+            <div class="tab-stat" data-tab="diff">
+                <i class="bi bi-subtract me-1"></i>Up &minus; Down
+            </div>
+            <div class="tab-stat" data-tab="pol">
+                <i class="bi bi-percent me-1"></i>Polarization
+            </div>
         </div>
-    </div>
 
-    <div id="arresPlot" class="plot-container"></div>
+        <div class="contrast-bar">
+            <label>vmin</label>
+            <input type="number" id="inputVmin" class="form-control form-control-sm" step="any">
+            <label>vmax</label>
+            <input type="number" id="inputVmax" class="form-control form-control-sm" step="any">
+            <button class="btn btn-sm btn-outline-secondary" id="btnApply">
+                <i class="bi bi-check2 me-1"></i>Apply
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" id="btnAuto">
+                <i class="bi bi-stars me-1"></i>Auto 1–99%
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" id="btnFull">
+                <i class="bi bi-arrows-fullscreen me-1"></i>Full range
+            </button>
+            <div class="vr mx-1"></div>
+            <div class="form-check form-switch mb-0" id="logScaleWrapper">
+                <input class="form-check-input" type="checkbox" id="chkLog">
+                <label class="form-check-label" for="chkLog">Log scale</label>
+            </div>
+        </div>
+
+        <div id="arresPlot" class="plot-container"></div>
+    </div>
 </div>
 {% endblock %}
 
 {% block footer %}
 <script>
-    const PAYLOAD = {{ payload | safe }};
+    const H5WASM_URL = 'https://cdn.jsdelivr.net/npm/h5wasm@0.10.2/dist/esm/hdf5_hl.js';
+
+    // PAYLOAD is populated client-side once the .h5 is fetched and parsed.
+    let PAYLOAD = null;
 
     const COLORSCALES = {
         up:   'Inferno',
@@ -123,6 +134,96 @@
     const LOG_ALLOWED = new Set(['up', 'down']);
 
     let activeTab = 'up';
+
+    // --- HDF5 parsing helpers (mirror the old server-side _read_arres/_build_payload) ---
+
+    // Flatten an h5wasm dataset value to a plain flat array of numbers,
+    // regardless of whether it returns a typed array or nested rows.
+    const toFlat = (value) => {
+        if (value && typeof value[0] === 'number') return value;
+        const out = [];
+        const rec = (a) => {
+            for (const x of a) {
+                if (Array.isArray(x) || ArrayBuffer.isView(x)) rec(x);
+                else out.push(x);
+            }
+        };
+        rec(value);
+        return out;
+    };
+
+    // Build a (rows × cols) 2D array from slice k of a flat (n0, rows, cols) dataset.
+    const slice2D = (flat, rows, cols, k) => {
+        const base = k * rows * cols;
+        const out = [];
+        for (let r = 0; r < rows; r++) {
+            const row = new Array(cols);
+            const ro = base + r * cols;
+            for (let c = 0; c < cols; c++) row[c] = flat[ro + c];
+            out.push(row);
+        }
+        return out;
+    };
+
+    const read2D = (dataset) => {
+        const [rows, cols] = dataset.shape;
+        return slice2D(toFlat(dataset.value), rows, cols, 0);
+    };
+
+    const readArres = (f) => {
+        const measKeys = f.get('measurement').keys();
+        if (measKeys.includes('ARRES_EK')) {
+            const sp = f.get('measurement/ARRES_EK/spectrum');   // (2, n_eV, n_k)
+            const eV = Array.from(f.get('measurement/ARRES_EK/eV').value);
+            const uv = read2D(f.get('measurement/ARRES_EK/uv'));  // (n_k, 2)
+            const x = uv.map((row) => row[0]);                    // signed u-coordinate
+            return { type: 'arres_ek', sp, x, y: eV,
+                     x_label: 'k (r.l.u.)', y_label: 'Energy (eV)' };
+        }
+        if (measKeys.includes('ARRES_MM')) {
+            const sp = f.get('measurement/ARRES_MM/spectrum');   // (2, n_ky, n_kx)
+            const kx = Array.from(f.get('measurement/ARRES_MM/kx').value);
+            const ky = Array.from(f.get('measurement/ARRES_MM/ky').value);
+            return { type: 'arres_mm', sp, x: kx, y: ky,
+                     x_label: 'kx (px)', y_label: 'ky (px)' };
+        }
+        return null;
+    };
+
+    const statsOf = (rows) => {
+        const vals = [];
+        for (const row of rows) for (const v of row) if (v !== null && Number.isFinite(v)) vals.push(v);
+        vals.sort((a, b) => a - b);
+        const pct = (p) => vals[Math.floor((p / 100) * (vals.length - 1))];
+        return { p1: pct(1), p99: pct(99), min: vals[0], max: vals[vals.length - 1] };
+    };
+
+    const toList = (rows) =>
+        rows.map((row) => row.map((v) => (v === null || !Number.isFinite(v)) ? null : v));
+
+    const buildPayload = (data) => {
+        const { sp } = data;
+        const [, rows, cols] = sp.shape;
+        const flat = toFlat(sp.value);
+        const up   = slice2D(flat, rows, cols, 0);
+        const down = slice2D(flat, rows, cols, 1);
+
+        const diff = up.map((row, i) => row.map((v, j) => v - down[i][j]));
+        const pol  = up.map((row, i) => row.map((v, j) => {
+            const total = v + down[i][j];
+            return total !== 0 ? (v - down[i][j]) / total : null;
+        }));
+
+        return {
+            scan_type: data.type,
+            x: data.x, y: data.y,
+            x_label: data.x_label, y_label: data.y_label,
+            data:  { up: toList(up), down: toList(down), diff: toList(diff), pol: toList(pol) },
+            stats: { up: statsOf(up), down: statsOf(down), diff: statsOf(diff), pol: statsOf(pol) },
+        };
+    };
+
+    // --- Rendering (unchanged logic; reads from PAYLOAD) ---
 
     function currentRawData(tab) {
         return PAYLOAD.data[tab];
@@ -209,12 +310,8 @@
     }
 
     function setContrastFromStats(p_lo, p_hi) {
-        const tab = activeTab;
-        const stats = PAYLOAD.stats[tab];
-        const logOn = LOG_ALLOWED.has(tab) && document.getElementById('chkLog').checked;
-
         // Recalculate percentiles on display data (handles log transform)
-        const z = getDisplayData(tab);
+        const z = getDisplayData(activeTab);
         const vals = flatFinite(z);
         const lo = percentile(vals, p_lo);
         const hi = percentile(vals, p_hi);
@@ -243,23 +340,64 @@
         initContrastInputs();
     }
 
-    // Tab clicks
-    document.querySelectorAll('.tab-stat').forEach(t =>
-        t.addEventListener('click', () => switchTab(t.dataset.tab)));
+    function wireControls() {
+        document.querySelectorAll('.tab-stat').forEach(t =>
+            t.addEventListener('click', () => switchTab(t.dataset.tab)));
+        document.getElementById('btnApply').addEventListener('click', renderPlot);
+        document.getElementById('btnAuto').addEventListener('click', () => setContrastFromStats(1, 99));
+        document.getElementById('btnFull').addEventListener('click', () => setContrastFromStats(0, 100));
+        document.getElementById('chkLog').addEventListener('change', initContrastInputs);
+        ['inputVmin', 'inputVmax'].forEach(id =>
+            document.getElementById(id).addEventListener('keydown', e => {
+                if (e.key === 'Enter') renderPlot();
+            }));
+    }
 
-    // Contrast buttons
-    document.getElementById('btnApply').addEventListener('click', renderPlot);
-    document.getElementById('btnAuto').addEventListener('click', () => setContrastFromStats(1, 99));
-    document.getElementById('btnFull').addEventListener('click', () => setContrastFromStats(0, 100));
-    document.getElementById('chkLog').addEventListener('change', initContrastInputs);
+    // --- Load: signed URL → fetch from bucket → parse in-browser ---
+    (async () => {
+        const dsid = {{ ds['unique_id'] | tojson }};
+        const projectId = {{ project_id | tojson }};
+        const fileUrlEndpoint = cgUrl(`/dataset-view/arres/${projectId}/${dsid}/file-url`);
 
-    // Also apply on Enter key in vmin/vmax inputs
-    ['inputVmin', 'inputVmax'].forEach(id =>
-        document.getElementById(id).addEventListener('keydown', e => {
-            if (e.key === 'Enter') renderPlot();
-        }));
+        let data;
+        try {
+            const metaResp = await fetch(fileUrlEndpoint);
+            if (!metaResp.ok) throw new Error(`file-url HTTP ${metaResp.status}`);
+            const meta = await metaResp.json();
+            if (meta.error) throw new Error(meta.error);
 
-    // Initial render
-    switchTab('up');
+            const fileResp = await fetch(meta.url);
+            if (!fileResp.ok) throw new Error(`bucket HTTP ${fileResp.status}`);
+            const buf = await fileResp.arrayBuffer();
+
+            const h5wasm = await import(H5WASM_URL);
+            const { FS } = await h5wasm.ready;
+            const fname = meta.filename || 'data.h5';
+            FS.writeFile(fname, new Uint8Array(buf));
+            const f = new h5wasm.File(fname, 'r');
+            try {
+                data = readArres(f);
+                if (!data) throw new Error('No ARRES_EK or ARRES_MM group found in file.');
+                PAYLOAD = buildPayload(data);
+            } finally {
+                f.close();
+                FS.unlink(fname);
+            }
+        } catch (e) {
+            document.getElementById('loading').classList.add('d-none');
+            const el = document.getElementById('load-error');
+            el.textContent = 'Failed to load ARRES data: ' + e.message;
+            el.classList.remove('d-none');
+            return;
+        }
+
+        document.getElementById('loading').classList.add('d-none');
+        document.getElementById('viewer').style.display = '';
+        document.getElementById('scanTypeLabel').textContent =
+            PAYLOAD.scan_type === 'arres_mm' ? 'MM' : 'EK';
+
+        wireControls();
+        switchTab('up');
+    })();
 </script>
 {% endblock %}
