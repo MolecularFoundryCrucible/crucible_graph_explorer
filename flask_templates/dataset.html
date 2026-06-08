@@ -25,7 +25,7 @@
 {% set rel_assoc_name_field = 'sample_name' %}
 {% set rel_assoc_sub_field = 'sample_type' %}
 
-{% from 'macros.html' import mrow, mrow_link, section_metadata, deletion_banner, resource_sidebar, resource_card_identity %}
+{% from 'macros.html' import mrow, mrow_link, section_metadata, deletion_banner, resource_sidebar, resource_card_identity with context %}
 {% extends "resource_base.html" %}
 
 {% block title %}{{ds['dataset_name']}}{% endblock %}
