@@ -1,5 +1,8 @@
 # Setup
 Branch for cloud testing
+When changes are pushed to this branch, the image will be built and deployed at https://crucible-graph-explorer-776258882599.us-central1.run.app/
+The main deployment is now available at https://crucible.lbl.gov/explore
+ 
  Environment variables needed, either normally or via `.env` file:
 
 ```sh
