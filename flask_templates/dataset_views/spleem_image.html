@@ -8,6 +8,7 @@
 <style>
 .view-img {
     width: 100%;
+    image-rendering: pixelated;
     border: 1px solid var(--bs-border-color);
     border-radius: 4px;
     display: block;
@@ -126,13 +127,14 @@
                 <button id="f-auto"  class="btn btn-sm btn-outline-secondary">Auto</button>
             </div>
 
-            <!-- Frame image -->
+            <!-- Frame canvas -->
             <div class="img-wrapper">
-                <img id="frame-img" class="view-img" alt="SPLEEM frame" src="">
+                <canvas id="frame-canvas" class="view-img"></canvas>
                 <div class="img-spinner" id="frame-spinner">
                     <div class="spinner-border text-secondary" role="status"></div>
                 </div>
             </div>
+            <div id="frame-error" class="alert alert-warning mt-2 d-none"></div>
 
         </div>
     </div>
@@ -159,20 +161,20 @@
                 <input id="a-vmax" type="number" class="form-control form-control-sm" style="width:8rem;" placeholder="auto">
                 <button id="a-apply" class="btn btn-sm btn-outline-primary">Apply</button>
                 <button id="a-auto"  class="btn btn-sm btn-outline-secondary">Auto</button>
-                {% if linecut_exists is defined %}{% endif %}
                 <button id="a-clear-lc" class="btn btn-sm btn-outline-danger ms-auto d-none">
                     <i class="bi bi-x-circle me-1"></i>Clear linecut
                 </button>
             </div>
 
-            <!-- Average image with linecut canvas -->
+            <!-- Average canvas with linecut canvas -->
             <div class="img-wrapper">
-                <img id="avg-img" class="view-img" alt="SPLEEM average" src="">
+                <canvas id="avg-canvas" class="view-img"></canvas>
                 <canvas id="linecut-canvas"></canvas>
                 <div class="img-spinner" id="avg-spinner">
                     <div class="spinner-border text-secondary" role="status"></div>
                 </div>
             </div>
+            <div id="avg-error" class="alert alert-warning mt-2 d-none"></div>
             <div class="text-muted small mt-1">
                 <i class="bi bi-slash-lg me-1"></i>Click two points on the image to draw a linecut
             </div>
@@ -197,9 +199,140 @@
 <script>
 (function () {
     const base   = {{ base_url | tojson }};
+    const STREAM = {{ stream | tojson }};
     const nAcq   = {{ n_acq }};
 
-    // ── View switcher ──────────────────────────────────────────────────────
+    // ── Raw-byte decode + render helpers ─────────────────────────────────────
+    const PLATFORM_LE = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
+
+    function decodeValues(buf, dtypeStr) {
+        const little = dtypeStr[0] !== '>';
+        const kind   = dtypeStr[1];
+        const size   = parseInt(dtypeStr.slice(2), 10);
+        if (little === PLATFORM_LE) {
+            if (kind === 'u' && size === 1) return new Uint8Array(buf);
+            if (kind === 'u' && size === 2) return new Uint16Array(buf);
+            if (kind === 'u' && size === 4) return new Uint32Array(buf);
+            if (kind === 'i' && size === 1) return new Int8Array(buf);
+            if (kind === 'i' && size === 2) return new Int16Array(buf);
+            if (kind === 'i' && size === 4) return new Int32Array(buf);
+            if (kind === 'f' && size === 4) return new Float32Array(buf);
+            if (kind === 'f' && size === 8) return new Float64Array(buf);
+        }
+        const n = buf.byteLength / size, dv = new DataView(buf), out = new Float64Array(n);
+        for (let i = 0; i < n; i++) {
+            const o = i * size;
+            if      (kind === 'u' && size === 1) out[i] = dv.getUint8(o);
+            else if (kind === 'u' && size === 2) out[i] = dv.getUint16(o, little);
+            else if (kind === 'u' && size === 4) out[i] = dv.getUint32(o, little);
+            else if (kind === 'i' && size === 1) out[i] = dv.getInt8(o);
+            else if (kind === 'i' && size === 2) out[i] = dv.getInt16(o, little);
+            else if (kind === 'i' && size === 4) out[i] = dv.getInt32(o, little);
+            else if (kind === 'f' && size === 4) out[i] = dv.getFloat32(o, little);
+            else if (kind === 'f' && size === 8) out[i] = dv.getFloat64(o, little);
+        }
+        return out;
+    }
+
+    function percentile(vals, p) {
+        const arr = Float64Array.from(vals);
+        arr.sort();
+        const idx = (p / 100) * (arr.length - 1);
+        const lo = Math.floor(idx), hi = Math.ceil(idx);
+        return lo === hi ? arr[lo] : arr[lo] + (arr[hi] - arr[lo]) * (idx - lo);
+    }
+
+    const RDBU_R = [[5,48,97],[33,102,172],[67,147,195],[146,197,222],[209,229,240],
+                    [247,247,247],[253,219,199],[244,165,130],[214,96,77],[178,24,43],[103,0,31]];
+    function rdbuR(t) {
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const x = t * (RDBU_R.length - 1), i = Math.floor(x), f = x - i;
+        const a = RDBU_R[i], b = RDBU_R[Math.min(i + 1, RDBU_R.length - 1)];
+        return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+    }
+
+    function paint(canvas, ch, vals, W, H, vmin, vmax) {
+        canvas.width = W; canvas.height = H;
+        const ctx = canvas.getContext('2d');
+        const imgData = ctx.createImageData(W, H), d = imgData.data;
+        if (ch === 'up' || ch === 'down') {
+            const lo = vmin != null ? vmin : percentile(vals, 2);
+            const hi = vmax != null ? vmax : percentile(vals, 98);
+            const scale = hi > lo ? 255 / (hi - lo) : 0;
+            for (let i = 0; i < vals.length; i++) {
+                let v = (vals[i] - lo) * scale; v = v < 0 ? 0 : v > 255 ? 255 : v;
+                const o = i * 4; d[o] = d[o + 1] = d[o + 2] = v; d[o + 3] = 255;
+            }
+        } else {
+            let lo, hi;
+            if (vmin == null || vmax == null) {
+                const abs = Float64Array.from(vals, v => Math.abs(v));
+                const v = percentile(abs, 98) || 1; lo = -v; hi = v;
+            } else { lo = vmin; hi = vmax; }
+            const span = hi > lo ? hi - lo : 1;
+            for (let i = 0; i < vals.length; i++) {
+                const rgb = rdbuR((vals[i] - lo) / span);
+                const o = i * 4; d[o] = rgb[0]; d[o + 1] = rgb[1]; d[o + 2] = rgb[2]; d[o + 3] = 255;
+            }
+        }
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    async function refreshSpec() {
+        const r = await fetch(`${base}/stream-spec`);
+        if (r.ok) Object.assign(STREAM, await r.json());
+    }
+
+    async function rangeFetch(start, end) {
+        const opt = () => ({ headers: { Range: `bytes=${start}-${end}` } });
+        let r = await fetch(STREAM.url, opt());
+        if (r.status === 401 || r.status === 403) { await refreshSpec(); r = await fetch(STREAM.url, opt()); }
+        if (r.status !== 206 && r.status !== 200) throw new Error(`HTTP ${r.status}`);
+        return r.arrayBuffer();
+    }
+
+    async function pMapLimit(items, limit, fn) {
+        const ret = new Array(items.length); let i = 0;
+        async function worker() { while (i < items.length) { const idx = i++; ret[idx] = await fn(items[idx], idx); } }
+        await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+        return ret;
+    }
+
+    // ── Chunk fetch (one acquisition = both channels, contiguous) ────────────
+    function chOffset(fi) { return STREAM.chunk_offsets[fi]; }   // string-key lookup ok
+
+    async function fetchChannel(fi, ch) {
+        const base0 = chOffset(fi);
+        const start = base0 + ch * STREAM.ch_bytes;
+        const buf = await rangeFetch(start, start + STREAM.ch_bytes - 1);
+        return Float64Array.from(decodeValues(buf, STREAM.dtype));
+    }
+
+    async function fetchBoth(fi) {
+        const base0 = chOffset(fi);
+        const buf = await rangeFetch(base0, base0 + 2 * STREAM.ch_bytes - 1);
+        const all = decodeValues(buf, STREAM.dtype);
+        const n = STREAM.height * STREAM.width;
+        return [Float64Array.from(all.subarray(0, n)), Float64Array.from(all.subarray(n, 2 * n))];
+    }
+
+    function channelArray(ch, up, down) {
+        if (ch === 'up')   return up;
+        if (ch === 'down') return down;
+        const n = up.length, out = new Float64Array(n);
+        if (ch === 'diff') { for (let i = 0; i < n; i++) out[i] = up[i] - down[i]; return out; }
+        for (let i = 0; i < n; i++) { const t = up[i] + down[i]; out[i] = t > 0 ? (up[i] - down[i]) / t : 0; }
+        return out;
+    }
+
+    async function channelData(fi, ch) {
+        if (ch === 'up')   return fetchChannel(fi, 0);
+        if (ch === 'down') return fetchChannel(fi, 1);
+        const [up, down] = await fetchBoth(fi);
+        return channelArray(ch, up, down);
+    }
+
+    // ── View switcher ────────────────────────────────────────────────────────
     document.querySelectorAll('.view-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
@@ -211,36 +344,42 @@
         });
     });
 
-    // ── Frames ─────────────────────────────────────────────────────────────
-    let currentFi = 0;
-    let frameCh   = 'up';
-    let frameLoading = false;
-
-    const frameImg     = document.getElementById('frame-img');
+    // ── Frames ───────────────────────────────────────────────────────────────
+    let currentFi = 0, frameCh = 'up', frameToken = 0;
+    const frameCanvas  = document.getElementById('frame-canvas');
     const frameSpinner = document.getElementById('frame-spinner');
+    const frameError   = document.getElementById('frame-error');
     const slider       = document.getElementById('frame-slider');
 
-    function loadFrame(fi, force) {
-        if (frameLoading && !force) return;
+    function readC(idLo, idHi) {
+        const a = document.getElementById(idLo).value, b = document.getElementById(idHi).value;
+        return { vmin: a !== '' ? parseFloat(a) : null, vmax: b !== '' ? parseFloat(b) : null };
+    }
+
+    async function loadFrame(fi) {
         fi = Math.max(0, Math.min(nAcq - 1, fi));
         currentFi = fi;
         slider.value = fi;
         document.getElementById('acq-badge').textContent = `acq ${fi + 1}`;
         document.getElementById('acq-count').textContent = `${fi + 1} / ${nAcq}`;
 
-        const vmin = document.getElementById('f-vmin').value !== '' ? parseFloat(document.getElementById('f-vmin').value) : null;
-        const vmax = document.getElementById('f-vmax').value !== '' ? parseFloat(document.getElementById('f-vmax').value) : null;
-        let url = `${base}/frame?fi=${fi}&channel=${frameCh}`;
-        if (vmin !== null) url += `&vmin=${vmin}`;
-        if (vmax !== null) url += `&vmax=${vmax}`;
-
-        frameLoading = true;
+        const { vmin, vmax } = readC('f-vmin', 'f-vmax');
+        const token = ++frameToken;
         frameSpinner.style.display = 'flex';
-        frameImg.src = url;
+        frameError.classList.add('d-none');
+        try {
+            if (chOffset(fi) === undefined) throw new Error('acquisition not available');
+            const vals = await channelData(fi, frameCh);
+            if (token !== frameToken) return;
+            paint(frameCanvas, frameCh, vals, STREAM.width, STREAM.height, vmin, vmax);
+        } catch (err) {
+            if (token !== frameToken) return;
+            frameError.textContent = `Could not load acquisition ${fi + 1}: ${err.message}`;
+            frameError.classList.remove('d-none');
+        } finally {
+            if (token === frameToken) frameSpinner.style.display = 'none';
+        }
     }
-
-    frameImg.addEventListener('load',  () => { frameSpinner.style.display = 'none'; frameLoading = false; });
-    frameImg.addEventListener('error', () => { frameSpinner.style.display = 'none'; frameLoading = false; });
 
     document.querySelectorAll('#frame-ch-tabs .tab-stat').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -249,20 +388,19 @@
             frameCh = tab.dataset.ch;
             document.getElementById('f-vmin').value = '';
             document.getElementById('f-vmax').value = '';
-            loadFrame(currentFi, true);
+            loadFrame(currentFi);
         });
     });
 
     slider.addEventListener('input', () => loadFrame(parseInt(slider.value)));
     document.getElementById('btn-prev').addEventListener('click', () => loadFrame(currentFi - 1));
     document.getElementById('btn-next').addEventListener('click', () => loadFrame(currentFi + 1));
-    document.getElementById('f-apply').addEventListener('click', () => loadFrame(currentFi, true));
+    document.getElementById('f-apply').addEventListener('click', () => loadFrame(currentFi));
     document.getElementById('f-auto').addEventListener('click', () => {
         document.getElementById('f-vmin').value = '';
         document.getElementById('f-vmax').value = '';
-        loadFrame(currentFi, true);
+        loadFrame(currentFi);
     });
-
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT') return;
         if (document.getElementById('view-frames').classList.contains('d-none')) return;
@@ -272,34 +410,47 @@
 
     loadFrame(0);
 
-    // ── Average ────────────────────────────────────────────────────────────
-    let avgCh     = 'up';
-    let avgLoaded = false;
-    let avgLoading = false;
-
-    const avgImg     = document.getElementById('avg-img');
+    // ── Average ──────────────────────────────────────────────────────────────
+    let avgCh = 'up', avgLoaded = false, avgToken = 0;
+    let avgUp = null, avgDown = null;   // cached per-channel averages
+    const avgCanvas  = document.getElementById('avg-canvas');
     const avgSpinner = document.getElementById('avg-spinner');
+    const avgError   = document.getElementById('avg-error');
 
-    function loadAverage(force) {
-        if (avgLoading && !force) return;
-        const vmin = document.getElementById('a-vmin').value !== '' ? parseFloat(document.getElementById('a-vmin').value) : null;
-        const vmax = document.getElementById('a-vmax').value !== '' ? parseFloat(document.getElementById('a-vmax').value) : null;
-        let url = `${base}/average?channel=${avgCh}`;
-        if (vmin !== null) url += `&vmin=${vmin}`;
-        if (vmax !== null) url += `&vmax=${vmax}`;
-
-        avgLoading = true;
-        avgSpinner.style.display = 'flex';
-        avgImg.src = url;
+    async function ensureAverages() {
+        if (avgUp) return;
+        const n = STREAM.height * STREAM.width;
+        const accUp = new Float64Array(n), accDown = new Float64Array(n);
+        let cnt = 0;
+        await pMapLimit(STREAM.acqs, 6, async (acq) => {
+            const [up, down] = await fetchBoth(acq);
+            for (let i = 0; i < n; i++) { accUp[i] += up[i]; accDown[i] += down[i]; }
+            cnt++;
+        });
+        if (cnt) { for (let i = 0; i < n; i++) { accUp[i] /= cnt; accDown[i] /= cnt; } }
+        avgUp = accUp; avgDown = accDown;
     }
 
-    avgImg.addEventListener('load',  () => {
-        avgSpinner.style.display = 'none';
-        avgLoading = false;
-        avgLoaded = true;
-        syncLinecutCanvas();
-    });
-    avgImg.addEventListener('error', () => { avgSpinner.style.display = 'none'; avgLoading = false; });
+    async function loadAverage() {
+        const { vmin, vmax } = readC('a-vmin', 'a-vmax');
+        const token = ++avgToken;
+        avgSpinner.style.display = 'flex';
+        avgError.classList.add('d-none');
+        try {
+            await ensureAverages();
+            if (token !== avgToken) return;
+            const vals = channelArray(avgCh, avgUp, avgDown);
+            paint(avgCanvas, avgCh, vals, STREAM.width, STREAM.height, vmin, vmax);
+            avgLoaded = true;
+            syncLinecutCanvas();
+        } catch (err) {
+            if (token !== avgToken) return;
+            avgError.textContent = `Could not compute average: ${err.message}`;
+            avgError.classList.remove('d-none');
+        } finally {
+            if (token === avgToken) avgSpinner.style.display = 'none';
+        }
+    }
 
     document.querySelectorAll('#avg-ch-tabs .tab-stat').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -309,153 +460,124 @@
             document.getElementById('a-vmin').value = '';
             document.getElementById('a-vmax').value = '';
             clearLinecut();
-            loadAverage(true);
+            loadAverage();
         });
     });
-
-    document.getElementById('a-apply').addEventListener('click', () => loadAverage(true));
+    document.getElementById('a-apply').addEventListener('click', () => loadAverage());
     document.getElementById('a-auto').addEventListener('click', () => {
         document.getElementById('a-vmin').value = '';
         document.getElementById('a-vmax').value = '';
-        loadAverage(true);
+        loadAverage();
     });
 
-    // ── Linecut canvas ─────────────────────────────────────────────────────
+    // ── Linecut ──────────────────────────────────────────────────────────────
     const canvas = document.getElementById('linecut-canvas');
     const ctx    = canvas.getContext('2d');
-    let pt1 = null;
-    let pt2 = null;
-    let linecutInited = false;
+    let pt1 = null, pt2 = null, linecutInited = false;
+
+    function avgDims() { return { W: avgCanvas.width || 1, H: avgCanvas.height || 1 }; }
 
     function syncLinecutCanvas() {
-        canvas.width  = avgImg.offsetWidth;
-        canvas.height = avgImg.offsetHeight;
+        canvas.width  = avgCanvas.offsetWidth;
+        canvas.height = avgCanvas.offsetHeight;
         if (pt1 && pt2) redrawLine();
     }
 
     function imgToData(cssX, cssY) {
         const r = canvas.getBoundingClientRect();
+        const { W, H } = avgDims();
         return {
-            x: Math.round((cssX - r.left) / r.width  * avgImg.naturalWidth),
-            y: Math.round((cssY - r.top)  / r.height * avgImg.naturalHeight),
+            x: Math.round((cssX - r.left) / r.width  * W),
+            y: Math.round((cssY - r.top)  / r.height * H),
         };
     }
 
     function dataToCanvas(dx, dy) {
-        return {
-            x: dx / avgImg.naturalWidth  * canvas.width,
-            y: dy / avgImg.naturalHeight * canvas.height,
-        };
+        const { W, H } = avgDims();
+        return { x: dx / W * canvas.width, y: dy / H * canvas.height };
     }
 
     function redrawLine() {
-        canvas.width  = avgImg.offsetWidth;
-        canvas.height = avgImg.offsetHeight;
+        canvas.width  = avgCanvas.offsetWidth;
+        canvas.height = avgCanvas.offsetHeight;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
         const drawPoint = (p, color) => {
             const c = dataToCanvas(p.x, p.y);
-            ctx.beginPath();
-            ctx.arc(c.x, c.y, 5, 0, 2 * Math.PI);
-            ctx.fillStyle = color;
-            ctx.fill();
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
+            ctx.beginPath(); ctx.arc(c.x, c.y, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = color; ctx.fill();
+            ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; ctx.stroke();
         };
-
         drawPoint(pt1, '#0d6efd');
         if (pt2) {
             drawPoint(pt2, '#dc3545');
-            const c1 = dataToCanvas(pt1.x, pt1.y);
-            const c2 = dataToCanvas(pt2.x, pt2.y);
-            ctx.beginPath();
-            ctx.moveTo(c1.x, c1.y);
-            ctx.lineTo(c2.x, c2.y);
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([]);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(c1.x, c1.y);
-            ctx.lineTo(c2.x, c2.y);
-            ctx.strokeStyle = '#0d6efd';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([4, 4]);
-            ctx.stroke();
+            const c1 = dataToCanvas(pt1.x, pt1.y), c2 = dataToCanvas(pt2.x, pt2.y);
+            ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(c2.x, c2.y);
+            ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(c2.x, c2.y);
+            ctx.strokeStyle = '#0d6efd'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.stroke();
             ctx.setLineDash([]);
         }
     }
 
-    canvas.addEventListener('click', async (e) => {
+    canvas.addEventListener('click', (e) => {
         const pt = imgToData(e.clientX, e.clientY);
-        if (!pt1) {
-            pt1 = pt;
-            pt2 = null;
-            redrawLine();
-        } else if (!pt2) {
-            pt2 = pt;
-            redrawLine();
+        if (!pt1) { pt1 = pt; pt2 = null; redrawLine(); }
+        else if (!pt2) {
+            pt2 = pt; redrawLine();
             document.getElementById('a-clear-lc').classList.remove('d-none');
-            await fetchLinecut();
-        } else {
-            // Start new linecut
-            pt1 = pt;
-            pt2 = null;
-            redrawLine();
-            clearLinecutPlot();
-        }
+            computeLinecut();
+        } else { pt1 = pt; pt2 = null; redrawLine(); clearLinecutPlot(); }
     });
 
     function clearLinecut() {
-        pt1 = null;
-        pt2 = null;
+        pt1 = null; pt2 = null;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         clearLinecutPlot();
         document.getElementById('a-clear-lc').classList.add('d-none');
     }
-
     function clearLinecutPlot() {
         document.getElementById('linecut-col').classList.add('d-none');
         linecutInited = false;
     }
-
     document.getElementById('a-clear-lc').addEventListener('click', clearLinecut);
 
-    async function fetchLinecut() {
+    function computeLinecut() {
         const col   = document.getElementById('linecut-col');
         const label = document.getElementById('linecut-label');
         col.classList.remove('d-none');
-        label.textContent = 'loading…';
 
-        const url = `${base}/linecut?x0=${pt1.x}&y0=${pt1.y}&x1=${pt2.x}&y1=${pt2.y}&channel=${avgCh}`;
-        const res  = await fetch(url);
-        const data = await res.json();
-
+        const W = STREAM.width, H = STREAM.height;
+        const vals = channelArray(avgCh, avgUp, avgDown);
+        let x0 = Math.max(0, Math.min(W - 1, pt1.x)), y0 = Math.max(0, Math.min(H - 1, pt1.y));
+        let x1 = Math.max(0, Math.min(W - 1, pt2.x)), y1 = Math.max(0, Math.min(H - 1, pt2.y));
+        const n = Math.max(Math.round(Math.hypot(x1 - x0, y1 - y0)), 2);
+        const distance = [], intensity = [];
+        for (let k = 0; k < n; k++) {
+            const t = k / (n - 1);
+            const xs = x0 + (x1 - x0) * t, ys = y0 + (y1 - y0) * t;
+            const xi = Math.min(W - 1, Math.max(0, Math.round(xs)));
+            const yi = Math.min(H - 1, Math.max(0, Math.round(ys)));
+            distance.push(Math.hypot(xs - x0, ys - y0));
+            intensity.push(vals[yi * W + xi]);
+        }
         label.textContent = `(${pt1.x}, ${pt1.y}) → (${pt2.x}, ${pt2.y})`;
 
         const trace = {
-            x: data.distance, y: data.intensity,
-            type: 'scatter', mode: 'lines',
+            x: distance, y: intensity, type: 'scatter', mode: 'lines',
             line: { color: '#0d6efd', width: 1.5 },
             hovertemplate: 'Distance: %{x:.1f} px<br>Intensity: %{y:.4g}<extra></extra>',
         };
-
         const layout = {
             xaxis: { title: { text: 'Distance (px)' }, showgrid: true },
             yaxis: { title: { text: avgCh === 'asym' ? 'Asymmetry' : avgCh === 'diff' ? 'Intensity difference (counts)' : 'Intensity (counts)' },
                      showgrid: true, exponentformat: 'e' },
             margin: { t: 10, r: 20, b: 50, l: 70 },
         };
-
-        if (linecutInited) {
-            Plotly.react('linecut-plot', [trace], layout, { responsive: true });
-        } else {
-            Plotly.newPlot('linecut-plot', [trace], layout, { responsive: true });
-            linecutInited = true;
-        }
+        if (linecutInited) Plotly.react('linecut-plot', [trace], layout, { responsive: true });
+        else { Plotly.newPlot('linecut-plot', [trace], layout, { responsive: true }); linecutInited = true; }
     }
 
+    window.addEventListener('resize', () => { if (avgLoaded) syncLinecutCanvas(); });
 })();
 </script>
 {% endblock %}
