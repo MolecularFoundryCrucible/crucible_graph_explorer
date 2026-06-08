@@ -279,7 +279,17 @@ function _cgNowLocal() {
 }
 function _cgToISO(dtLocal) {
     if (!dtLocal) return null;
-    return dtLocal.length === 16 ? dtLocal + ':00' : dtLocal;
+    // datetime-local gives local wall-clock time — convert to UTC ISO for the API
+    const d = new Date(dtLocal);
+    return isNaN(d.getTime()) ? null : d.toISOString();
+}
+function _cgToLocal(isoStr) {
+    // Convert a stored UTC/offset ISO string back to datetime-local format (YYYY-MM-DDTHH:MM)
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 // ── JSON metadata helpers ─────────────────────────────────────────────────────
@@ -613,7 +623,7 @@ function cgOpenSamplePanel(editData) {
     document.getElementById('sp-type').value      = d.sample_type   || '';
     document.getElementById('sp-desc').value      = d.description   || '';
     document.getElementById('sp-public').checked  = !!d.public;
-    document.getElementById('sp-timestamp').value = isEdit ? (d.timestamp || '').slice(0,16) : _cgNowLocal();
+    document.getElementById('sp-timestamp').value = isEdit ? _cgToLocal(d.timestamp) : _cgNowLocal();
     document.getElementById('sp-meta-json').value = isEdit && d.scientific_metadata
         ? JSON.stringify(d.scientific_metadata, null, 2) : '';
     document.getElementById('sp-type-results').style.display = 'none';
@@ -648,7 +658,7 @@ function cgOpenDatasetPanel(editData) {
     document.getElementById('ds-datatype').value    = d.data_type       || '';
     document.getElementById('ds-instrument').value  = d.instrument_name || '';
     document.getElementById('ds-public').checked    = !!d.public;
-    document.getElementById('ds-timestamp').value   = isEdit ? (d.timestamp || '').slice(0,16) : _cgNowLocal();
+    document.getElementById('ds-timestamp').value   = isEdit ? _cgToLocal(d.timestamp) : _cgNowLocal();
     document.getElementById('ds-meta-json').value   = isEdit && d.scientific_metadata
         ? JSON.stringify(d.scientific_metadata, null, 2) : '';
     document.getElementById('ds-measurement-results').style.display = 'none';

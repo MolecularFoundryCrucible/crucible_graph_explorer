@@ -987,6 +987,35 @@
         window.addEventListener('resize', applyNavbarHeight);
     })();
     </script>
+    <script>
+    // ── client-side timestamp localisation ───────────────────────────────────
+    // Formats an ISO string (or free-form text) into the user's local timezone.
+    // opts.time=true  → include hours:minutes (for detail views)
+    // Returns null when the input is empty/null; returns the raw string on parse failure.
+    window.cgFmtTs = function(raw, opts) {
+        if (!raw) return null;
+        const s = String(raw).trim();
+        if (!s) return null;
+        // Truncate microseconds (6 digits) to milliseconds (3) — JS Date can't parse them
+        let norm = s.replace(/(\.\d{3})\d+/, '$1');
+        // Assume UTC when there is no explicit timezone marker after the time part
+        if (norm.includes('T') && !/[Z+\-]\d{2}:\d{2}$|Z$/.test(norm)) norm += 'Z';
+        const d = new Date(norm);
+        if (isNaN(d.getTime())) return s; // unparseable — show as-is
+        const fmtOpts = { year: 'numeric', month: 'short', day: 'numeric' };
+        if (opts && opts.time) { fmtOpts.hour = '2-digit'; fmtOpts.minute = '2-digit'; }
+        try { return d.toLocaleString(undefined, fmtOpts); } catch { return s; }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('time[data-cg-ts]').forEach(function(el) {
+            const raw = el.getAttribute('data-cg-ts');
+            const withTime = el.hasAttribute('data-cg-ts-time');
+            const fmt = window.cgFmtTs(raw, { time: withTime });
+            if (fmt !== null) el.textContent = fmt;
+        });
+    });
+    </script>
 {% block panels %}{% endblock %}
 </body>
 </html>

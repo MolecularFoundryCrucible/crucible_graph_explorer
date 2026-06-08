@@ -16,6 +16,41 @@ from utils.helpers import render_markdown
 
 logger = logging.getLogger(__name__)
 
+# Ingestion classes selectable in the "Request ingestion" dropdown.
+INGESTION_CLASSES = [
+    'AFMIngestor',
+    'PtychographyH5Ingestor',
+    'SimpleTiledImageScopeFoundryH5Ingestor',
+    'BioGlowIngestor',
+    'QSpleemSVRampIngestor',
+    'QSpleemImageIngestor',
+    'QSpleemARRESEKIngestor',
+    'QSpleemARRESMMIngestor',
+    'CanonCaptureScopeFoundryH5Ingestor',
+    'SingleSpecScopeFoundryH5Ingestor',
+    'HyperspecScopeFoundryH5Ingestor',
+    'HyperspecSweepScopeFoundryH5Ingestor',
+    'ToupcamLiveScopeFoundryH5Ingestor',
+    'CLSyncRasterScanIngestor',
+    'CLHyperspecIngestor',
+    'SpinbotSpecLineIngestor',
+    'SpinbotCameraCaptureIngestor',
+    'SpinbotPhotoRunIngestor',
+    'InSituPlIngestor',
+    'CziIngestor',
+    'DigitalMicrographIngestor',
+    'EmiIngestor',
+    'SerIngestor',
+    'BcfIngestor',
+    'BerkeleyEmdIngestor',
+    'VeloxEmdIngestor',
+    'SpinbotSpecRunIngestor',
+    'ImageIngestor',
+    'NirvanaMultiPosLineScanIngestor',
+    'ScopeFoundryH5Ingestor',
+    'H5Ingestor',
+]
+
 
 def create_blueprint(auth):
     bp = Blueprint('datasets', __name__)
@@ -47,6 +82,7 @@ def create_blueprint(auth):
             f_files    = ex.submit(client.datasets.get_associated_files, dsid)
             f_children = ex.submit(client.datasets.list_children, dsid)
             f_parents  = ex.submit(client.datasets.list_parents, dsid)
+            f_ingreqs  = ex.submit(client.datasets.get_ingestion_requests, dsid=dsid)
 
         # Critical: let HTTPError propagate so Flask returns a proper error page.
         # Other exceptions are logged and re-raised as 500.
@@ -59,8 +95,33 @@ def create_blueprint(auth):
         associated_files = _safe(f_files,    'files',            [])
         child_datasets   = _safe(f_children, 'list_children',    [])
         parent_datasets  = _safe(f_parents,  'list_parents',     [])
+        # Normalize the ingestion-requests response to a list of dicts. The API
+        # may return a bare list, a paginated wrapper, or a single record.
+        _ingreqs_raw = _safe(f_ingreqs, 'ingestion_requests', [])
+        if isinstance(_ingreqs_raw, dict):
+            for _key in ('items', 'results', 'ingestion_requests', 'data'):
+                if isinstance(_ingreqs_raw.get(_key), list):
+                    _ingreqs_raw = _ingreqs_raw[_key]
+                    break
+            else:
+                _ingreqs_raw = [_ingreqs_raw]
+        ingestion_requests = [r for r in (_ingreqs_raw or []) if isinstance(r, dict)]
         # all_projects already fetched from cache above
         logger.debug("dataset parallel fetch=%.3fs", time.perf_counter() - t0)
+
+        # Build an ordered column list from whatever keys the API returns, so the
+        # table adapts to the (unmodeled) ingestion-request schema.
+        ingestion_request_columns = []
+        if ingestion_requests:
+            preferred = ['status', 'ingestion_class', 'filename', 'file_id',
+                         'time_created', 'time_submitted', 'time_completed', 'id']
+            seen = []
+            for r in ingestion_requests:
+                for k in r.keys():
+                    if k not in seen:
+                        seen.append(k)
+            ingestion_request_columns = ([k for k in preferred if k in seen]
+                                         + [k for k in seen if k not in preferred])
 
         # Probe download availability for each file in parallel. A file is
         # considered downloadable unless get_download_link returns 404
@@ -135,6 +196,9 @@ def create_blueprint(auth):
                                sibling_count=len(ds_siblings),
                                siblings=ds_siblings,
                                sibling_label=group_val or '',
+                               available_ingestors=INGESTION_CLASSES,
+                               ingestion_requests=ingestion_requests,
+                               ingestion_request_columns=ingestion_request_columns,
                                all_projects=all_projects)
 
     @bp.route("/<project_id>/datasets/<dsid>/mdnote-edit", methods=['GET', 'POST'])
@@ -202,6 +266,68 @@ def create_blueprint(auth):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
         return jsonify({'ok': True, 'filename': filename})
+
+    @bp.route("/<project_id>/api/datasets/<dsid>/request-ingestion", methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def api_dataset_request_ingestion(project_id, dsid):
+        client = get_user_client()
+        body = request.get_json(silent=True) or {}
+        requested_ids = body.get('file_ids')  # None/empty => all files
+        ingestion_class = (body.get('ingestion_class') or '').strip()  # '' => server default
+        if ingestion_class and ingestion_class not in INGESTION_CLASSES:
+            return jsonify({'error': f'Unknown ingestion class: {ingestion_class}'}), 400
+
+        associated_files = client.datasets.get_associated_files(dsid)
+        by_id = {f['mfid']: f for f in associated_files}
+        if requested_ids:
+            targets = [by_id[fid] for fid in requested_ids if fid in by_id]
+        else:
+            targets = associated_files
+        if not targets:
+            return jsonify({'error': 'No files to ingest'}), 400
+
+        results = []
+        for f in targets:
+            ingest_params = {'filename': f['filename'], 'file_size': f.get('size')}
+            if ingestion_class:
+                ingest_params['ingestion_class'] = ingestion_class
+            try:
+                req = client._request(
+                    'post',
+                    f"/datasets/{dsid}/files/{f['mfid']}/ingest",
+                    params=ingest_params,
+                )
+                results.append({'mfid': f['mfid'], 'ok': True,
+                                'request_id': (req or {}).get('id')})
+            except Exception as exc:
+                logger.warning("ingest request failed for %s: %s", f['mfid'], exc)
+                results.append({'mfid': f['mfid'], 'ok': False, 'error': str(exc)})
+
+        return jsonify({
+            'requested': sum(1 for r in results if r['ok']),
+            'total': len(results),
+            'results': results,
+        })
+
+    @bp.route("/<project_id>/api/datasets/<dsid>/request-insitu-aggregation", methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def api_dataset_request_insitu_aggregation(project_id, dsid):
+        try:
+            result = get_user_client().datasets.request_insitu_aggregation(dsid)
+        except Exception as exc:
+            logger.warning("insitu aggregation request failed for %s: %s", dsid, exc)
+            return jsonify({'error': str(exc)}), 500
+        return jsonify({'ok': True, 'result': result})
+
+    @bp.route("/<project_id>/api/datasets/<dsid>/request-carrier-segmentation", methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def api_dataset_request_carrier_segmentation(project_id, dsid):
+        try:
+            result = get_user_client().datasets.request_carrier_segmentation(dsid)
+        except Exception as exc:
+            logger.warning("carrier segmentation request failed for %s: %s", dsid, exc)
+            return jsonify({'error': str(exc)}), 500
+        return jsonify({'ok': True, 'result': result})
 
     @bp.route("/<project_id>/datasets/<dsid>/files/<file_id>/download_link")
     @auth.oidc_auth('orcid')

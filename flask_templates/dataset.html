@@ -47,6 +47,16 @@
   {% set _ = sidebar_actions.append({'label': cv['label'], 'url': cv['url'], 'icon': cv.get('icon', 'bi-journal-text')}) %}
 {% endfor %}
 {% set _ = sidebar_actions.append({'label': 'Upload file', 'onclick': 'cgDatasetUploadFile()', 'icon': 'bi-upload'}) %}
+{% if files %}
+  {% set _ = sidebar_actions.append({'label': 'Request ingestion', 'onclick': 'cgOpenIngestModal()', 'icon': 'bi-box-arrow-in-down'}) %}
+{% endif %}
+{# measurement-specific processing requests — confirm exact measurement strings #}
+{% if ds['measurement'] in ['In Situ PL', 'In Situ UV-Vis'] %}
+  {% set _ = sidebar_actions.append({'label': 'Request aggregation', 'onclick': 'cgRequestInsituAggregation()', 'icon': 'bi-graph-up'}) %}
+{% endif %}
+{% if ds['measurement'] == 'thin film carrier image' %}
+  {% set _ = sidebar_actions.append({'label': 'Request segmentation', 'onclick': 'cgRequestCarrierSegmentation()', 'icon': 'bi-bounding-box'}) %}
+{% endif %}
 {{ resource_sidebar(project_id, 'dataset', 'bi-database', ds['dataset_name'], resource_id=ds['unique_id'], actions=sidebar_actions) }}
 {% endblock %}
 
@@ -64,8 +74,8 @@
 {{ mrow("Measurement",  ds.get('measurement')) }}
 {{ mrow("Session",      ds.get('session_name')) }}
 {{ mrow("Instrument",   ds.get('instrument_name')) }}
-{{ mrow_link("Project", ds.get('project_id'), base + '/' + (ds.get('project_id') or '') + '/') }}
-{{ mrow("Timestamp",    ds.get('timestamp') | humanize_date) }}
+{{ mrow_link("Project", ds.get('project_id'), '/' + (ds.get('project_id') or '') + '/') }}
+<div class="meta-row"><span class="meta-key">Timestamp</span><span class="text-break">{% if ds.get('timestamp') %}<time data-cg-ts="{{ ds['timestamp'] }}" data-cg-ts-time>{{ ds['timestamp'] }}</time>{% else %}<span class="text-muted">—</span>{% endif %}</span></div>
 
 {# ── Advanced toggle button ── #}
 <div class="mt-3 pt-2" style="border-top: 1px solid var(--bs-border-color);">
@@ -101,8 +111,8 @@
         <span class="meta-divider-label">Dates</span>
         <div class="meta-divider-line"></div>
     </div>
-    {{ mrow("Created",  ds.get('creation_time') | humanize_date) }}
-    {{ mrow("Modified", ds.get('modification_time') | humanize_date) }}
+    <div class="meta-row"><span class="meta-key">Created</span><span class="text-break">{% if ds.get('creation_time') %}<time data-cg-ts="{{ ds['creation_time'] }}" data-cg-ts-time>{{ ds['creation_time'] }}</time>{% else %}<span class="text-muted">—</span>{% endif %}</span></div>
+    <div class="meta-row"><span class="meta-key">Modified</span><span class="text-break">{% if ds.get('modification_time') %}<time data-cg-ts="{{ ds['modification_time'] }}" data-cg-ts-time>{{ ds['modification_time'] }}</time>{% else %}<span class="text-muted">—</span>{% endif %}</span></div>
 </div>
 {% endblock %}
 
@@ -325,6 +335,59 @@
     </div>
 </div>
 {% endif %}
+
+<!-- ── ingestion requests — collapsed by default ─────────────────────── -->
+{% if ingestion_requests %}
+<div class="res-section" id="section-ingestion-requests">
+    <div class="res-section-header" onclick="toggleSection(this)">
+        <i class="bi bi-list-check text-muted"></i>
+        <span>Ingestion Requests</span>
+        <span class="badge fw-normal border text-muted" style="background:var(--bs-tertiary-bg); font-size: var(--fs-sm);">
+            {{ingestion_requests|length}}
+        </span>
+        <i class="bi bi-chevron-right res-section-chevron"></i>
+    </div>
+    <div class="res-section-body" style="display:none;">
+        <div class="p-3" style="overflow-x:auto;">
+            <table class="table table-sm align-middle mb-0" style="font-size: var(--fs-sm);">
+                <thead>
+                    <tr>
+                        {% for col in ingestion_request_columns %}
+                        <th class="text-nowrap text-muted"
+                            style="font-size: var(--fs-2xs); text-transform:uppercase; letter-spacing:0.07em;">
+                            {{ col.replace('_', ' ') }}
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in ingestion_requests %}
+                    <tr>
+                        {% for col in ingestion_request_columns %}
+                        {% set val = req.get(col) %}
+                        <td class="text-nowrap">
+                            {%- if val is none or val == '' -%}
+                                <span class="text-muted">—</span>
+                            {%- elif col == 'status' -%}
+                                {% set s = val|string|lower %}
+                                <span class="badge {% if s in ['complete', 'completed', 'success'] %}text-bg-success{% elif s in ['failed', 'error'] %}text-bg-danger{% elif s in ['requested', 'started', 'in_progress'] %}text-bg-info{% else %}text-bg-secondary{% endif %}">{{ val }}</span>
+                            {%- elif 'time' in col or 'date' in col -%}
+                                <time data-cg-ts="{{ val }}" data-cg-ts-time>{{ val }}</time>
+                            {%- elif col in ['id', 'file_id', 'dataset_id', 'mfid'] -%}
+                                <span class="mfid">{{ val }}</span>
+                            {%- else -%}
+                                {{ val }}
+                            {%- endif -%}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block resource_scripts %}
@@ -406,8 +469,155 @@
             icon.className = 'bi bi-download';
         }
     }
+
+    let _ingestModal = null;
+
+    function cgOpenIngestModal() {
+        const el = document.getElementById('ingestModal');
+        if (!el) return;
+        _ingestModal = _ingestModal || new bootstrap.Modal(el);
+        document.getElementById('ingestSelectAll').checked = true;
+        el.querySelectorAll('.ingest-file-cb').forEach(cb => { cb.checked = true; });
+        _ingestModal.show();
+    }
+
+    function cgIngestToggleAll(master) {
+        document.querySelectorAll('#ingestModal .ingest-file-cb')
+            .forEach(cb => { cb.checked = master.checked; });
+    }
+
+    function cgIngestSyncMaster() {
+        const cbs = Array.from(document.querySelectorAll('#ingestModal .ingest-file-cb'));
+        const master = document.getElementById('ingestSelectAll');
+        master.checked = cbs.length > 0 && cbs.every(cb => cb.checked);
+    }
+
+    async function cgSubmitIngest() {
+        const cbs = Array.from(document.querySelectorAll('#ingestModal .ingest-file-cb'));
+        const fileIds = cbs.filter(cb => cb.checked).map(cb => cb.value);
+        if (!fileIds.length) {
+            cgToast('Select at least one file', 'bi-exclamation-circle', 3000);
+            return;
+        }
+        const ingestionClass = document.getElementById('ingestClass').value;
+        const btn = document.getElementById('ingestSubmitBtn');
+        btn.disabled = true;
+        cgToast(`Requesting ingestion for ${fileIds.length} file${fileIds.length > 1 ? 's' : ''}…`,
+                'bi-box-arrow-in-down', 60000);
+        try {
+            const resp = await fetch('/{{project_id}}/api/datasets/{{ds["unique_id"]}}/request-ingestion', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_ids: fileIds, ingestion_class: ingestionClass }),
+            });
+            const data = await resp.json();
+            if (!resp.ok || data.error) {
+                cgToast(`Ingestion request failed: ${data.error || resp.status}`, 'bi-exclamation-circle', 4000);
+            } else {
+                const failed = data.total - data.requested;
+                if (failed > 0) {
+                    cgToast(`${data.requested} requested, ${failed} failed`, 'bi-exclamation-circle', 4000);
+                } else {
+                    cgToast(`Ingestion requested for ${data.requested} file${data.requested > 1 ? 's' : ''}`, 'bi-check-circle');
+                }
+                if (_ingestModal) _ingestModal.hide();
+            }
+        } catch (err) {
+            cgToast(`Ingestion error: ${err.message}`, 'bi-exclamation-circle', 4000);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function cgRequestProcessing(endpoint, label, icon) {
+        if (!confirm(`Request ${label} for this dataset?`)) return;
+        cgToast(`Requesting ${label}…`, icon, 60000);
+        try {
+            const resp = await fetch(
+                '/{{project_id}}/api/datasets/{{ds["unique_id"]}}/' + endpoint,
+                { method: 'POST' }
+            );
+            const data = await resp.json();
+            if (!resp.ok || data.error) {
+                cgToast(`Request failed: ${data.error || resp.status}`, 'bi-exclamation-circle', 4000);
+            } else {
+                cgToast(`${label.charAt(0).toUpperCase() + label.slice(1)} requested`, 'bi-check-circle');
+            }
+        } catch (err) {
+            cgToast(`Error: ${err.message}`, 'bi-exclamation-circle', 4000);
+        }
+    }
+
+    function cgRequestInsituAggregation() {
+        cgRequestProcessing('request-insitu-aggregation', 'in-situ aggregation', 'bi-graph-up');
+    }
+
+    function cgRequestCarrierSegmentation() {
+        cgRequestProcessing('request-carrier-segmentation', 'carrier segmentation', 'bi-bounding-box');
+    }
 </script>
 <input type="file" id="_dsUploadInput" multiple style="display:none;">
 {% endblock %}
 
-{% block panels %}{% include '_create_panels.html' %}{% endblock %}
+{% block panels %}{% include '_create_panels.html' %}
+<!-- ── request-ingestion modal ───────────────────────────────────────── -->
+{% if files %}
+<div class="modal fade" id="ingestModal" tabindex="-1" aria-labelledby="ingestModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title d-flex align-items-center gap-2" id="ingestModalLabel" style="font-size: var(--fs-xl);">
+          <i class="bi bi-box-arrow-in-down" style="color: var(--cg-accent-mid);"></i>
+          Request Ingestion
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted" style="font-size: var(--fs-sm);">
+          Choose which files to request ingestion for.
+        </p>
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="ingestClass" style="font-size: var(--fs-md);">
+            Ingestion class
+          </label>
+          <select id="ingestClass" class="form-select form-select-sm">
+            <option value="">Auto-detect</option>
+            {% for ing in available_ingestors %}
+            <option value="{{ ing }}">{{ ing }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-check border-bottom pb-2 mb-2">
+          <input class="form-check-input" type="checkbox" id="ingestSelectAll" checked
+                 onchange="cgIngestToggleAll(this)">
+          <label class="form-check-label fw-semibold" for="ingestSelectAll" style="font-size: var(--fs-md);">
+            All files
+          </label>
+        </div>
+        {% for file in files %}
+        {% set basename = file['filename'].split('/')|last %}
+        <div class="form-check d-flex align-items-center gap-2 py-1">
+          <input class="form-check-input ingest-file-cb m-0" type="checkbox"
+                 id="ingest-cb-{{file['mfid']}}" value="{{file['mfid']}}" checked
+                 onchange="cgIngestSyncMaster()">
+          <label class="form-check-label text-truncate" for="ingest-cb-{{file['mfid']}}"
+                 title="{{basename}}" style="flex:1; min-width:0; font-size: var(--fs-md);">
+            {{basename}}
+          </label>
+          <span class="text-muted text-nowrap" style="font-size: var(--fs-xs);">
+            {{file['size'] | humanize_size}}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="ingestSubmitBtn" onclick="cgSubmitIngest()">
+          <i class="bi bi-box-arrow-in-down me-1"></i>Request ingestion
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
