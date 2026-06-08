@@ -1,26 +1,32 @@
 """
 sv_ramp_spin dataset view — spin-polarized SV ramp.
 
-Streams individual frames via HTTP Range requests (Crucible route) or
-reads directly via h5py (local test route).
+Crucible path: the server reads the contiguous up/down im_array byte offsets,
+frame shape and dtype once, then hands the browser a signed URL plus that spec.
+The browser issues its own HTTP Range requests per frame, decodes the raw bytes
+and renders to a canvas client-side (grayscale for up/down, RdBu_r for
+difference/asymmetry). ROI IV curves are computed in the browser from per-frame
+Range reads of the selected rows.
 
-Up/Down frames are served as grayscale PNGs.
-Difference and Asymmetry frames are rendered with the RdBu_r colormap.
+Local path (dev only): reads test_data files via h5py and serves frame PNGs
+server-side, unchanged.
+
+Requires bucket CORS to allow GET with the Range request header and to expose
+Content-Range (see cors.json).
 """
 
 import io
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import fsspec
 import h5py
 import numpy as np
-import requests as _requests
-from utils.auth import get_user_client
-from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request
+from flask import Blueprint, Response, abort, jsonify, render_template, request
 from matplotlib import colormaps
 from PIL import Image
+
+from utils.auth import get_user_client
 
 MEASUREMENT_TYPES = ['sv_ramp_spin']
 URL_PREFIX = '/dataset-view/sv-ramp-spin'
@@ -30,36 +36,9 @@ _URL_TTL = 600
 _TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'test_data')
 
 # {dsid: { sv_array, imavg_up, imavg_down, asym_array, n_frames,
-#           url, url_at, filename, up_offset, down_offset, frame_bytes, shape, dtype }}
+#           url, url_at, filename, mfid, up_offset, down_offset,
+#           frame_bytes, height, width, dtype }}
 _cache: dict[str, dict] = {}
-
-_FRAME_CACHE_SIZE = 20
-_frame_cache: dict[tuple, bytes] = {}
-
-
-def _get_cached_frame(key):
-    raw = _frame_cache.get(key)
-    if raw is not None:
-        _frame_cache[key] = _frame_cache.pop(key)
-    return raw
-
-
-def _put_cached_frame(key, raw):
-    if key in _frame_cache:
-        _frame_cache[key] = _frame_cache.pop(key)
-    else:
-        if len(_frame_cache) >= _FRAME_CACHE_SIZE:
-            _frame_cache.pop(next(iter(_frame_cache)))
-        _frame_cache[key] = raw
-
-
-def _fetch_range(url, offset, frame_bytes, fi):
-    start = offset + fi * frame_bytes
-    end = start + frame_bytes - 1
-    resp = _requests.get(url, headers={'Range': f'bytes={start}-{end}'}, timeout=30)
-    if resp.status_code not in (200, 206):
-        abort(502)
-    return resp.content
 
 
 def _ensure_meta(dsid, crucible_client):
@@ -92,14 +71,17 @@ def _ensure_meta(dsid, crucible_client):
             up_offset = up_ds.id.get_offset()
             down_offset = down_ds.id.get_offset()
 
+        if up_offset is None or down_offset is None:
+            abort(500)  # chunked/unallocated — Range streaming impossible
+
         frame_bytes = int(shape[1]) * int(shape[2]) * dtype.itemsize
         entry = {
             'filename': filename, 'mfid': mfid, 'url': url, 'url_at': now,
             'sv_array': sv_array, 'imavg_up': imavg_up,
             'imavg_down': imavg_down, 'asym_array': asym_array,
-            'n_frames': shape[0], 'up_offset': up_offset,
-            'down_offset': down_offset, 'frame_bytes': frame_bytes,
-            'shape': shape, 'dtype': dtype,
+            'n_frames': int(shape[0]), 'up_offset': int(up_offset),
+            'down_offset': int(down_offset), 'frame_bytes': frame_bytes,
+            'height': int(shape[1]), 'width': int(shape[2]), 'dtype': dtype.str,
         }
         _cache[dsid] = entry
 
@@ -110,6 +92,21 @@ def _ensure_meta(dsid, crucible_client):
 
     return entry
 
+
+def _stream_spec(entry):
+    return {
+        'url':         entry['url'],
+        'up_offset':   entry['up_offset'],
+        'down_offset': entry['down_offset'],
+        'frame_bytes': entry['frame_bytes'],
+        'height':      entry['height'],
+        'width':       entry['width'],
+        'dtype':       entry['dtype'],
+        'n_frames':    entry['n_frames'],
+    }
+
+
+# ── local-only PNG rendering (dev test route) ──────────────────────────────────
 
 def _to_png_gray(arr, vmin, vmax):
     arr = arr.astype(np.float32)
@@ -161,7 +158,7 @@ def create_blueprint(auth, helpers):
     bp = Blueprint('dview_sv_ramp_spin', __name__)
     is_user_in_project = helpers['is_user_in_project']
 
-    # ── local test route ──────────────────────────────────────────────────────
+    # ── local test route (dev only, server-rendered PNG) ───────────────────────
 
     @bp.route('/local/<filename>')
     @auth.oidc_auth('orcid')
@@ -182,6 +179,7 @@ def create_blueprint(auth, helpers):
             imavg_down=imavg_down, asym_array=asym_array,
             n_frames=n_frames,
             base_url=f'{request.script_root}{URL_PREFIX}/local/{filename}',
+            stream=None,
         )
 
     @bp.route('/local/<filename>/frame')
@@ -205,7 +203,7 @@ def create_blueprint(auth, helpers):
         return Response(_make_png(channel, up_raw, down_raw, shape, dtype, vmin, vmax),
                         mimetype='image/png')
 
-    # ── Crucible-backed route ─────────────────────────────────────────────────
+    # ── Crucible-backed route (browser-side Range) ─────────────────────────────
 
     @bp.route('/<project_id>/<dsid>')
     @auth.oidc_auth('orcid')
@@ -221,77 +219,16 @@ def create_blueprint(auth, helpers):
             imavg_down=meta['imavg_down'], asym_array=meta['asym_array'],
             n_frames=meta['n_frames'],
             base_url=f'{request.script_root}{URL_PREFIX}/{project_id}/{dsid}',
+            stream=_stream_spec(meta),
         )
 
-    @bp.route('/<project_id>/<dsid>/frame')
+    @bp.route('/<project_id>/<dsid>/stream-spec')
     @auth.oidc_auth('orcid')
-    def frame(project_id, dsid):
+    def stream_spec(project_id, dsid):
+        """Return a fresh signed URL + byte-offset spec for browser Range fetches."""
         if not is_user_in_project(project_id):
             abort(403)
-        fi = request.args.get('fi', type=int)
-        channel = request.args.get('channel', default='up')
-        vmin = request.args.get('vmin', type=float)
-        vmax = request.args.get('vmax', type=float)
-        if fi is None:
-            abort(400)
-
         meta = _ensure_meta(dsid, get_user_client())
-        if not (0 <= fi < meta['n_frames']):
-            abort(400)
-
-        cache_key = (dsid, fi, channel, vmin, vmax)
-        png = _get_cached_frame(cache_key)
-        if png is None:
-            up_raw = _fetch_range(meta['url'], meta['up_offset'], meta['frame_bytes'], fi) \
-                if channel in ('up', 'diff', 'asym') else None
-            down_raw = _fetch_range(meta['url'], meta['down_offset'], meta['frame_bytes'], fi) \
-                if channel in ('down', 'diff', 'asym') else None
-            png = _make_png(channel, up_raw, down_raw, meta['shape'], meta['dtype'], vmin, vmax)
-            _put_cached_frame(cache_key, png)
-
-        return Response(png, mimetype='image/png')
-
-    @bp.route('/<project_id>/<dsid>/roi')
-    @auth.oidc_auth('orcid')
-    def roi(project_id, dsid):
-        if not is_user_in_project(project_id):
-            abort(403)
-        x0 = request.args.get('x0', type=int)
-        y0 = request.args.get('y0', type=int)
-        x1 = request.args.get('x1', type=int)
-        y1 = request.args.get('y1', type=int)
-        if any(v is None for v in [x0, y0, x1, y1]):
-            abort(400)
-
-        meta = _ensure_meta(dsid, get_user_client())
-        H, W = meta['shape'][1], meta['shape'][2]
-        x0, x1 = sorted([max(0, x0), min(W - 1, x1)])
-        y0, y1 = sorted([max(0, y0), min(H - 1, y1)])
-
-        row_bytes = W * meta['dtype'].itemsize
-        roi_bytes = (y1 - y0 + 1) * row_bytes
-        n_frames = meta['n_frames']
-        url = meta['url']
-        dtype = meta['dtype']
-
-        def fetch_mean(offset, fi):
-            start = offset + fi * meta['frame_bytes'] + y0 * row_bytes
-            resp = _requests.get(url, headers={'Range': f'bytes={start}-{start + roi_bytes - 1}'}, timeout=30)
-            rows = np.frombuffer(resp.content, dtype=dtype).reshape(y1 - y0 + 1, W)
-            return float(rows[:, x0:x1 + 1].astype(np.float64).mean())
-
-        with ThreadPoolExecutor(max_workers=8) as ex:
-            up_futs = {ex.submit(fetch_mean, meta['up_offset'], fi): fi for fi in range(n_frames)}
-            down_futs = {ex.submit(fetch_mean, meta['down_offset'], fi): fi for fi in range(n_frames)}
-
-        imavg_up = [f.result() for f in sorted(up_futs, key=up_futs.get)]
-        imavg_down = [f.result() for f in sorted(down_futs, key=down_futs.get)]
-
-        up_arr = np.array(imavg_up)
-        down_arr = np.array(imavg_down)
-        total = up_arr + down_arr
-        asym = np.where(total > 0, (up_arr - down_arr) / total, 0.0).tolist()
-
-        return jsonify({'imavg_up': imavg_up, 'imavg_down': imavg_down, 'asym': asym})
+        return jsonify(_stream_spec(meta))
 
     return bp
