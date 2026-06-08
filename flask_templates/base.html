@@ -322,6 +322,10 @@
         window.location.href = url;
     }
 
+    function escHtml(s) {
+        return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
     // ── relationship add — inline picker in right panel ───────────────────
     const _REL_ADD_TYPES = {
         samples:  [
@@ -337,11 +341,25 @@
     };
     let _relAddCtx = {};
 
+    function cgRelEditToggle(btn) {
+        const panel = btn.closest('.rel-panel');
+        const editing = panel.classList.toggle('rel-editing');
+        btn.classList.toggle('active', editing);
+        btn.querySelector('i').className = editing ? 'bi bi-pencil-fill' : 'bi bi-pencil';
+        if (editing) cgRelAddClose();
+    }
+
     function cgRelAddOpen(btn) {
         const picker  = document.getElementById('rel-add-picker');
         const typeEl  = document.getElementById('rel-add-type');
         const search  = document.getElementById('rel-add-search');
         const results = document.getElementById('rel-add-results');
+        // Exit edit mode when adding
+        const panel = picker.closest('.rel-panel');
+        if (panel && panel.classList.contains('rel-editing')) {
+            const editBtn = panel.querySelector('.rel-edit-btn');
+            if (editBtn) cgRelEditToggle(editBtn);
+        }
         _relAddCtx = { pid: btn.dataset.pid, sourceId: btn.dataset.sourceId, resType: btn.dataset.resType };
         typeEl.innerHTML = (_REL_ADD_TYPES[_relAddCtx.resType] || []).map(t =>
             `<option value="${t.type}" data-endpoint="${t.endpoint}">${t.label}</option>`
@@ -429,15 +447,15 @@
         const confirmEl = document.createElement('span');
         confirmEl.className = 'rel-confirm-btns';
         confirmEl.innerHTML =
-            `<span class="text-muted" style="font-size:var(--fs-xs);">Remove?</span>
-             <button class="btn btn-sm btn-danger py-0 px-2" style="font-size:var(--fs-xs);">Remove</button>
+            `<span class="text-danger" style="font-size:var(--fs-xs); opacity:0.7;">Remove?</span>
+             <button class="btn btn-sm btn-danger py-0 px-2" style="font-size:var(--fs-xs);"><i class="bi bi-trash3 me-1"></i>Remove</button>
              <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--fs-xs);">Cancel</button>`;
         item.appendChild(confirmEl);
 
         confirmEl.querySelector('.btn-danger').addEventListener('click', async e => {
             e.stopPropagation();
             const { linkType, sourceId, targetId, pid } = item.dataset;
-            confirmEl.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            confirmEl.innerHTML = '<span class="spinner-border spinner-border-sm text-danger"></span>';
             try {
                 const resp = await fetch(`/${pid}/api/relationships`, {
                     method: 'DELETE',
@@ -960,6 +978,35 @@
         applyNavbarHeight();
         window.addEventListener('resize', applyNavbarHeight);
     })();
+    </script>
+    <script>
+    // ── client-side timestamp localisation ───────────────────────────────────
+    // Formats an ISO string (or free-form text) into the user's local timezone.
+    // opts.time=true  → include hours:minutes (for detail views)
+    // Returns null when the input is empty/null; returns the raw string on parse failure.
+    window.cgFmtTs = function(raw, opts) {
+        if (!raw) return null;
+        const s = String(raw).trim();
+        if (!s) return null;
+        // Truncate microseconds (6 digits) to milliseconds (3) — JS Date can't parse them
+        let norm = s.replace(/(\.\d{3})\d+/, '$1');
+        // Assume UTC when there is no explicit timezone marker after the time part
+        if (norm.includes('T') && !/[Z+\-]\d{2}:\d{2}$|Z$/.test(norm)) norm += 'Z';
+        const d = new Date(norm);
+        if (isNaN(d.getTime())) return s; // unparseable — show as-is
+        const fmtOpts = { year: 'numeric', month: 'short', day: 'numeric' };
+        if (opts && opts.time) { fmtOpts.hour = '2-digit'; fmtOpts.minute = '2-digit'; }
+        try { return d.toLocaleString(undefined, fmtOpts); } catch { return s; }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('time[data-cg-ts]').forEach(function(el) {
+            const raw = el.getAttribute('data-cg-ts');
+            const withTime = el.hasAttribute('data-cg-ts-time');
+            const fmt = window.cgFmtTs(raw, { time: withTime });
+            if (fmt !== null) el.textContent = fmt;
+        });
+    });
     </script>
 {% block panels %}{% endblock %}
 </body>

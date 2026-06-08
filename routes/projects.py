@@ -9,7 +9,7 @@ from crucible.models import Dataset
 
 from utils.auth import get_user_client
 from utils.cache import (
-    _project_cache, _PROJECT_CACHE_TTL,
+    _project_cache,
     clear_project_cache, get_project, get_user_projects, warm_project_caches,
 )
 from utils.helpers import abbrev_name
@@ -79,9 +79,8 @@ def create_blueprint(auth):
 
         def get_stats(pid):
             cached = _project_cache.get((orcid, pid, False))
-            if cached and time.time() - cached[1] < _PROJECT_CACHE_TTL:
-                pc = cached[0]
-                return pid, len(pc.get('datasets', [])), len(pc.get('samples', []))
+            if cached is not None:
+                return pid, len(cached.get('datasets', [])), len(cached.get('samples', []))
             try:
                 with ThreadPoolExecutor(max_workers=2) as inner:
                     f_ds = inner.submit(client.datasets.count, project_id=pid)

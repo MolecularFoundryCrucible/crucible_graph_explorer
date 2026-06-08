@@ -1,3 +1,4 @@
+
 # Python-generated files
 __pycache__/
 *.py[oc]
@@ -13,3 +14,18 @@ wheels/
 .env
 example_data
 crucible-downloads
+
+# AI / dev tooling
+.claude/
+.superpowers/
+docs/superpowers/
+
+# Notebooks (research/analysis, not part of the app)
+*.ipynb
+
+# Cache files
+cache/
+
+# Mac
+.DS_Store
+.secret

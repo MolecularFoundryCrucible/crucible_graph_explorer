@@ -238,7 +238,7 @@ function toggleSidebar() {
 {% set title = project_meta.get('title') %}
 {% set pid   = pc['project_id'] %}
 
-<div class="d-flex gap-4 align-items-start" style="max-width: calc(860px + 1.5rem + 220px);">
+<div class="d-flex gap-4 align-items-start">
 <div style="max-width: 860px; flex: 1; min-width: 0;">
 
     <!-- ── project header card ────────────────────────────────────────── -->
@@ -320,7 +320,7 @@ function toggleSidebar() {
       </div>
 
       <!-- ── controls bar ──────────────────────────────────────────────────── -->
-      <div id="ctrlBar" class="d-flex align-items-center gap-1 px-2 border border-top-0 rounded-bottom"
+      <div id="ctrlBar" class="d-flex align-items-center gap-1 px-2 border border-top-0 rounded-bottom flex-wrap"
            style="background:var(--bs-tertiary-bg); min-height:2rem;">
 
         <button class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
@@ -336,8 +336,8 @@ function toggleSidebar() {
             <span class="d-none d-lg-inline">Collapse</span>
         </button>
 
-        <div class="ms-auto d-flex align-items-center gap-2">
-            <span class="text-muted" style="font-size: var(--fs-xs); white-space:nowrap; letter-spacing:0.03em;">Group</span>
+        <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
+            <span class="text-muted d-none d-md-inline" style="font-size: var(--fs-xs); white-space:nowrap; letter-spacing:0.03em;">Group</span>
             <select class="form-select form-select-sm" id="sampleGroupBySelect"
                     style="font-size: var(--fs-sm); width:auto; padding-top:0.15rem; padding-bottom:0.15rem;"
                     onclick="event.stopPropagation()" onchange="onSettingChange()">
@@ -355,7 +355,7 @@ function toggleSidebar() {
                 <option value="owner_orcid">Owner</option>
                 <option value="timestamp">Date</option>
             </select>
-            <span class="text-muted" style="font-size: var(--fs-xs); white-space:nowrap; letter-spacing:0.03em;">Sort</span>
+            <span class="text-muted d-none d-md-inline" style="font-size: var(--fs-xs); white-space:nowrap; letter-spacing:0.03em;">Sort</span>
             <select class="form-select form-select-sm" id="sampleSortBySelect"
                     style="font-size: var(--fs-sm); width:auto; padding-top:0.15rem; padding-bottom:0.15rem;"
                     onclick="event.stopPropagation()" onchange="onSettingChange()">
@@ -569,7 +569,7 @@ function toggleSidebar() {
         if (!val) return '(no date)';
         const d = new Date(val);
         if (isNaN(d)) return '(no date)';
-        return MONTH_NAMES[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+        return MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear();
     }
 
     const CROSS_PROJECT_LABEL = 'Linked from other projects';

@@ -267,7 +267,7 @@
                         <span class="mfid">{{ item.pid }}</span>
                     </div>
                 </div>
-                <span class="text-muted small text-nowrap flex-shrink-0">{{ item.ts | humanize_date }}</span>
+                <time class="text-muted small text-nowrap flex-shrink-0" data-cg-ts="{{ item.ts }}">{{ item.ts }}</time>
             {% if item.pid %}</a>{% else %}</div>{% endif %}
             {% endfor %}
             {% if activity | length > 20 %}
@@ -378,7 +378,7 @@
                     </div>
                 </div>
                 {% if ds.get('timestamp') %}
-                <span class="text-muted small text-nowrap flex-shrink-0">{{ ds['timestamp'] | humanize_date }}</span>
+                <time class="text-muted small text-nowrap flex-shrink-0" data-cg-ts="{{ ds['timestamp'] }}">{{ ds['timestamp'] }}</time>
                 {% endif %}
                 <span class="mfid small text-nowrap flex-shrink-0">{{ ds['unique_id'] }}</span>
             </a>
@@ -419,7 +419,7 @@
                     </div>
                 </div>
                 {% if s.get('timestamp') %}
-                <span class="text-muted small text-nowrap flex-shrink-0">{{ s['timestamp'] | humanize_date }}</span>
+                <time class="text-muted small text-nowrap flex-shrink-0" data-cg-ts="{{ s['timestamp'] }}">{{ s['timestamp'] }}</time>
                 {% endif %}
                 <span class="mfid small text-nowrap flex-shrink-0">{{ s['unique_id'] }}</span>
             </a>

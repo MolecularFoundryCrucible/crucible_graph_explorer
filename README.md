@@ -93,3 +93,51 @@ needed after the initial setup.
 
 No changes to application code are required. `gcsfs.GCSFileSystem()` with no
 arguments authenticates via the GCP metadata server when running on Cloud Run.
+
+# LLM Access via GCP VertexAI
+
+In order for LLM chat interface `routes/chat.py` to work we need to connect 
+to an LLM provider. 
+
+### Run Once to add service account to Vertex AI:
+
+Grant Vertex AI access to the service account:
+```sh
+gcloud projects add-iam-policy-binding mf-crucible \
+--member="serviceAccount:graph-explorer-cloudrun@mf-crucible.iam.gserviceaccount.com" \
+--role="roles/aiplatform.user"
+```
+
+Enable the Vertex AI API (if not already):
+```sh
+gcloud services enable aiplatform.googleapis.com --project=mf-crucible
+```
+
+### Local testing — two options:
+
+Option A — your own credentials (simplest, but you need aiplatform.user on your account too):
+```sh
+gcloud auth application-default login
+```
+
+Option B — impersonate the service account exactly as Cloud Run does (recommended for parity):
+
+#### One-time: give your account permission to impersonate the SA
+```sh
+gcloud iam service-accounts add-iam-policy-binding \
+graph-explorer-cloudrun@mf-crucible.iam.gserviceaccount.com \
+--member="user:YOUR_GOOGLE_ACCOUNT@lbl.gov" \
+--role="roles/iam.serviceAccountTokenCreator"
+```
+
+#### Then locally:
+```sh
+gcloud auth application-default login \
+--impersonate-service-account=graph-explorer-cloudrun@mf-crucible.iam.gserviceaccount.com
+
+gcloud iam service-accounts keys create .secret/graph-explorer-sa-key.json \
+--iam-account=graph-explorer-cloudrun@mf-crucible.iam.gserviceaccount.com
+```
+
+After either option, make sure your local .env has `VERTEX_PROJECT_ID=mf-crucible` and `VERTEX_REGION=us-central1` (matching .env.example).
+

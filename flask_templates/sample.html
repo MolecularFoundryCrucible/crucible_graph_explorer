@@ -51,7 +51,7 @@
 {# ── Basic view ── #}
 {{ mrow("Type",        s.get('sample_type')) }}
 {{ mrow_link("Project", s.get('project_id'), '/' + (s.get('project_id') or '') + '/') }}
-{{ mrow("Timestamp",   s.get('timestamp') | humanize_date) }}
+<div class="meta-row"><span class="meta-key">Timestamp</span><span class="text-break">{% if s.get('timestamp') %}<time data-cg-ts="{{ s['timestamp'] }}" data-cg-ts-time>{{ s['timestamp'] }}</time>{% else %}<span class="text-muted">—</span>{% endif %}</span></div>
 {{ mrow("Description", s.get('description')) }}
 
 {# ── Advanced toggle button ── #}
@@ -79,16 +79,16 @@
         <span class="meta-divider-label">Dates</span>
         <div class="meta-divider-line"></div>
     </div>
-    {{ mrow("Created",  s.get('creation_time') | humanize_date) }}
-    {{ mrow("Modified", s.get('modification_time') | humanize_date) }}
+    <div class="meta-row"><span class="meta-key">Created</span><span class="text-break">{% if s.get('creation_time') %}<time data-cg-ts="{{ s['creation_time'] }}" data-cg-ts-time>{{ s['creation_time'] }}</time>{% else %}<span class="text-muted">—</span>{% endif %}</span></div>
+    <div class="meta-row"><span class="meta-key">Modified</span><span class="text-break">{% if s.get('modification_time') %}<time data-cg-ts="{{ s['modification_time'] }}" data-cg-ts-time>{{ s['modification_time'] }}</time>{% else %}<span class="text-muted">—</span>{% endif %}</span></div>
 </div>
 {% endblock %}
 
 {% block graph_section_title %}Sample Graph{% endblock %}
 
 {% block extra_graph_buttons %}
-<button id="toggleDatasetsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);">
-    <i class="bi bi-database me-1"></i>Show Datasets
+<button id="toggleDatasetsBtn" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: var(--fs-sm);" title="Toggle datasets">
+    <i class="bi bi-database"></i><span class="d-none d-lg-inline ms-1">Show Datasets</span>
 </button>
 {% endblock %}
 
