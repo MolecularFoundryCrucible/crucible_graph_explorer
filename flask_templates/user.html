@@ -12,7 +12,7 @@
 
 {% block breadcrumb %}
     {% if not is_own_profile %}
-    <li class="breadcrumb-item"><a href="/users">Users</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/users">Users</a></li>
     {% endif %}
     <li class="breadcrumb-item active" aria-current="page">
         {% if is_own_profile %}My Profile{% else %}{{ display }}{% endif %}
@@ -254,7 +254,7 @@
         <div class="rounded border overflow-hidden mb-4">
             {% for item in activity[:20] %}
             {% if item.pid %}
-            <a class="list-row" href="/{{ item.pid }}/{{ 'datasets' if item.type == 'dataset' else 'samples' }}/{{ item.uid }}">
+            <a class="list-row" href="{{ base }}/{{ item.pid }}/{{ 'datasets' if item.type == 'dataset' else 'samples' }}/{{ item.uid }}">
             {% else %}
             <div class="list-row" style="pointer-events:none; opacity:0.6;">
             {% endif %}
@@ -338,7 +338,7 @@
         </div>
         <div class="res-section-body">
             {% for p in shared_projects %}
-            <a class="list-row" href="/{{ p['project_id'] }}/">
+            <a class="list-row" href="{{ base }}/{{ p['project_id'] }}/">
                 <div style="flex:1; min-width:0;">
                     <div class="fw-medium">{{ p.get('title') or p['project_id'] }}</div>
                     {% if p.get('title') %}
@@ -369,7 +369,7 @@
         <div class="res-section-body" style="display:none;">
             {% for ds in recent_datasets[:10] %}
             {% if ds.get('project_id') and ds.get('unique_id') %}
-            <a class="list-row" href="/{{ ds['project_id'] }}/datasets/{{ ds['unique_id'] }}">
+            <a class="list-row" href="{{ base }}/{{ ds['project_id'] }}/datasets/{{ ds['unique_id'] }}">
                 <div style="flex:1; min-width:0;">
                     <div class="fw-medium text-truncate">{{ ds.get('dataset_name') or ds['unique_id'] }}</div>
                     <div class="small text-muted">
@@ -409,7 +409,7 @@
             {% for s in recent_samples[:10] %}
             {% if s.get('unique_id') %}
             <a class="list-row"
-               {% if s.get('project_id') %}href="/{{ s['project_id'] }}/samples/{{ s['unique_id'] }}"{% else %}style="pointer-events:none;"{% endif %}>
+               {% if s.get('project_id') %}href="{{ base }}/{{ s['project_id'] }}/samples/{{ s['unique_id'] }}"{% else %}style="pointer-events:none;"{% endif %}>
                 <div style="flex:1; min-width:0;">
                     <div class="fw-medium text-truncate">{{ s.get('sample_name') or s['unique_id'] }}</div>
                     <div class="small text-muted">
@@ -488,7 +488,7 @@
         val.textContent = 'Loading…';
         btn.innerHTML = '<i class="bi bi-x"></i>Hide key';
         btn.onclick = hideApiKey;
-        fetch('/account/apikey')
+        fetch('{{ base }}/account/apikey')
             .then(r => r.json())
             .then(data => {
                 val.textContent = data.api_key || 'No key available.';

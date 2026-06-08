@@ -1,4 +1,4 @@
-{% from 'macros.html' import mrow, mrow_link, section_metadata, deletion_banner, resource_sidebar, resource_card_identity %}
+{% from 'macros.html' import mrow, mrow_link, section_metadata, deletion_banner, resource_sidebar, resource_card_identity with context %}
 {% extends "base.html" %}
 {% block title %}{{ res_name }}{% endblock %}
 
@@ -26,7 +26,7 @@
 {% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/{{pid}}/">{{pid}}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{pid}}/">{{pid}}</a></li>
     <li class="breadcrumb-item active" aria-current="page">{{res_name}}</li>
 {% endblock %}
 
@@ -53,13 +53,13 @@
       {% set gb_q = ('?' ~ groupby_param ~ '=' ~ _gb) if _gb else '' %}
       {% if sibling_count > 1 %}
         {% if prev_sibling %}
-        <a class="cg-sib-btn" href="/{{pid}}/{{res_url_seg}}/{{prev_sibling['unique_id']}}{{gb_q}}" title="{{prev_sibling[rel_item_name_field]}}"><i class="bi bi-chevron-left"></i></a>
+        <a class="cg-sib-btn" href="{{ base }}/{{pid}}/{{res_url_seg}}/{{prev_sibling['unique_id']}}{{gb_q}}" title="{{prev_sibling[rel_item_name_field]}}"><i class="bi bi-chevron-left"></i></a>
         {% else %}
         <button class="cg-sib-btn" disabled><i class="bi bi-chevron-left"></i></button>
         {% endif %}
         <span class="cg-sib-label">{{sibling_index}}&thinsp;/&thinsp;{{sibling_count}}{% if sibling_label %}<span class="cg-sib-type">{{sibling_label}}</span>{% endif %}</span>
         {% if next_sibling %}
-        <a class="cg-sib-btn" href="/{{pid}}/{{res_url_seg}}/{{next_sibling['unique_id']}}{{gb_q}}" title="{{next_sibling[rel_item_name_field]}}"><i class="bi bi-chevron-right"></i></a>
+        <a class="cg-sib-btn" href="{{ base }}/{{pid}}/{{res_url_seg}}/{{next_sibling['unique_id']}}{{gb_q}}" title="{{next_sibling[rel_item_name_field]}}"><i class="bi bi-chevron-right"></i></a>
         {% else %}
         <button class="cg-sib-btn" disabled><i class="bi bi-chevron-right"></i></button>
         {% endif %}
@@ -67,7 +67,7 @@
         <div id="sibJumpDropdown" class="cg-sib-dropdown" style="display:none;">
           {% for sib in siblings %}
           <a class="cg-sib-item {% if sib['unique_id'] == res['unique_id'] %}active{% endif %}"
-             href="/{{pid}}/{{res_url_seg}}/{{sib['unique_id']}}{{gb_q}}">{{sib[rel_item_name_field]}}</a>
+             href="{{ base }}/{{pid}}/{{res_url_seg}}/{{sib['unique_id']}}{{gb_q}}">{{sib[rel_item_name_field]}}</a>
           {% endfor %}
         </div>
       {% endif %}
@@ -164,7 +164,7 @@
 
     function goBackToProject() {
         const stored = localStorage.getItem('cg_overview_state_' + _PID);
-        window.location.href = '/' + _PID + '/' + (stored || '');
+        window.location.href = '{{ base }}/' + _PID + '/' + (stored || '');
     }
 
     const resColor = hashColor({{ (res_type or res_name) | tojson }});
@@ -255,7 +255,7 @@
       <div class="res-section-body">
         {% set _parent_ltype = 'sample_parent' if rel_item_url_seg == 'samples' else 'dataset_parent' %}
         {% for item in rel_parents %}
-        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')"
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '{{ base }}/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')"
              data-link-type="{{_parent_ltype}}" data-source-id="{{res['unique_id']}}" data-target-id="{{item['unique_id']}}" data-pid="{{pid}}">
           <i class="bi {{ rel_item_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0;"></i>
           <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
@@ -278,7 +278,7 @@
       <div class="res-section-body">
         {% set _child_ltype = 'sample_child' if rel_item_url_seg == 'samples' else 'dataset_child' %}
         {% for item in rel_children %}
-        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')"
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '{{ base }}/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')"
              data-link-type="{{_child_ltype}}" data-source-id="{{res['unique_id']}}" data-target-id="{{item['unique_id']}}" data-pid="{{pid}}">
           <i class="bi {{ rel_item_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0;"></i>
           <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
@@ -301,7 +301,7 @@
       <div class="res-section-body">
         {% set _assoc_ltype = 'linked_dataset' if rel_assoc_url_seg == 'datasets' else 'linked_sample' %}
         {% for item in rel_associated %}
-        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_assoc_url_seg}}/{{item['unique_id']}}')"
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '{{ base }}/{{pid}}/{{rel_assoc_url_seg}}/{{item['unique_id']}}')"
              data-link-type="{{_assoc_ltype}}" data-source-id="{{res['unique_id']}}" data-target-id="{{item['unique_id']}}" data-pid="{{pid}}">
           <i class="bi {{ rel_assoc_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0;"></i>
           <span class="rel-item-name">
@@ -327,7 +327,7 @@
       </div>
       <div class="res-section-body" style="display:none;">
         {% for item in rel_indirect_parents %}
-        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')">
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '{{ base }}/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')">
           <i class="bi {{ rel_item_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0; opacity:0.6;"></i>
           <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
         </div>
@@ -347,7 +347,7 @@
       </div>
       <div class="res-section-body" style="display:none;">
         {% for item in rel_indirect_children %}
-        <div class="rel-item" onmouseup="navIfNoSelection(event, '/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')">
+        <div class="rel-item" onmouseup="navIfNoSelection(event, '{{ base }}/{{pid}}/{{rel_item_url_seg}}/{{item['unique_id']}}')">
           <i class="bi {{ rel_item_icon }}" style="font-size: var(--fs-xs); color:var(--cg-accent-mid); flex-shrink:0; opacity:0.6;"></i>
           <span class="rel-item-name"><span class="rel-item-name-text">{{item[rel_item_name_field]}}</span><span class="rel-item-sub mfid">{{item['unique_id']}}</span></span>
         </div>

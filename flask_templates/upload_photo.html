@@ -2,8 +2,8 @@
 {% block title %}Upload Photo — {{ sample['sample_name'] }}{% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/{{ pc['project_id'] }}/">{{ pc['project_id'] }}</a></li>
-    <li class="breadcrumb-item"><a href="/{{ pc['project_id'] }}/samples/{{ sample['unique_id'] }}">{{ sample['sample_name'] }}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{ pc['project_id'] }}/">{{ pc['project_id'] }}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{ pc['project_id'] }}/samples/{{ sample['unique_id'] }}">{{ sample['sample_name'] }}</a></li>
     <li class="breadcrumb-item active" aria-current="page">Upload Photo</li>
 {% endblock %}
 
@@ -50,7 +50,7 @@
 <!-- ── Result view ────────────────────────────────────────── -->
 <div id="resultSection" style="display:none;">
     <div class="alert alert-success mb-3" id="resultAlert"></div>
-    <a href="/{{ pc['project_id'] }}/samples/{{ sample['unique_id'] }}/upload-photo"
+    <a href="{{ base }}/{{ pc['project_id'] }}/samples/{{ sample['unique_id'] }}/upload-photo"
        class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Upload another
     </a>
@@ -78,7 +78,7 @@ $('uploadForm').addEventListener('submit', async function (e) {
     const fd = new FormData(this);
     let resp, data;
     try {
-        resp = await fetch(`/${PROJECT_ID}/samples/${SAMPLE_ID}/upload-photo`,
+        resp = await fetch(`{{ base }}/${PROJECT_ID}/samples/${SAMPLE_ID}/upload-photo`,
                           { method: 'POST', body: fd });
         data = await resp.json();
     } catch (err) {
@@ -87,7 +87,7 @@ $('uploadForm').addEventListener('submit', async function (e) {
     if (!resp.ok || data.error) { showError(data.error || `HTTP ${resp.status}`); return; }
 
     $('formSection').style.display = 'none';
-    const dsLink = `<a href="/${data.project_id}/datasets/${data.dataset_id}"
+    const dsLink = `<a href="{{ base }}/${data.project_id}/datasets/${data.dataset_id}"
                        class="alert-link font-monospace">${data.dataset_id}</a>`;
     $('resultAlert').innerHTML =
         `<h5 class="alert-heading mb-1">Done</h5>` +

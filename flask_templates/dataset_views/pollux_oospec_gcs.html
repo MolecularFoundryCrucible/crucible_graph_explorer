@@ -7,8 +7,8 @@
 {% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
-    <li class="breadcrumb-item"><a href="/{{project_id}}/datasets/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{project_id}}/datasets/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
     <li class="breadcrumb-item active" aria-current="page">Spectra Plot</li>
 {% endblock %}
 
@@ -16,7 +16,7 @@
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h1 class="fs-4 fw-semibold mb-0" style="overflow-wrap: break-word;">{{ds['dataset_name']}}</h1>
-    <a href="/{{project_id}}/datasets/{{ds['unique_id']}}"
+    <a href="{{ base }}/{{project_id}}/datasets/{{ds['unique_id']}}"
        class="btn btn-sm btn-outline-secondary flex-shrink-0">
         <i class="bi bi-database me-1"></i>Dataset
     </a>
@@ -65,18 +65,159 @@
 </div>
 
 <script>
+// --- HDF5 parsing helpers (mirror the old server-side _parse_h5) ---
+const H5WASM_URL = 'https://cdn.jsdelivr.net/npm/h5wasm@0.10.2/dist/esm/hdf5_hl.js';
+const H5_BASE = 'measurement/pollux_oospec_multipos_line_scan';
+
+const getAttr = (obj, name, dflt) => {
+    if (!obj) return dflt;
+    const a = obj.attrs[name];
+    if (a === undefined || a === null) return dflt;
+    const v = (typeof a === 'object' && 'value' in a) ? a.value : a;
+    return (v === undefined || v === null) ? dflt : v;
+};
+
+// Read a position field stored either as a dataset child or an attribute.
+const getField = (f, grp, pPath, name, dflt) => {
+    if (grp.keys().includes(name)) {
+        const v = f.get(`${pPath}/${name}`).value;
+        return (Array.isArray(v) || ArrayBuffer.isView(v)) ? v[0] : v;
+    }
+    return getAttr(grp, name, dflt);
+};
+
+// Read a dataset as an array of plain-number rows, regardless of whether
+// h5wasm returns a flat typed array or nested rows.
+const read2D = (dataset) => {
+    const val = dataset.value;
+    const shape = dataset.shape;
+    if (shape.length === 2 && typeof val[0] === 'number') {
+        const [rows, cols] = shape;
+        const out = [];
+        for (let r = 0; r < rows; r++) {
+            const row = new Array(cols);
+            for (let c = 0; c < cols; c++) row[c] = val[r * cols + c];
+            out.push(row);
+        }
+        return out;
+    }
+    return Array.from(val, (r) => Array.from(r));
+};
+
+// Column-wise mean ignoring NaN (np.nanmean over axis 0).
+const colMeanNan = (rows) => {
+    const nCols = rows.length ? rows[0].length : 0;
+    const out = new Array(nCols);
+    for (let c = 0; c < nCols; c++) {
+        let sum = 0, cnt = 0;
+        for (let r = 0; r < rows.length; r++) {
+            const v = rows[r][c];
+            if (Number.isFinite(v)) { sum += v; cnt++; }
+        }
+        out[c] = cnt ? sum / cnt : NaN;
+    }
+    return out;
+};
+
+const safeDenomFrom = (blank, dark) => blank.map((b, i) => {
+    const d = b - dark[i];
+    return Math.abs(d) > 1e-6 ? d : NaN;
+});
+
+const parsePollux = (f) => {
+    const wavelengths = Array.from(f.get(`${H5_BASE}/wavelengths`).value);
+    const posGroup = f.get(`${H5_BASE}/positions`);
+    const posNames = posGroup.keys().slice().sort();
+
+    // New-format files store per-point spectra in `spectral_data` and share a
+    // single dark/blank reference (by position index) across all positions;
+    // those reference positions are excluded from the output. Old-format files
+    // carry per-position raw/dark/blank intensity datasets.
+    const firstGrp = f.get(`${H5_BASE}/positions/${posNames[0]}`);
+    const newFormat = firstGrp.keys().includes('spectral_data');
+
+    let sharedDark = null, sharedDenom = null;
+    const refIndices = new Set();
+    if (newFormat) {
+        const settings = f.get(`${H5_BASE}/settings`);
+        const darkIdx  = Number(getAttr(settings, 'dark_idx', 0));
+        const blankIdx = Number(getAttr(settings, 'blank_idx', 1));
+        const darkRows  = read2D(f.get(`${H5_BASE}/positions/${posNames[darkIdx]}/spectral_data`));
+        const blankRows = read2D(f.get(`${H5_BASE}/positions/${posNames[blankIdx]}/spectral_data`));
+        sharedDark  = colMeanNan(darkRows);
+        sharedDenom = safeDenomFrom(colMeanNan(blankRows), sharedDark);
+        refIndices.add(darkIdx).add(blankIdx);
+    }
+
+    const positions = [];
+    posNames.forEach((posName, idx) => {
+        if (refIndices.has(idx)) return;
+        const pPath = `${H5_BASE}/positions/${posName}`;
+        const grp = f.get(pPath);
+
+        let raw, dark, safeDenom;
+        if (newFormat) {
+            raw = read2D(f.get(`${pPath}/spectral_data`));   // (n_pts, n_wl)
+            dark = sharedDark;
+            safeDenom = sharedDenom;
+        } else {
+            raw  = read2D(f.get(`${pPath}/raw_intensities`));              // (n_pts, n_wl)
+            dark = Array.from(f.get(`${pPath}/dark_intensities`).value);  // (n_wl,)
+            const blank = Array.from(f.get(`${pPath}/blank_intensities`).value); // (n_wl,)
+            safeDenom = safeDenomFrom(blank, dark);
+        }
+
+        const darkCorrected = raw.map((row) => row.map((v, i) => v - dark[i]));
+        const reflectance   = raw.map((row) => row.map((v, i) => (v - dark[i]) / safeDenom[i]));
+
+        positions.push({
+            pos_name:    posName,
+            sample_name: String(getField(f, grp, pPath, 'sample_name', posName)),
+            sample_uuid: String(getField(f, grp, pPath, 'sample_uuid', '')),
+            tray_name:   String(getField(f, grp, pPath, 'tray_name', '')),
+            integration_time: Number(getField(f, grp, pPath, 'integration_time', 0)),
+            x_center: Number(getField(f, grp, pPath, 'x_center', 0)),
+            y_center: Number(getField(f, grp, pPath, 'y_center', 0)),
+            mean_raw:            colMeanNan(raw),
+            mean_dark_corrected: colMeanNan(darkCorrected),
+            mean_reflectance:    colMeanNan(reflectance),
+            all_raw:            raw,
+            all_dark_corrected: darkCorrected,
+            all_reflectance:    reflectance.map((row) => row.map((v) => (Number.isFinite(v) ? v : null))),
+        });
+    });
+
+    return { wavelengths, positions };
+};
+
 (async () => {
     const dsid = {{ ds['unique_id'] | tojson }};
     const projectId = {{ project_id | tojson }};
-    const dataUrl = `/dataset-view/pollux-oospec-gcs/${projectId}/${dsid}/data`;
+    const fileUrlEndpoint = cgUrl(`/dataset-view/pollux-oospec-gcs/${projectId}/${dsid}/file-url`);
 
-    // --- Fetch data ---
+    // --- Get a signed URL, fetch the .h5 straight from the bucket, parse in-browser ---
     let payload;
     try {
-        const resp = await fetch(dataUrl);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        payload = await resp.json();
-        if (payload.error) throw new Error(payload.error);
+        const metaResp = await fetch(fileUrlEndpoint);
+        if (!metaResp.ok) throw new Error(`file-url HTTP ${metaResp.status}`);
+        const meta = await metaResp.json();
+        if (meta.error) throw new Error(meta.error);
+
+        const fileResp = await fetch(meta.url);
+        if (!fileResp.ok) throw new Error(`bucket HTTP ${fileResp.status}`);
+        const buf = await fileResp.arrayBuffer();
+
+        const h5wasm = await import(H5WASM_URL);
+        const { FS } = await h5wasm.ready;
+        const fname = meta.filename || 'data.h5';
+        FS.writeFile(fname, new Uint8Array(buf));
+        const f = new h5wasm.File(fname, 'r');
+        try {
+            payload = parsePollux(f);
+        } finally {
+            f.close();
+            FS.unlink(fname);
+        }
     } catch (e) {
         document.getElementById('loading').classList.add('d-none');
         const el = document.getElementById('load-error');

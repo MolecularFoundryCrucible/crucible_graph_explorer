@@ -31,7 +31,7 @@
 {% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a></li>
     <li class="breadcrumb-item active" aria-current="page">Project Graph</li>
 {% endblock %}
 
@@ -73,7 +73,7 @@
             <button id="confirmGraph" class="btn btn-sm btn-warning">
                 <i class="bi bi-diagram-3 me-1"></i>Render anyway
             </button>
-            <a href="/{{pc['project_id']}}/" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ base }}/{{pc['project_id']}}/" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>Back to project
             </a>
         </div>
@@ -98,7 +98,7 @@
 
   async function loadAndRender() {
     document.getElementById('graphWrap').style.display = '';
-    const response = await fetch('/{{pc["project_id"]}}/api/project-graph-data');
+    const response = await fetch('{{ base }}/{{pc["project_id"]}}/api/project-graph-data');
     const graphData = await response.json();
 
     document.getElementById('toggleLayoutBtn').disabled = false;

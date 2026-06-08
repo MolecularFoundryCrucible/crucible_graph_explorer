@@ -28,7 +28,7 @@
     <i class="bi bi-search me-2 text-secondary"></i>Global Search
 </h1>
 
-<form method="get" action="/search" class="mb-4">
+<form method="get" action="{{ base }}/search" class="mb-4">
     <div class="input-group">
         <input type="search" name="q" class="form-control form-control-lg"
                placeholder="Search samples and datasets across all projects…"
@@ -61,7 +61,7 @@
         {% if sample_results %}
         <div class="border rounded overflow-hidden">
             {% for s in sample_results %}
-            <a href="{{ s['_url'] }}" class="list-row">
+            <a href="{{ base }}{{ s['_url'] }}" class="list-row">
                 <div class="fw-medium text-truncate">{{ s.get('sample_name') | e }}</div>
                 <div class="small text-muted d-flex gap-2 flex-wrap mt-1">
                     {% if s.get('sample_type') %}<span>{{ s['sample_type'] | e }}</span>{% endif %}
@@ -85,7 +85,7 @@
         {% if dataset_results %}
         <div class="border rounded overflow-hidden">
             {% for d in dataset_results %}
-            <a href="{{ d['_url'] }}" class="list-row">
+            <a href="{{ base }}{{ d['_url'] }}" class="list-row">
                 <div class="fw-medium text-truncate">{{ d.get('dataset_name') | e }}</div>
                 <div class="small text-muted d-flex gap-2 flex-wrap mt-1">
                     {% if d.get('measurement') %}<span>{{ d['measurement'] | e }}</span>{% endif %}

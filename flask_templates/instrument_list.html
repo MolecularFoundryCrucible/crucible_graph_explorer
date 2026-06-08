@@ -131,7 +131,7 @@ function applyFilter() {
         const items = groups[type];
         const color = hashColor(type);
         const rows = items.map(inst => {
-            const url = `/instrument/${esc(inst.unique_id || '')}`;
+            const url = `{{ base }}/instrument/${esc(inst.unique_id || '')}`;
             const name = esc(inst.instrument_name || inst.unique_id || '');
             const mfr  = [inst.manufacturer, inst.model].filter(Boolean).map(esc).join(' · ');
             const loc  = inst.location ? `<i class="bi bi-geo-alt" style="font-size: var(--fs-xs);"></i> ${esc(inst.location)}` : '';

@@ -61,7 +61,7 @@
 <div class="mb-4 proj-section">
     <div class="proj-header" data-hash-color="{{ p['project_id'] }}">
         <i class="bi bi-collection text-muted" style="font-size: var(--fs-sm);"></i>
-        <a href="/{{ p['project_id'] }}/" class="text-decoration-none text-body fw-semibold">
+        <a href="{{ base }}/{{ p['project_id'] }}/" class="text-decoration-none text-body fw-semibold">
             {{ title if title and title != p['project_id'] else p['project_id'] }}
         </a>
         {% if title and title != p['project_id'] %}
@@ -84,7 +84,7 @@
         {% set initials = ((first[:1] if first else '') ~ (last[:1] if last else '')) | upper or '?' %}
         {% set uid = m.get('unique_id') %}
         {% if uid %}
-        <a class="list-row" href="/user/{{ uid }}"
+        <a class="list-row" href="{{ base }}/user/{{ uid }}"
            data-search="{{ (name ~ ' ' ~ email ~ ' ' ~ uid).lower() }}"
            data-orcid="{{ uid }}">
         {% else %}

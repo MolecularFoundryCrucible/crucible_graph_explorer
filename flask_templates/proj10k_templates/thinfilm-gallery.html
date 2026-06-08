@@ -2,7 +2,7 @@
 {% block title %}Thin Film Gallery — {{ project_id }}{% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/{{ project_id }}/"><b>Project</b> {{ project_id }}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{ project_id }}/"><b>Project</b> {{ project_id }}</a></li>
     <li class="breadcrumb-item active" aria-current="page">Thin Film Gallery</li>
 {% endblock %}
 
@@ -16,7 +16,7 @@
 <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 row-cols-xl-6 g-3">
 {% for thumb in tf_thumbs %}
 <div class="col">
-    <a href="{{ thumb['sample_url'] }}" class="text-decoration-none">
+    <a href="{{ base }}{{ thumb['sample_url'] }}" class="text-decoration-none">
         <div class="card h-100 border" style="overflow:hidden;">
             {% if thumb.get('thumbnail_b64str') %}
             <img src="data:image/png;base64,{{ thumb['thumbnail_b64str'] }}"

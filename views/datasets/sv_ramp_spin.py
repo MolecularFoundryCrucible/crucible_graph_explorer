@@ -181,7 +181,7 @@ def create_blueprint(auth, helpers):
             sv_array=sv_array, imavg_up=imavg_up,
             imavg_down=imavg_down, asym_array=asym_array,
             n_frames=n_frames,
-            base_url=f'{URL_PREFIX}/local/{filename}',
+            base_url=f'{request.script_root}{URL_PREFIX}/local/{filename}',
         )
 
     @bp.route('/local/<filename>/frame')
@@ -220,7 +220,7 @@ def create_blueprint(auth, helpers):
             sv_array=meta['sv_array'], imavg_up=meta['imavg_up'],
             imavg_down=meta['imavg_down'], asym_array=meta['asym_array'],
             n_frames=meta['n_frames'],
-            base_url=f'{URL_PREFIX}/{project_id}/{dsid}',
+            base_url=f'{request.script_root}{URL_PREFIX}/{project_id}/{dsid}',
         )
 
     @bp.route('/<project_id>/<dsid>/frame')

@@ -6,7 +6,7 @@
 {% set res_url_seg = 'samples' %}
 {% set res_card_id = 'sampleCard' %}
 {% set res_icon = 'bi-flask' %}
-{% set graph_fetch_url = '/' ~ pid ~ '/api/entity-graph-data/sample/' ~ s['unique_id'] %}
+{% set graph_fetch_url = base ~ '/' ~ pid ~ '/api/entity-graph-data/sample/' ~ s['unique_id'] %}
 {% set has_dataset_toggle = true %}
 {% set groupby_param = 'sgb' %}
 {% set groupby_default = 'sample_type' %}
@@ -25,7 +25,7 @@
 {% set rel_assoc_name_field = 'dataset_name' %}
 {% set rel_assoc_sub_field = 'measurement' %}
 
-{% from 'macros.html' import mrow, mrow_link, section_metadata, deletion_banner, resource_sidebar, resource_card_identity %}
+{% from 'macros.html' import mrow, mrow_link, section_metadata, deletion_banner, resource_sidebar, resource_card_identity with context %}
 {% extends "resource_base.html" %}
 
 {% block title %}{{s['sample_name']}}{% endblock %}
@@ -114,7 +114,7 @@
                  onclick="cgLbOpenSection(this)"
                  alt="{{ds['dataset_name']}}"
                  class="cg-thumb" style="width:120px;height:120px;">
-            <a href="/{{pid}}/datasets/{{dsid}}" class="text-decoration-none" title="{{ds['dataset_name']}}">
+            <a href="{{ base }}/{{pid}}/datasets/{{dsid}}" class="text-decoration-none" title="{{ds['dataset_name']}}">
                 <div class="small text-muted text-center mt-1" style="width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ds['dataset_name']}}</div>
             </a>
         </div>
@@ -138,7 +138,7 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for ds in s['datasets'] %}
-        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{pid}}/datasets/{{ds["unique_id"]}}')">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '{{ base }}/{{pid}}/datasets/{{ds["unique_id"]}}')">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{ds['dataset_name']}}</span>
             {% if ds.get('measurement') %}
             <span class="badge fw-normal border text-body-secondary flex-shrink-0 me-2"
@@ -165,7 +165,7 @@
     <div class="res-section-body" style="display:none;">
         {%- macro anc_row(anc) -%}
         {%- set aname = anc['sample_name'] -%}
-        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{pid}}/samples/{{anc["unique_id"]}}')">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '{{ base }}/{{pid}}/samples/{{anc["unique_id"]}}')">
             <div style="flex:1; min-width:8rem;">
                 <div class="fw-medium">{{aname}}</div>
                 <div class="small text-muted text-truncate">
@@ -201,7 +201,7 @@
     <div class="res-section-body" style="display:none;">
         {%- macro desc_row(desc) -%}
         {%- set dname = desc['sample_name'] -%}
-        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{pid}}/samples/{{desc["unique_id"]}}')">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '{{ base }}/{{pid}}/samples/{{desc["unique_id"]}}')">
             <div style="flex:1; min-width:8rem;">
                 <div class="fw-medium">{{dname}}</div>
                 <div class="small text-muted text-truncate">
