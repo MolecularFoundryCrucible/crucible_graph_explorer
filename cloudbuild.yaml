@@ -33,7 +33,7 @@ steps:
       - '--set-env-vars'
       - >-
         URL_PREFIX=/explore,
-        OIDC_REDIRECT_URI=https://crucible.lbl.gov/explore/redirect_uri,
+        OIDC_REDIRECT_URI=https://${_SERVICE_NAME}-${PROJECT_NUMBER}.us-central1.run.app/redirect_uri,
         CHAT_MODEL=${_CHAT_MODEL},
         VERTEX_PROJECT_ID=${PROJECT_ID},
         VERTEX_REGION=${_REGION},
