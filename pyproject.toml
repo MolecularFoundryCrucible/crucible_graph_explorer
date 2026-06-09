@@ -23,7 +23,6 @@ dependencies = [
     "fsspec>=2026.2.0",
     "ncempy>=1.15",
     "cachetools>=5.0.0",
-    "nano-crucible>=2.1.2",
     "pydantic-ai>=1.103.0",
     "vertexai>=1.43.0",
 ]
