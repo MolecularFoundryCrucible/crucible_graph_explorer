@@ -434,7 +434,7 @@
         icon.className = 'bi bi-hourglass-split';
         try {
             const resp = await fetch(
-                '/{{project_id}}/datasets/{{ds["unique_id"]}}/files/' + mfid + '/download_link'
+                '{{ base }}/{{project_id}}/datasets/{{ds["unique_id"]}}/files/' + mfid + '/download_link'
             );
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             const { url } = await resp.json();
@@ -457,7 +457,7 @@
         icon.className = 'bi bi-hourglass-split';
         try {
             const resp = await fetch(
-                '/{{project_id}}/datasets/{{ds["unique_id"]}}/files/' + mfid + '/download_link'
+                '{{ base }}/{{project_id}}/datasets/{{ds["unique_id"]}}/files/' + mfid + '/download_link'
             );
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             const { url } = await resp.json();
@@ -505,7 +505,7 @@
         cgToast(`Requesting ingestion for ${fileIds.length} file${fileIds.length > 1 ? 's' : ''}…`,
                 'bi-box-arrow-in-down', 60000);
         try {
-            const resp = await fetch('/{{project_id}}/api/datasets/{{ds["unique_id"]}}/request-ingestion', {
+            const resp = await fetch('{{ base }}/{{project_id}}/api/datasets/{{ds["unique_id"]}}/request-ingestion', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ file_ids: fileIds, ingestion_class: ingestionClass }),
@@ -534,7 +534,7 @@
         cgToast(`Requesting ${label}…`, icon, 60000);
         try {
             const resp = await fetch(
-                '/{{project_id}}/api/datasets/{{ds["unique_id"]}}/' + endpoint,
+                '{{ base }}/{{project_id}}/api/datasets/{{ds["unique_id"]}}/' + endpoint,
                 { method: 'POST' }
             );
             const data = await resp.json();
