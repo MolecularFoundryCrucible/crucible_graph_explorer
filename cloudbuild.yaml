@@ -49,7 +49,7 @@ steps:
       - '--allow-unauthenticated'
 
 substitutions:
-  _SERVICE_NAME: 'crucible-graph-explorer-${BRANCH_NAME}'
+  _SERVICE_NAME: 'crucible-graph-explorer'
   _REGION: 'us-central1'
   _IMAGE_PATH: '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_SERVICE_NAME}/app'
   _SERVICE_URL: 'https://${_SERVICE_NAME}-${PROJECT_NUMBER}.us-central1.run.app'
