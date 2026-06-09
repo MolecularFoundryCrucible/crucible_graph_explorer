@@ -693,7 +693,7 @@ requires-dist = [
     { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "h5py", specifier = ">=3.15.1" },
     { name = "markdown", specifier = ">=3.7" },
-    { name = "nano-crucible", specifier = ">=2.1.2" },
+    { name = "nano-crucible", git = "https://github.com/MolecularFoundryCrucible/nano-crucible?rev=dev" },
     { name = "ncempy", specifier = ">=1.15" },
     { name = "networkx", specifier = ">=3.6.1" },
     { name = "pandas", specifier = ">=2.3.3" },
@@ -2687,7 +2687,7 @@ wheels = [
 [[package]]
 name = "nano-crucible"
 version = "2.1.2"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/MolecularFoundryCrucible/nano-crucible?rev=dev#86434909e4dc84b317442d34a53578e2e8ec569b" }
 dependencies = [
     { name = "argcomplete" },
     { name = "configupdater" },
@@ -2701,10 +2701,6 @@ dependencies = [
     { name = "pytz" },
     { name = "pyyaml" },
     { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/db/b7/24e181172b4ba3ee55bfa7e3fd00a1da6f2f69651ef87a103a15a84c8c70/nano_crucible-2.1.2.tar.gz", hash = "sha256:53e63d4f5c0fa39f13d024c8c8d759f8d2572fac46a454443afb10eb34083376", size = 135820, upload-time = "2026-05-19T20:44:09.684Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/57/d9/421062cb9b4ccc420792e9889ac0504c72448bf56eeb2288b6ead5dc02e4/nano_crucible-2.1.2-py3-none-any.whl", hash = "sha256:a599f8da76d7f79e410f80a537dcc2bc0709bb8c6aa9f701ee36414d2c0681e9", size = 164731, upload-time = "2026-05-19T20:44:07.987Z" },
 ]
 
 [[package]]
