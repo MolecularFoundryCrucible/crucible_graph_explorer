@@ -7,9 +7,11 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, redirect, render_template, request, url_for
 from flask_pyoidc import OIDCAuthentication
 from flask_pyoidc.provider_configuration import ClientMetadata, ProviderConfiguration
+from flask_pyoidc.redirect_uri_config import RedirectUriConfig
 from flask_pyoidc.user_session import UserSession
 from flask_qrcode import QRcode
 from flask_vite import Vite
+from werkzeug.middleware.proxy_fix import ProxyFix
 from crucible import CrucibleClient
 
 from utils.cache import clear_project_cache, get_project, is_user_in_project
@@ -20,6 +22,49 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__, template_folder="flask_templates")
+
+
+class PrefixMiddleware:
+    """Mount the app under a URL path prefix (e.g. /explore) behind a reverse proxy.
+
+    Sets SCRIPT_NAME so Flask's url_for() (and static/Flask-Vite assets) generate
+    prefixed URLs, and strips the prefix from PATH_INFO when the proxy passes it
+    through. A no-op when URL_PREFIX is unset, so local dev still serves at /.
+    """
+
+    def __init__(self, wsgi_app, prefix=""):
+        self.wsgi_app = wsgi_app
+        self.prefix = "/" + prefix.strip("/") if prefix.strip("/") else ""
+
+    def __call__(self, environ, start_response):
+        if not self.prefix:
+            return self.wsgi_app(environ, start_response)
+
+        environ["SCRIPT_NAME"] = self.prefix
+        path = environ.get("PATH_INFO", "")
+        if path.startswith(self.prefix):
+            environ["PATH_INFO"] = path[len(self.prefix):] or "/"
+
+        # flask-pyoidc redirects to request.full_path, which lacks SCRIPT_NAME;
+        # re-add the prefix to internal-absolute redirect targets so the proxy can route them.
+        def _fixup_start_response(status, headers, exc_info=None):
+            if status.startswith("3"):
+                headers = [
+                    (k, self.prefix + v if k.lower() == "location"
+                        and v.startswith("/") and not v.startswith("//")
+                        and not v.startswith(self.prefix + "/") and v != self.prefix
+                        else v)
+                    for k, v in headers
+                ]
+            return start_response(status, headers, exc_info)
+
+        return self.wsgi_app(environ, _fixup_start_response)
+
+
+# Honor X-Forwarded-Proto/Host from Cloud Run; PrefixMiddleware owns the path prefix.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+app.wsgi_app = PrefixMiddleware(app.wsgi_app, os.getenv("URL_PREFIX", ""))
+
 QRcode(app)
 Vite(app)
 
@@ -39,7 +84,12 @@ CLIENT_META = ClientMetadata(
     client_secret=os.getenv("ORCID_CLIENT_SECRET"),
 )
 PROVIDER_CONFIG = ProviderConfiguration(issuer='https://orcid.org/', client_metadata=CLIENT_META)
-auth = OIDCAuthentication({PROVIDER_NAME: PROVIDER_CONFIG}, app)
+# Register the redirect route at the internal endpoint `/redirect_uri` (matched after
+# SCRIPT_NAME stripping) while sending the full external URI — which may include the
+# /explore prefix — to ORCID. Default parsing would register the route at the full path.
+_REDIRECT_URI_CONFIG = RedirectUriConfig(os.getenv("OIDC_REDIRECT_URI"), "redirect_uri")
+auth = OIDCAuthentication({PROVIDER_NAME: PROVIDER_CONFIG}, app,
+                          redirect_uri_config=_REDIRECT_URI_CONFIG)
 
 
 @app.template_filter('humanize_size')
@@ -49,6 +99,12 @@ def humanize_size_filter(n):
 
 
 app.jinja_env.globals['abbrev_name'] = abbrev_name
+
+
+@app.context_processor
+def inject_base():
+    """Expose the URL path prefix (e.g. /explore) to templates as {{ base }}."""
+    return {'base': request.script_root}
 
 
 @app.context_processor
@@ -144,7 +200,7 @@ def login():
     try:
         user_session = UserSession(flask.session)
         if user_session.userinfo:
-            return redirect('/')
+            return redirect(request.script_root + '/')
     except Exception:
         pass
     return render_template('login.html')
@@ -154,7 +210,7 @@ def login():
 @auth.oidc_auth('orcid')
 def login_go():
     _fetch_user_api_key()
-    return redirect('/')
+    return redirect(request.script_root + '/')
 
 
 @app.route('/logout')
@@ -195,7 +251,7 @@ def account_setup():
                     'email':      email or None,
                 }, project_ids=[])
                 flask.session['crucible_user_ok'] = True
-                return redirect('/')
+                return redirect(request.script_root + '/')
             except Exception as e:
                 app.logger.error("Account creation failed for %s: %s", orcid, e)
                 error = 'Account creation failed. Please try again.'
@@ -243,10 +299,10 @@ def update_profile():
 
     try:
         app.admin_client.users.update(orcid, **updates)
-        return redirect(f'/user/{orcid}?updated=1')
+        return redirect(f'{request.script_root}/user/{orcid}?updated=1')
     except Exception as e:
         app.logger.error("Profile update failed for %s: %s", orcid, e)
-        return redirect(f'/user/{orcid}?update_error=1')
+        return redirect(f'{request.script_root}/user/{orcid}?update_error=1')
 
 
 @app.route('/profile')
@@ -256,7 +312,7 @@ def my_profile():
         orcid = user_session.userinfo['sub']
     except Exception:
         return redirect(url_for('login'))
-    return redirect(f'/user/{orcid}')
+    return redirect(f'{request.script_root}/user/{orcid}')
 
 
 @app.route('/account/apikey')

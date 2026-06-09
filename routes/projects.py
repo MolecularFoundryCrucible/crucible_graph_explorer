@@ -256,7 +256,7 @@ def create_blueprint(auth):
         return jsonify({
             'id':   uid,
             'name': result.get('sample_name', sample_name),
-            'url':  f'/{project_id}/samples/{uid}',
+            'url':  f'{flask.request.script_root}/{project_id}/samples/{uid}',
         })
 
     @bp.route("/<project_id>/api/datasets/create", methods=['POST'])
@@ -312,7 +312,7 @@ def create_blueprint(auth):
         return jsonify({
             'id':   uid,
             'name': dataset_name,
-            'url':  f'/{project_id}/datasets/{uid}',
+            'url':  f'{flask.request.script_root}/{project_id}/datasets/{uid}',
         })
 
     @bp.route("/<project_id>/api/samples/<sample_id>/update", methods=['PATCH'])
@@ -349,7 +349,7 @@ def create_blueprint(auth):
         return jsonify({
             'id':   uid,
             'name': result.get('sample_name', ''),
-            'url':  f'/{project_id}/samples/{uid}',
+            'url':  f'{flask.request.script_root}/{project_id}/samples/{uid}',
         })
 
     @bp.route("/<project_id>/api/datasets/<dataset_id>/update", methods=['PATCH'])
@@ -386,7 +386,7 @@ def create_blueprint(auth):
         return jsonify({
             'id':   dataset_id,
             'name': result.get('dataset_name', ''),
-            'url':  f'/{project_id}/datasets/{dataset_id}',
+            'url':  f'{flask.request.script_root}/{project_id}/datasets/{dataset_id}',
         })
 
     @bp.route("/<project_id>/api/resources/<resource_id>/request-deletion", methods=['POST'])

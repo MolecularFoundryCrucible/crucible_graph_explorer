@@ -93,7 +93,7 @@ def create_blueprint(auth):
             'description': s.get('description', ''),
             'type': s.get('sample_type', ''),
             'owner': s.get('owner_orcid', ''),
-            'url': f'/{project_id}/samples/{s["unique_id"]}'
+            'url': f'{flask.request.script_root}/{project_id}/samples/{s["unique_id"]}'
         } for s in pc['samples']]
 
         datasets_index = [{
@@ -104,7 +104,7 @@ def create_blueprint(auth):
             'session': d.get('session_name', ''),
             'owner': d.get('owner_orcid', ''),
             'metadata_str': '\n'.join(_flatten_metadata(d.get('scientific_metadata') or {})),
-            'url': f'/{project_id}/datasets/{d["unique_id"]}'
+            'url': f'{flask.request.script_root}/{project_id}/datasets/{d["unique_id"]}'
         } for d in pc['datasets']]
 
         return render_template('search.html',

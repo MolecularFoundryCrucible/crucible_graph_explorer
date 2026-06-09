@@ -8,7 +8,7 @@
 
 {% block breadcrumb %}
     <li class="breadcrumb-item active">
-        <a href="/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a>
+        <a href="{{ base }}/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a>
     </li>
 {% endblock %}
 
@@ -21,22 +21,22 @@
   <div class="cg-sidebar-content">
 
     <!-- ── navigation zone ─────────────────────────────────────────── -->
-    <a href="/" class="cg-sidebar-action cg-sidebar-home">
+    <a href="{{ base }}/" class="cg-sidebar-action cg-sidebar-home">
       <i class="bi bi-house"></i>
       <span>Dashboard</span>
     </a>
 
     <!-- ── project actions zone ────────────────────────────────────── -->
     <div class="cg-sidebar-section">
-      <a href="/{{pc['project_id']}}/search" class="cg-sidebar-action">
+      <a href="{{ base }}/{{pc['project_id']}}/search" class="cg-sidebar-action">
         <i class="bi bi-search"></i><span>Search</span>
       </a>
-      <a href="/{{pc['project_id']}}/chat" class="cg-sidebar-action">
+      <a href="{{ base }}/{{pc['project_id']}}/chat" class="cg-sidebar-action">
         <i class="bi bi-chat-dots"></i><span>Chat</span>
       </a>
       {% if custom_views %}
       {% for view in custom_views %}
-      <a href="{{ view.url }}" class="cg-sidebar-action">
+      <a href="{{ base }}{{ view.url }}" class="cg-sidebar-action">
         {% if view.icon %}<i class="bi {{ view.icon }}"></i>{% endif %}
         <span>{{ view.label }}</span>
       </a>
@@ -94,10 +94,10 @@
 
   <!-- collapsed icon rail -->
   <div class="cg-sidebar-icon-rail" id="sidebarIconRail">
-    <button class="cg-rail-btn" onclick="window.location.href='/'" title="Dashboard">
+    <button class="cg-rail-btn" onclick="window.location.href='{{ base }}/'" title="Dashboard">
       <i class="bi bi-house"></i>
     </button>
-    <button class="cg-rail-btn" onclick="window.location.href='/{{pc['project_id']}}/search'" title="Search">
+    <button class="cg-rail-btn" onclick="window.location.href='{{ base }}/{{pc['project_id']}}/search'" title="Search">
       <i class="bi bi-search"></i>
     </button>
     <button class="cg-rail-btn" onclick="cgOpenSamplePanel()" title="New Sample">
@@ -465,7 +465,7 @@ function toggleSidebar() {
             {% set tag = 'a' if u.orcid else 'div' %}
             <{{ tag }} class="member-row d-flex align-items-center gap-2 px-3 py-2 border-bottom text-decoration-none text-body"
                  style="{% if loop.last %}border-bottom:none;{% endif %}"
-                 {% if u.orcid %}href="/user/{{ u.orcid }}"{% endif %}>
+                 {% if u.orcid %}href="{{ base }}/user/{{ u.orcid }}"{% endif %}>
                 <div style="width:1.85rem; height:1.85rem; min-width:1.85rem; border-radius:50%;
                             display:flex; align-items:center; justify-content:center;
                             font-size: var(--fs-2xs); font-weight:700; color:#fff; flex-shrink:0;"
@@ -486,7 +486,7 @@ function toggleSidebar() {
             {% endfor %}
 
             <div class="px-3 py-2 border-top" style="background:var(--bs-tertiary-bg);">
-                <a href="/users" class="text-muted text-decoration-none"
+                <a href="{{ base }}/users" class="text-muted text-decoration-none"
                    style="font-size: var(--fs-sm);">
                     <i class="bi bi-arrow-right me-1"></i>All users
                 </a>
@@ -535,8 +535,8 @@ function toggleSidebar() {
                     const sgb = localStorage.getItem('pref_sample_groupby') || 'sample_type';
                     const dgb = localStorage.getItem('pref_dataset_groupby') || 'measurement';
                     const url  = r.type === 'sample'
-                        ? `/${PID}/samples/${r.id}?sgb=${encodeURIComponent(sgb)}`
-                        : `/${PID}/datasets/${r.id}?dgb=${encodeURIComponent(dgb)}`;
+                        ? cgUrl(`/${PID}/samples/${r.id}?sgb=${encodeURIComponent(sgb)}`)
+                        : cgUrl(`/${PID}/datasets/${r.id}?dgb=${encodeURIComponent(dgb)}`);
                     return `<a href="${url}" class="cg-recent-chip">
                         <i class="bi ${icon}" style="color:var(--cg-accent-mid);font-size:0.8em;flex-shrink:0;"></i>
                         <span>${_esc(r.name)}</span>
@@ -697,7 +697,7 @@ function toggleSidebar() {
             const groupEl = buildGroupEl(gid, 'flask', gkey, items,
                 'sample-item', 'sample-count',
                 s => `<a class="list-row sample-item"
-                         href="/${PID}/samples/${escHtml(s.unique_id)}?sgb=${encodeURIComponent(field)}"
+                         href="{{ base }}/${PID}/samples/${escHtml(s.unique_id)}?sgb=${encodeURIComponent(field)}"
                          data-search="${escHtml(sampleSearch(s))}"
                          data-owner-orcid="${escHtml(s.owner_orcid || '')}">
                          <span>${escHtml(s.sample_name || s.unique_id)}</span>
@@ -733,7 +733,7 @@ function toggleSidebar() {
             const groupEl = buildGroupEl(gid, 'database', gkey, items,
                 'dataset-item', 'dataset-count',
                 ds => `<a class="list-row dataset-item"
-                          href="/${PID}/datasets/${escHtml(ds.unique_id)}?dgb=${encodeURIComponent(field)}"
+                          href="{{ base }}/${PID}/datasets/${escHtml(ds.unique_id)}?dgb=${encodeURIComponent(field)}"
                           data-search="${escHtml(datasetSearch(ds))}"
                           data-owner-orcid="${escHtml(ds.owner_orcid || '')}">
                           <span class="text-truncate me-3">${escHtml(ds.dataset_name || ds.unique_id)}</span>
@@ -1088,7 +1088,7 @@ function toggleSidebar() {
             '<div class="small">Failed to load. ' +
             '<a href="" onclick="location.reload();return false;">Retry</a></div></div>';
 
-        fetch(`/${PID}/api/overview-data`)
+        fetch(`{{ base }}/${PID}/api/overview-data`)
             .then(r => r.ok ? r.json() : Promise.reject(r.status))
             .then(data => {
                 SAMPLES  = data.samples;

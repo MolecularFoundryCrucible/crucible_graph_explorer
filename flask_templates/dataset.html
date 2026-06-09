@@ -6,7 +6,7 @@
 {% set res_url_seg = 'datasets' %}
 {% set res_card_id = 'dsCard' %}
 {% set res_icon = 'bi-database' %}
-{% set graph_fetch_url = '/' ~ project_id ~ '/api/entity-graph-data/dataset/' ~ ds['unique_id'] %}
+{% set graph_fetch_url = base ~ '/' ~ project_id ~ '/api/entity-graph-data/dataset/' ~ ds['unique_id'] %}
 {% set has_dataset_toggle = false %}
 {% set groupby_param = 'dgb' %}
 {% set groupby_default = 'measurement' %}
@@ -25,7 +25,7 @@
 {% set rel_assoc_name_field = 'sample_name' %}
 {% set rel_assoc_sub_field = 'sample_type' %}
 
-{% from 'macros.html' import mrow, mrow_link, section_metadata, deletion_banner, resource_sidebar, resource_card_identity %}
+{% from 'macros.html' import mrow, mrow_link, section_metadata, deletion_banner, resource_sidebar, resource_card_identity with context %}
 {% extends "resource_base.html" %}
 
 {% block title %}{{ds['dataset_name']}}{% endblock %}
@@ -186,7 +186,7 @@
         {% set cd_thumbs = child_dataset_thumbnails.get(cd['unique_id'], []) %}
         {% if cd_thumbs %}
         <div class="px-3 pt-3 pb-1">
-            <a href="/{{project_id}}/datasets/{{cd['unique_id']}}"
+            <a href="{{ base }}/{{project_id}}/datasets/{{cd['unique_id']}}"
                class="fw-medium text-decoration-none"
                style="font-size: var(--fs-sm); color: var(--bs-secondary-color);">
                 <i class="bi bi-database me-1"></i>{{cd['dataset_name']}}
@@ -229,7 +229,7 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for sample in samples %}
-        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{project_id}}/samples/{{sample["unique_id"]}}')">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '{{ base }}/{{project_id}}/samples/{{sample["unique_id"]}}')">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{sample['sample_name']}}</span>
             <span class="mfid small ms-auto">{{sample['unique_id']}}</span>
         </div>
@@ -251,7 +251,7 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for pd in parent_datasets %}
-        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{project_id}}/datasets/{{pd["unique_id"]}}')">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '{{ base }}/{{project_id}}/datasets/{{pd["unique_id"]}}')">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{pd['dataset_name']}}</span>
             <span class="mfid small ms-auto">{{pd['unique_id']}}</span>
         </div>
@@ -273,7 +273,7 @@
     </div>
     <div class="res-section-body" style="display:none;">
         {% for cd in child_datasets %}
-        <div class="list-row" onmouseup="navIfNoSelection(event, '/{{project_id}}/datasets/{{cd["unique_id"]}}')">
+        <div class="list-row" onmouseup="navIfNoSelection(event, '{{ base }}/{{project_id}}/datasets/{{cd["unique_id"]}}')">
             <span class="fw-medium" style="flex:1; min-width:8rem;">{{cd['dataset_name']}}</span>
             <span class="mfid small ms-auto">{{cd['unique_id']}}</span>
         </div>
@@ -406,7 +406,7 @@
                 const fd = new FormData();
                 fd.append('file', f);
                 try {
-                    const resp = await fetch('/{{project_id}}/api/datasets/{{ds["unique_id"]}}/upload-file', {
+                    const resp = await fetch('{{ base }}/{{project_id}}/api/datasets/{{ds["unique_id"]}}/upload-file', {
                         method: 'POST', body: fd,
                     });
                     const data = await resp.json();

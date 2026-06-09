@@ -17,6 +17,12 @@
     {% block head %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      window.SCRIPT_ROOT = {{ base|tojson }};
+      // Single chokepoint for client-side URLs. Always build internal URLs with cgUrl()
+      // so the deployment prefix (SCRIPT_ROOT, e.g. /explore) is never dropped.
+      window.cgUrl = (path = '') => window.SCRIPT_ROOT + (String(path).startsWith('/') ? path : '/' + path);
+    </script>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,7 +42,7 @@
     <nav class="cg-navbar sticky-top" aria-label="breadcrumb">
         <div class="cg-navbar-inner d-flex align-items-center px-3 px-md-4">
             <div style="position:relative;">
-                <a href="/" class="cg-wordmark" title="All projects">
+                <a href="{{ base }}/" class="cg-wordmark" title="All projects">
                     <!-- dark icon: shown in dark mode -->
                     <svg class="cg-wordmark-icon cg-logo-dark" viewBox="0 0 423.59415 435.7869" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                       <g transform="translate(-1144.6638,-595.94049)">
@@ -107,7 +113,7 @@
                                 <div class="cg-user-orcid">{{ current_user_orcid }}</div>
                             </div>
                         </div>
-                        <a href="/profile" class="cg-user-item">
+                        <a href="{{ base }}/profile" class="cg-user-item">
                             <i class="bi bi-person"></i> My Profile
                         </a>
                         <a href="{{ url_for('logout') }}" class="cg-user-item cg-user-item-danger">
@@ -387,7 +393,7 @@
                 const opt = typeEl.options[typeEl.selectedIndex];
                 if (!q || !opt) { results.style.display = 'none'; return; }
                 const endpoint = opt.dataset.endpoint;
-                fetch(`/${_relAddCtx.pid}/api/${endpoint}?q=${encodeURIComponent(q)}`)
+                fetch(`{{ base }}/${_relAddCtx.pid}/api/${endpoint}?q=${encodeURIComponent(q)}`)
                     .then(r => r.json())
                     .then(items => {
                         if (!items.length) { results.style.display = 'none'; return; }
@@ -415,7 +421,7 @@
         results.style.display = 'none';
         document.getElementById('rel-add-search').value = '';
         try {
-            const resp = await fetch(`/${_relAddCtx.pid}/api/relationships`, {
+            const resp = await fetch(`{{ base }}/${_relAddCtx.pid}/api/relationships`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ link_type: linkType, source_id: _relAddCtx.sourceId, target_id: targetId }),
@@ -457,7 +463,7 @@
             const { linkType, sourceId, targetId, pid } = item.dataset;
             confirmEl.innerHTML = '<span class="spinner-border spinner-border-sm text-danger"></span>';
             try {
-                const resp = await fetch(`/${pid}/api/relationships`, {
+                const resp = await fetch(`{{ base }}/${pid}/api/relationships`, {
                     method: 'DELETE',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ link_type: linkType, source_id: sourceId, target_id: targetId }),
@@ -595,15 +601,17 @@
 
         // Detect current page resource and track it
         (function trackCurrentPage() {
+            // Path with the app's URL prefix (e.g. /explore) stripped off.
+            const _p = location.pathname.slice(window.SCRIPT_ROOT.length);
             // Sample page: URL is /<pid>/samples/<id>
-            const sm = location.pathname.match(/^\/([^/]+)\/samples\/([^/]+)/);
+            const sm = _p.match(/^\/([^/]+)\/samples\/([^/]+)/);
             if (sm) {
                 const h1 = document.querySelector('h1, .fs-4.fw-semibold');
                 cgTrackResource('sample', sm[2], h1?.textContent?.trim() || sm[2], sm[1]);
                 return;
             }
             // Dataset page: URL is /<pid>/datasets/<id>
-            const dm = location.pathname.match(/^\/([^/]+)\/dataset\/([^/]+)/);
+            const dm = _p.match(/^\/([^/]+)\/dataset\/([^/]+)/);
             if (dm) {
                 const h1 = document.querySelector('h1, .fs-4.fw-semibold');
                 cgTrackResource('dataset', dm[2], h1?.textContent?.trim() || dm[2], dm[1]);
@@ -611,7 +619,7 @@
             }
             // Project overview page: URL is /<pid>/ — guard with #projectCard so
             // system pages like /search and /users aren't misclassified as projects.
-            const pm = location.pathname.match(/^\/([^/]+)\/?$/);
+            const pm = _p.match(/^\/([^/]+)\/?$/);
             if (pm && document.getElementById('projectCard')) {
                 const pid = pm[1];
                 const h1 = document.querySelector('h1, .fs-4.fw-semibold');
@@ -628,7 +636,7 @@
         function _currentProject() {
             const crumb = document.querySelector('.cg-breadcrumb .breadcrumb-item a[href]');
             if (crumb) {
-                const m = crumb.getAttribute('href').match(/^\/([^/]+)\/?$/);
+                const m = crumb.getAttribute('href').slice(window.SCRIPT_ROOT.length).match(/^\/([^/]+)\/?$/);
                 if (m) return m[1];
             }
             try {
@@ -664,9 +672,9 @@
             return 'bi-dot';
         }
         function _url(r) {
-            if (r.type === 'project') return '/' + r.id + '/';
-            if (r.type === 'sample')  return '/' + r.projectId + '/samples/' + r.id;
-            if (r.type === 'dataset') return '/' + r.projectId + '/datasets/' + r.id;
+            if (r.type === 'project') return '{{ base }}/' + r.id + '/';
+            if (r.type === 'sample')  return '{{ base }}/' + r.projectId + '/samples/' + r.id;
+            if (r.type === 'dataset') return '{{ base }}/' + r.projectId + '/datasets/' + r.id;
             return '#';
         }
         function _label(type) {
@@ -703,8 +711,8 @@
             if (searchQ) {
                 const pid = _currentProject();
                 const searchUrl = pid
-                    ? `/${pid}/search?q=${encodeURIComponent(searchQ)}`
-                    : `/search?q=${encodeURIComponent(searchQ)}`;
+                    ? `{{ base }}/${pid}/search?q=${encodeURIComponent(searchQ)}`
+                    : `{{ base }}/search?q=${encodeURIComponent(searchQ)}`;
                 const idx = _paletteItems.length;
                 _paletteItems.push(searchUrl);
                 html += `<a href="${searchUrl}" class="cgpr-item d-flex align-items-center gap-3 px-4 py-2"
@@ -769,11 +777,11 @@
 
             // Fetch from current project
             Promise.all([
-                fetch(`/${pid}/api/samples?q=${encodeURIComponent(q)}`)
+                fetch(`{{ base }}/${pid}/api/samples?q=${encodeURIComponent(q)}`)
                     .then(r => r.ok ? r.json() : [])
                     .then(items => items.map(s => ({ type:'sample', id:s.id, name:s.name, projectId:pid })))
                     .catch(() => []),
-                fetch(`/${pid}/api/datasets?q=${encodeURIComponent(q)}`)
+                fetch(`{{ base }}/${pid}/api/datasets?q=${encodeURIComponent(q)}`)
                     .then(r => r.ok ? r.json() : [])
                     .then(items => items.map(d => ({ type:'dataset', id:d.id, name:d.name, projectId:pid })))
                     .catch(() => []),
@@ -842,11 +850,11 @@
             try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch {}
         }
 
-        // Detect current project from first breadcrumb link (href="/<pid>/")
+        // Detect current project from first breadcrumb link (href="{{ base }}/<pid>/")
         const _SYSTEM_PATHS = new Set(['search', 'users', 'user', 'instruments', 'login', 'logout', 'account']);
         const firstCrumb = document.querySelector('.cg-breadcrumb .breadcrumb-item a[href]');
         if (firstCrumb) {
-            const m = firstCrumb.getAttribute('href').match(/^\/([^/]+)\/?$/);
+            const m = firstCrumb.getAttribute('href').slice(window.SCRIPT_ROOT.length).match(/^\/([^/]+)\/?$/);
             if (m && !_SYSTEM_PATHS.has(m[1])) {
                 const pid = m[1];
                 const label = firstCrumb.textContent.trim();
@@ -883,12 +891,12 @@
                 empty.textContent = 'No projects yet';
                 list.appendChild(empty);
             } else {
-                const m = location.pathname.match(/^\/([^/]+)/);
+                const m = location.pathname.slice(window.SCRIPT_ROOT.length).match(/^\/([^/]+)/);
                 const activePid = m ? m[1] : null;
                 items.forEach(r => {
                     const a = document.createElement('a');
                     a.className = 'cg-recent-item' + (r.pid === activePid ? ' active' : '');
-                    a.href = '/' + r.pid + '/';
+                    a.href = '{{ base }}/' + r.pid + '/';
                     a.textContent = r.pid;
                     list.appendChild(a);
                 });
@@ -954,14 +962,14 @@
 
         // ── breadcrumb project link: restore overview tab/scroll state ────
         document.querySelectorAll('.cg-breadcrumb .breadcrumb-item a[href]').forEach(link => {
-            const m = link.getAttribute('href').match(/^\/([^/]+)\/?$/);
+            const m = link.getAttribute('href').slice(window.SCRIPT_ROOT.length).match(/^\/([^/]+)\/?$/);
             if (!m) return;
             const pid = m[1];
             link.addEventListener('click', e => {
                 const stored = localStorage.getItem('cg_overview_state_' + pid);
                 if (stored) {
                     e.preventDefault();
-                    window.location.href = '/' + pid + '/' + stored;
+                    window.location.href = '{{ base }}/' + pid + '/' + stored;
                 }
             });
         });

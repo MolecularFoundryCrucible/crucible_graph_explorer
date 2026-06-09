@@ -236,7 +236,7 @@ For collapsed-by-default: omit `style="transform:rotate(90deg)"` from chevron an
 Clickable rows where text must be selectable (UUIDs, names):
 
 ```html
-<div class="list-row" onmouseup="navIfNoSelection(event, '/pid/samples/id')">
+<div class="list-row" onmouseup="navIfNoSelection(event, '{{ base }}/pid/samples/id')">
     <span class="fw-medium">Sample name</span>
     <span class="mfid small ms-auto">unique-id</span>
 </div>
@@ -346,6 +346,25 @@ The app supports both themes via Bootstrap's `data-bs-theme` attribute. Theme is
 - Page-specific JS lives in `<script>` blocks at the bottom of each template's `{% block content %}`
 - Use `getBoundingClientRect()` for all sticky offset calculations — never hardcode pixels
 
+### 9.1 URL construction (deployment prefix)
+
+The app is served behind a reverse proxy under a deployment prefix (e.g. `/explore`).
+Every **internal** URL must carry that prefix or it 404s in production. One rule per context:
+
+- **Jinja templates** → `{{ base }}/...` (or `base ~ '/...'`). `base` is `request.script_root`, injected globally.
+- **JavaScript** → `cgUrl('/...')`. Defined in `base.html`; prepends `window.SCRIPT_ROOT`.
+- **Server-side payloads** (JSON `url` fields, redirects) → prefix with `flask.request.script_root`.
+
+```js
+fetch(cgUrl(`/${projectId}/api/samples?q=${q}`));   // ✓
+window.location.href = cgUrl(`/${pid}/datasets/${id}`); // ✓
+fetch(`/${projectId}/api/samples`);                  // ✗ drops prefix → 404
+```
+
+External URLs (CDNs, signed GCS download links) are absolute and must **not** be prefixed.
+
+Run `dev/lint_urls.sh` to catch prefix-less client URLs before committing.
+
 ---
 
 ## 10. Do's and Don'ts
@@ -359,6 +378,7 @@ The app supports both themes via Bootstrap's `data-bs-theme` attribute. Theme is
 - Show full UUIDs — users copy them
 - Use `.cg-sidebar-action` / `.cg-sidebar-section` for sidebar content
 - Use `cgToast()` for user feedback (copy, save, error)
+- Build internal URLs with `cgUrl()` in JS and `{{ base }}` in Jinja (see §9.1)
 
 ### Don't
 - Don't hardcode `font-size` values — use the type scale
@@ -371,3 +391,4 @@ The app supports both themes via Bootstrap's `data-bs-theme` attribute. Theme is
 - Don't use `onclick` on `<a>` to intercept navigation — use `onmouseup` + `<div>`
 - Don't use `100vh` for full-screen layouts — use `100dvh` for mobile keyboard compatibility
 - Don't load Bootstrap Icons or Google Fonts in individual templates — already in `base.html`
+- Don't build internal URLs from bare `/...` literals in JS — they drop the deployment prefix and 404 (use `cgUrl()`)

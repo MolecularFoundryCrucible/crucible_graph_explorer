@@ -54,8 +54,8 @@
 {% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
-    <li class="breadcrumb-item"><a href="/{{project_id}}/dataset/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{project_id}}/dataset/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
     <li class="breadcrumb-item active" aria-current="page">SPLEEM Image Viewer</li>
 {% endblock %}
 
@@ -70,7 +70,7 @@
         <span class="fw-semibold">SPLEEM Image Viewer</span>
         <span class="text-muted ms-2 small">{{ds['dataset_name']}}</span>
     </div>
-    <a href="/{{project_id}}/dataset/{{ds['unique_id']}}" class="btn btn-sm btn-outline-secondary">
+    <a href="{{ base }}/{{project_id}}/dataset/{{ds['unique_id']}}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-database me-1"></i>Dataset
     </a>
 </div>

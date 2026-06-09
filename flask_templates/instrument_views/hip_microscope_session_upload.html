@@ -2,7 +2,7 @@
 {% block title %}HiP Microscope — Upload Session{% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="/instruments/">Instruments</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/instruments/">Instruments</a></li>
     <li class="breadcrumb-item active" aria-current="page">Upload Session</li>
 {% endblock %}
 
@@ -97,7 +97,7 @@
     <div class="alert alert-success mb-3" id="resultAlert"></div>
     <h2 class="fs-5 fw-semibold mb-2">Measurements</h2>
     <div class="list-group mb-4" id="resultList"></div>
-    <a href="/instrument-view/hip-microscope/upload/session" class="btn btn-outline-secondary btn-sm">
+    <a href="{{ base }}/instrument-view/hip-microscope/upload/session" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Upload another session
     </a>
 </div>
@@ -105,14 +105,14 @@
 <!-- ── Error view ─────────────────────────────────────────── -->
 <div id="errorSection" style="display:none;">
     <div class="alert alert-danger" id="errorMsg"></div>
-    <a href="/instrument-view/hip-microscope/upload/session" class="btn btn-outline-secondary btn-sm">
+    <a href="{{ base }}/instrument-view/hip-microscope/upload/session" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Try again
     </a>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
-const BASE = '/instrument-view/hip-microscope';
+const BASE = '{{ base }}/instrument-view/hip-microscope';
 
 // ── Folder select → parse first H5 + show file count ──────────────────────
 $('files').addEventListener('change', async function () {
@@ -257,7 +257,7 @@ function openStream(jobId) {
                 $('sessionLink').removeAttribute('href');
                 $('sessionLink').textContent = ev.dataset_id;
             } else {
-                $('sessionLink').href = `/${ev.project_id}/datasets/${ev.dataset_id}`;
+                $('sessionLink').href = `{{ base }}/${ev.project_id}/datasets/${ev.dataset_id}`;
                 $('sessionLink').textContent = ev.dataset_id;
             }
             $('childrenHeading').style.display = '';
@@ -291,7 +291,7 @@ function showResult(ev) {
     const dryNote = ev.dry_run ? ' <span class="badge bg-warning text-dark ms-1">dry run</span>' : '';
     const sessionRef = ev.dry_run
         ? `<span class="font-monospace">${ev.dataset_id}</span>`
-        : `<a href="/${ev.project_id}/datasets/${ev.dataset_id}" class="alert-link font-monospace">${ev.dataset_id}</a>`;
+        : `<a href="{{ base }}/${ev.project_id}/datasets/${ev.dataset_id}" class="alert-link font-monospace">${ev.dataset_id}</a>`;
     $('resultAlert').innerHTML =
         `<h5 class="alert-heading mb-1">Done — ${ev.dataset_name}${dryNote}</h5>` +
         `<p class="mb-0">Session dataset: ${sessionRef} &nbsp;&bull; ${ev.children.length} measurement(s) created.</p>`;
@@ -302,7 +302,7 @@ function showResult(ev) {
         item.className = 'list-group-item d-flex align-items-center gap-3 py-2';
         const idEl = ev.dry_run
             ? `<span class="font-monospace small text-muted ms-auto">${child.dataset_id}</span>`
-            : `<a href="/${ev.project_id}/datasets/${child.dataset_id}" class="font-monospace small text-truncate ms-auto">${child.dataset_id}</a>`;
+            : `<a href="{{ base }}/${ev.project_id}/datasets/${child.dataset_id}" class="font-monospace small text-truncate ms-auto">${child.dataset_id}</a>`;
         item.innerHTML =
             `<span class="fw-semibold text-truncate" style="min-width:14rem;">${child.dataset_name}</span>` +
             `<span class="text-muted small">${child.measurement}</span>` +
