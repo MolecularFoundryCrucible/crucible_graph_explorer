@@ -20,6 +20,7 @@ WORKDIR /app
 # will require a rebuild of the following layers
 # -- there are solutions but are more complex, so lets leave it for now
 RUN uv sync --locked
+RUN uv pip install git+https://github.com/MolecularFoundryCrucible/nano-crucible@dev
 
 # Build Vite assets for production
 WORKDIR /app/vite
