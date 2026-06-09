@@ -16,6 +16,36 @@ _membership_lock = threading.RLock()
 _user_projects_cache: cachetools.TTLCache = cachetools.TTLCache(maxsize=512, ttl=_PROJECT_CACHE_TTL)
 _user_projects_lock = threading.RLock()
 
+_user_name_cache: cachetools.TTLCache = cachetools.TTLCache(maxsize=2048, ttl=_PROJECT_CACHE_TTL)
+_user_name_lock = threading.RLock()
+
+
+def get_user_name(orcid: str) -> str | None:
+    """Resolve an ORCID to a display name ('First Last') via the admin client.
+
+    Returns None if the ORCID is empty or the lookup fails. Result is cached.
+    """
+    if not orcid:
+        return None
+
+    with _user_name_lock:
+        if orcid in _user_name_cache:
+            return _user_name_cache[orcid]
+
+    name = None
+    try:
+        info = flask.current_app.admin_client.users.get(orcid) or {}
+        first = (info.get('first_name') or '').strip()
+        last = (info.get('last_name') or '').strip()
+        name = (first + ' ' + last).strip() or None
+    except Exception:
+        name = None
+
+    with _user_name_lock:
+        _user_name_cache[orcid] = name
+
+    return name
+
 
 def get_user_projects(orcid: str, client=None) -> list:
     with _user_projects_lock:

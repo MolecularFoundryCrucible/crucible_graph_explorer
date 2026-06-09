@@ -73,6 +73,7 @@
     </div>
     {%- set pub = s.get('public') -%}
     {{ mrow("Visibility",  "Public" if pub == true else ("Private" if pub == false else None)) }}
+    {{ mrow("Owner", owner_name) }}
     {{ mrow_link("Owner ORCID", s.get('owner_orcid'), 'https://orcid.org/' + (s.get('owner_orcid') or ''), external=true) }}
 
     <div class="meta-divider">
