@@ -96,6 +96,7 @@
     </div>
     {%- set pub = ds.get('public') -%}
     {{ mrow("Visibility",  "Public" if pub == true else ("Private" if pub == false else None)) }}
+    {{ mrow("Owner", owner_name) }}
     {{ mrow_link("Owner ORCID", ds.get('owner_orcid'), 'https://orcid.org/' + (ds.get('owner_orcid') or ''), external=true) }}
 
     <div class="meta-divider">

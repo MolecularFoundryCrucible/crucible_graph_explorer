@@ -11,7 +11,7 @@ from flask import Blueprint, abort, jsonify, render_template, request
 from flask_pyoidc.user_session import UserSession
 
 from utils.auth import get_user_client
-from utils.cache import get_project, get_user_projects
+from utils.cache import get_project, get_user_name, get_user_projects
 from utils.helpers import render_markdown
 
 logger = logging.getLogger(__name__)
@@ -180,8 +180,11 @@ def create_blueprint(auth):
         prev_sibling = ds_siblings[ds_sibling_idx - 1] if ds_sibling_idx > 0 else None
         next_sibling = ds_siblings[ds_sibling_idx + 1] if ds_sibling_idx < len(ds_siblings) - 1 else None
 
+        owner_name = get_user_name(ds.get('owner_orcid'))
+
         return render_template("dataset.html",
                                project_id=project_id, pc=pc, ds=ds,
+                               owner_name=owner_name,
                                child_datasets=child_datasets,
                                parent_datasets=parent_datasets,
                                samples=samples,
