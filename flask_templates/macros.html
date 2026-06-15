@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {# ── render_dict_recursive: recursive metadata tree ────────────────────────── #}
 {% macro render_dict_recursive(d) %}
 <div class="metadata-tree">
-{% for key, value in d.items() %}
+{% for key, value in d|dictsort %}
     {% if value is mapping %}
     <details class="tree-node" open>
         <summary class="tree-summary"><b>{{ key }}</b></summary>
