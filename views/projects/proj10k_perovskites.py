@@ -14,6 +14,12 @@ from utils.auth import get_user_client
 PROJECT_ID = '10k_perovskites'
 
 
+def _nonempty_mask(series):
+    """True where the value is not null / None / empty-string-like."""
+    s = series.astype(str).str.strip().str.lower()
+    return series.notna() & ~s.isin(['', 'none', 'null', 'nan'])
+
+
 def classify_fields(df):
     """Split DataFrame columns into (numeric, categorical) lists.
 
@@ -204,6 +210,7 @@ def create_blueprint(auth, helpers):
 
         x_col     = request.args.get('x') or pick('organic_salt_name', x_pool)
         y_col     = request.args.get('y') or pick('outgas_area', numeric_fields)
+        color     = request.args.get('color') or None
         top_n     = request.args.get('top', default=10, type=int)
         sort_by   = request.args.get('sort', 'median_desc')
 
@@ -212,6 +219,7 @@ def create_blueprint(auth, helpers):
         try:
             if plot_type == 'box':
                 d = df.copy()
+                d = d[_nonempty_mask(d[x_col])]          # exclude null/None/'' x values
                 d[y_col] = pandas.to_numeric(d[y_col], errors='coerce')
                 d = d.dropna(subset=[x_col, y_col])
                 medians = d.groupby(x_col)[y_col].median()
@@ -226,22 +234,31 @@ def create_blueprint(auth, helpers):
                 label = {c: f'{c} (n={counts[c]})' for c in display_order}
                 d['_xlabel'] = d[x_col].map(label)
                 fig = px.box(d, x='_xlabel', y=y_col,
+                             color=color or None, points='all',
+                             hover_name='sample_name',
                              category_orders={'_xlabel': [label[c] for c in display_order]},
                              labels={'_xlabel': x_col})
+                fig.update_traces(pointpos=0, jitter=0.3)  # center dots under each box
 
             elif plot_type == 'scatter':
                 d = df.copy()
+                d = d[_nonempty_mask(d[x_col])]          # exclude null/None/'' x values
                 d[y_col] = pandas.to_numeric(d[y_col], errors='coerce')
                 x_num = pandas.to_numeric(d[x_col], errors='coerce')
                 if x_num.notna().any():            # treat x as numeric only if it parses
                     d[x_col] = x_num
                 d = d.dropna(subset=[x_col, y_col])
-                fig = px.scatter(d, x=x_col, y=y_col, hover_name='sample_name')
+                fig = px.scatter(d, x=x_col, y=y_col,
+                                 color=color or None, hover_name='sample_name')
 
             else:
                 error = f'Unknown plot type: {plot_type}'
         except Exception as err:
             error = str(err)
+
+        # y-axis: exponent at the top (e.g. 1e-6) instead of SI prefix (µ)
+        if fig is not None:
+            fig.update_yaxes(exponentformat='e', showexponent='last')
 
         # 4. RETURN — fig.to_json() handles numpy; field list drives the dropdowns
         return jsonify({

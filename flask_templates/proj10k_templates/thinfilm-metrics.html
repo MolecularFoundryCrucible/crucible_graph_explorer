@@ -33,6 +33,10 @@
         <label class="form-label mb-1" style="font-size: var(--fs-sm);">Y (value)</label>
         <select id="yField" class="form-select form-select-sm"></select>
     </div>
+    <div class="ctl" data-for="box scatter">
+        <label class="form-label mb-1" style="font-size: var(--fs-sm);">Color by</label>
+        <select id="colorField" class="form-select form-select-sm"></select>
+    </div>
 
     <!-- box-only controls -->
     <div class="ctl" data-for="box">
@@ -83,6 +87,13 @@
         $('xLabel').textContent = isBox ? 'X (category)' : 'X';
         fillSelect($('xField'), isBox ? categoricalFields : allFields, 'organic_salt_name');
         fillSelect($('yField'), numericFields, 'outgas_area');
+        // color: optional ("None") + any field, preserving current choice
+        const colorSel = $('colorField');
+        const prevColor = colorSel.value;
+        colorSel.innerHTML = '';
+        colorSel.add(new Option('None', ''));
+        allFields.forEach(f => colorSel.add(new Option(f, f)));
+        colorSel.value = allFields.includes(prevColor) ? prevColor : '';
     }
 
     // Store the column lists Python sends back (once), then fill dropdowns
@@ -102,6 +113,7 @@
         p.set('y', $('yField').value);
         p.set('top', $('topN').value);
         p.set('sort', $('sortBy').value);
+        if ($('colorField').value) p.set('color', $('colorField').value);
         return p.toString();
     }
 
@@ -135,7 +147,7 @@
     render().then(syncControls);
 
     plotType.addEventListener('change', () => { syncControls(); populateDropdowns(); render(); });
-    ['xField', 'yField', 'topN', 'sortBy']
+    ['xField', 'yField', 'colorField', 'topN', 'sortBy']
         .forEach(id => $(id).addEventListener('change', render));
 })();
 </script>
