@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Thin Film Metrics{% endblock %}
+
+{% block head %}
+{{ super() }}
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ base }}/{{ project_id }}/"><b>Project</b> {{ project_id }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Thin Film Metrics</li>
+{% endblock %}
+
+{% block content %}
+
+<h1 class="fw-semibold mb-3" style="font-size: var(--fs-2xl);">Thin Film Metrics</h1>
+
+<div class="d-flex flex-wrap align-items-end gap-3 mb-3">
+    <div>
+        <label class="form-label mb-1" style="font-size: var(--fs-sm);">Plot type</label>
+        <select id="plotType" class="form-select form-select-sm">
+            <option value="box">Box plot</option>
+            <option value="scatter">Scatter</option>
+        </select>
+    </div>
+
+    <!-- box + scatter controls -->
+    <div class="ctl" data-for="box scatter">
+        <label id="xLabel" class="form-label mb-1" style="font-size: var(--fs-sm);">X (category)</label>
+        <select id="xField" class="form-select form-select-sm"></select>
+    </div>
+    <div class="ctl" data-for="box scatter">
+        <label class="form-label mb-1" style="font-size: var(--fs-sm);">Y (value)</label>
+        <select id="yField" class="form-select form-select-sm"></select>
+    </div>
+
+    <!-- box-only controls -->
+    <div class="ctl" data-for="box">
+        <label class="form-label mb-1" style="font-size: var(--fs-sm);"># categories</label>
+        <input id="topN" type="number" min="1" value="10" class="form-control form-control-sm" style="width: 6rem;">
+    </div>
+    <div class="ctl" data-for="box">
+        <label class="form-label mb-1" style="font-size: var(--fs-sm);">Sort</label>
+        <select id="sortBy" class="form-select form-select-sm">
+            <option value="median_desc">Median ↓</option>
+            <option value="median_asc">Median ↑</option>
+        </select>
+    </div>
+</div>
+
+<div id="viz-error" class="alert alert-warning d-none"></div>
+<div id="viz-plot" style="width:100%; height:560px;"></div>
+
+<script>
+(() => {
+    const dataUrl = cgUrl(`/{{ project_id }}/view/thinfilm-metrics/data`);
+    let fieldsLoaded = false;
+    let allFields = [], numericFields = [], categoricalFields = [];
+
+    const $ = id => document.getElementById(id);
+    const plotType = $('plotType');
+
+    // Show only the controls relevant to the selected plot type
+    function syncControls() {
+        const t = plotType.value;
+        document.querySelectorAll('.ctl').forEach(el => {
+            el.classList.toggle('d-none', !el.dataset.for.split(' ').includes(t));
+        });
+    }
+
+    // Fill a <select>, keeping the current choice if valid, else the preferred default
+    function fillSelect(sel, list, preferred) {
+        const prev = sel.value;
+        sel.innerHTML = '';
+        list.forEach(f => sel.add(new Option(f, f)));
+        if (list.includes(prev)) sel.value = prev;
+        else if (list.includes(preferred)) sel.value = preferred;
+    }
+
+    // X depends on plot type (box → categorical, scatter → any); Y is numeric
+    function populateDropdowns() {
+        const isBox = plotType.value === 'box';
+        $('xLabel').textContent = isBox ? 'X (category)' : 'X';
+        fillSelect($('xField'), isBox ? categoricalFields : allFields, 'organic_salt_name');
+        fillSelect($('yField'), numericFields, 'outgas_area');
+    }
+
+    // Store the column lists Python sends back (once), then fill dropdowns
+    function populateFields(payload) {
+        allFields = payload.fields || [];
+        numericFields = payload.numeric_fields || [];
+        categoricalFields = payload.categorical_fields || [];
+        populateDropdowns();
+        fieldsLoaded = true;
+    }
+
+    // Read the controls into a query string Python understands
+    function buildQuery() {
+        const p = new URLSearchParams();
+        p.set('plot_type', plotType.value);
+        p.set('x', $('xField').value);
+        p.set('y', $('yField').value);
+        p.set('top', $('topN').value);
+        p.set('sort', $('sortBy').value);
+        return p.toString();
+    }
+
+    async function render() {
+        const err = $('viz-error');
+        let payload;
+        try {
+            const resp = await fetch(`${dataUrl}?${buildQuery()}`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            payload = await resp.json();
+        } catch (e) {
+            err.textContent = 'Failed to load data: ' + e.message;
+            err.classList.remove('d-none');
+            return;
+        }
+
+        if (!fieldsLoaded && payload.fields) populateFields(payload);
+
+        if (payload.error) {
+            err.textContent = payload.error;
+            err.classList.remove('d-none');
+            return;
+        }
+        err.classList.add('d-none');
+
+        const fig = payload.figure;
+        Plotly.react('viz-plot', fig.data, fig.layout, { responsive: true });
+    }
+
+    // First load fetches with defaults → also gives us the field list for the dropdowns
+    render().then(syncControls);
+
+    plotType.addEventListener('change', () => { syncControls(); populateDropdowns(); render(); });
+    ['xField', 'yField', 'topN', 'sortBy']
+        .forEach(id => $(id).addEventListener('change', render));
+})();
+</script>
+
+{% endblock %}
