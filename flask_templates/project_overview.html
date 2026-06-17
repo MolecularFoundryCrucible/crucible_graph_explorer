@@ -476,7 +476,11 @@ function toggleSidebar() {
                     <div class="fw-medium text-truncate" style="font-size: var(--fs-sm);">
                         {{ u.name or '—' }}
                     </div>
-                    {% if u.email %}
+                    {% if u.username %}
+                    <div class="text-muted text-truncate" style="font-size: var(--fs-xs);">
+                        @{{ u.username }}
+                    </div>
+                    {% elif u.email %}
                     <div class="text-muted text-truncate" style="font-size: var(--fs-xs);">
                         {{ u.email }}
                     </div>

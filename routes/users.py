@@ -48,8 +48,7 @@ def create_blueprint(auth):
         user_projects = get_user_projects(orcid, client)
 
         if is_own_profile:
-            # Name/email already in the ORCID session — no member fetching needed.
-            # shared_projects is the full project list for own profile.
+            # Name/email from OIDC session; username requires an API call.
             info = user_session.userinfo
             given  = info.get('given_name', '')
             family = info.get('family_name', '')
@@ -57,17 +56,12 @@ def create_blueprint(auth):
                 parts = (info.get('name') or '').rsplit(' ', 1)
                 given  = parts[0] if parts else ''
                 family = parts[1] if len(parts) > 1 else ''
-            user_info = {
-                'first_name': given,
-                'last_name':  family,
-                'email':      info.get('email', ''),
-                'unique_id':  orcid,
-            }
             shared_projects = user_projects
 
             with ThreadPoolExecutor() as ex:
                 f_datasets = ex.submit(client.datasets.list, owner_orcid=orcid, limit=None)
                 f_samples  = ex.submit(client.samples.list,  owner_orcid=orcid, limit=None)
+                f_profile  = ex.submit(client.account.profile)
             try:
                 recent_datasets = f_datasets.result() or []
             except Exception:
@@ -76,6 +70,18 @@ def create_blueprint(auth):
                 recent_samples = f_samples.result() or []
             except Exception:
                 recent_samples = []
+            try:
+                api_profile = f_profile.result() or {}
+            except Exception:
+                api_profile = {}
+
+            user_info = {
+                'first_name': given,
+                'last_name':  family,
+                'email':      info.get('email', ''),
+                'unique_id':  orcid,
+                'username':   api_profile.get('username') or '',
+            }
 
         else:
             # Fetch user info directly + member lists to find shared projects.

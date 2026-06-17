@@ -113,14 +113,16 @@ def create_blueprint(auth):
                 uid = u.get('unique_id')
                 if not uid:
                     continue
-                first = u.get('first_name') or ''
-                last  = u.get('last_name')  or ''
-                name  = (first + ' ' + last).strip()
-                email = u.get('email') or ''
-                owner_map[uid] = name or email or uid
+                first    = u.get('first_name') or ''
+                last     = u.get('last_name')  or ''
+                name     = (first + ' ' + last).strip()
+                email    = u.get('email')    or ''
+                username = u.get('username') or ''
+                owner_map[uid] = name or username or email or uid
                 project_users.append({
                     'orcid':    uid,
                     'name':     name,
+                    'username': username,
                     'email':    email,
                     'initials': ((first[:1] if first else '') + (last[:1] if last else '')).upper() or '?',
                 })

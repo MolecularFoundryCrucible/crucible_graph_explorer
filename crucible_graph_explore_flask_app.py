@@ -14,6 +14,7 @@ from flask_vite import Vite
 from werkzeug.middleware.proxy_fix import ProxyFix
 from crucible import CrucibleClient
 
+from utils.auth import get_user_client
 from utils.cache import clear_project_cache, get_project, is_user_in_project
 from utils.graph import get_entity_graph_nx, get_project_graph
 from utils.helpers import abbrev_name, humanize_size
@@ -290,15 +291,17 @@ def update_profile():
     orcid      = userinfo.get('sub', '')
     first_name = request.form.get('first_name', '').strip()
     last_name  = request.form.get('last_name',  '').strip()
-    email      = request.form.get('email', '').strip()
+    email      = request.form.get('email',    '').strip()
+    username   = request.form.get('username', '').strip()
 
     updates = {}
     if first_name: updates['first_name'] = first_name
     if last_name:  updates['last_name']  = last_name
-    updates['email'] = email or None
+    updates['email']    = email    or None
+    updates['username'] = username or None
 
     try:
-        app.admin_client.users.update(orcid, **updates)
+        get_user_client().account.update_profile(**updates)
         return redirect(f'{request.script_root}/user/{orcid}?updated=1')
     except Exception as e:
         app.logger.error("Profile update failed for %s: %s", orcid, e)
