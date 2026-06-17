@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 
 import flask
 import requests
@@ -222,6 +223,27 @@ def logout():
     return redirect(url_for('login'))
 
 
+def _suggest_username(admin_client, email: str, first: str, last: str) -> str:
+    """Return the first available username derived from email or name."""
+    if email and '@' in email:
+        base = email.split('@')[0].lower()
+    else:
+        base = f"{first}_{last}".lower() if first or last else ''
+    base = re.sub(r'[^a-z0-9_-]', '_', base)
+    base = re.sub(r'_+', '_', base).strip('_')[:28]
+    if len(base) < 3:
+        return ''
+    for i in range(1, 4):
+        candidate = base if i == 1 else f'{base}{i}'
+        try:
+            results = admin_client.users.search(candidate)
+            if not any(r.get('username') == candidate for r in (results or [])):
+                return candidate
+        except Exception:
+            return candidate
+    return base
+
+
 @app.route('/account/setup', methods=['GET', 'POST'])
 def account_setup():
     try:
@@ -237,7 +259,8 @@ def account_setup():
     if request.method == 'POST':
         first_name = request.form.get('first_name', '').strip()
         last_name  = request.form.get('last_name',  '').strip()
-        email      = request.form.get('email', '').strip()
+        email      = request.form.get('email',    '').strip()
+        username   = request.form.get('username', '').strip()
         error = None
         if not first_name:
             error = 'First name is required.'
@@ -249,7 +272,8 @@ def account_setup():
                     'unique_id':  orcid,
                     'first_name': first_name,
                     'last_name':  last_name,
-                    'email':      email or None,
+                    'email':      email    or None,
+                    'username':   username or None,
                 }, project_ids=[])
                 flask.session['crucible_user_ok'] = True
                 return redirect(request.script_root + '/')
@@ -261,20 +285,24 @@ def account_setup():
                                first_name=first_name,
                                last_name=last_name,
                                email=email,
+                               username=username,
                                error=error)
 
-    # GET — pre-fill from ORCID userinfo
+    # GET — pre-fill from ORCID userinfo and suggest a username
     given  = userinfo.get('given_name', '')
     family = userinfo.get('family_name', '')
     if not given and not family:
         parts  = (userinfo.get('name') or '').rsplit(' ', 1)
         given  = parts[0] if len(parts) > 0 else ''
         family = parts[1] if len(parts) > 1 else ''
+    email = userinfo.get('email', '')
+    suggested_username = _suggest_username(app.admin_client, email, given, family)
     return render_template('account_setup.html',
                            orcid=orcid,
                            first_name=given,
                            last_name=family,
-                           email=userinfo.get('email', ''),
+                           email=email,
+                           username=suggested_username,
                            error=None)
 
 

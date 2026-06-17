@@ -56,10 +56,20 @@
                        value="{{ last_name or '' }}" required autocomplete="family-name">
             </div>
         </div>
-        <div class="mb-4">
+        <div class="mb-3">
             <label class="form-label small fw-semibold" for="email">Email <span class="text-muted fw-normal">(optional)</span></label>
             <input type="email" class="form-control" id="email" name="email"
                    value="{{ email or '' }}" autocomplete="email" placeholder="you@institution.edu">
+        </div>
+        <div class="mb-4">
+            <label class="form-label small fw-semibold" for="username">Username <span class="text-muted fw-normal">(optional)</span></label>
+            <div class="input-group">
+                <span class="input-group-text">@</span>
+                <input type="text" class="form-control" id="username" name="username"
+                       value="{{ username or '' }}" autocomplete="username"
+                       pattern="[a-z0-9_\-]{3,32}" placeholder="your-username">
+            </div>
+            <div class="form-text">3–32 chars: lowercase letters, digits, hyphens, underscores</div>
         </div>
 
         <button type="submit" class="btn btn-primary w-100">
