@@ -49,6 +49,7 @@ INGESTION_CLASSES = [
     'NirvanaMultiPosLineScanIngestor',
     'ScopeFoundryH5Ingestor',
     'H5Ingestor',
+    'RgaTeyBatchIngestor',
 ]
 
 
@@ -319,6 +320,16 @@ def create_blueprint(auth):
             result = get_user_client().datasets.request_insitu_aggregation(dsid)
         except Exception as exc:
             logger.warning("insitu aggregation request failed for %s: %s", dsid, exc)
+            return jsonify({'error': str(exc)}), 500
+        return jsonify({'ok': True, 'result': result})
+
+    @bp.route("/<project_id>/api/datasets/<dsid>/request-rga-analysis", methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def api_dataset_request_rga_analysis(project_id, dsid):
+        try:
+            result = get_user_client().datasets.request_rga_analysis(dsid)
+        except Exception as exc:
+            logger.warning("rga analysis request failed for %s: %s", dsid, exc)
             return jsonify({'error': str(exc)}), 500
         return jsonify({'ok': True, 'result': result})
 

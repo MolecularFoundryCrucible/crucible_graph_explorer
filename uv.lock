@@ -2689,14 +2689,16 @@ wheels = [
 [[package]]
 name = "nano-crucible"
 version = "2.1.2"
-source = { git = "https://github.com/MolecularFoundryCrucible/nano-crucible?rev=dev#86434909e4dc84b317442d34a53578e2e8ec569b" }
+source = { git = "https://github.com/MolecularFoundryCrucible/nano-crucible?rev=dev#05acebb20e0c52d26df244215e1455d6c8553ecb" }
 dependencies = [
     { name = "argcomplete" },
     { name = "configupdater" },
+    { name = "google-cloud-storage" },
     { name = "google-crc32c" },
     { name = "ipywidgets" },
     { name = "mfid" },
     { name = "platformdirs" },
+    { name = "prompt-toolkit" },
     { name = "pydantic" },
     { name = "python-dateutil" },
     { name = "python-dotenv" },

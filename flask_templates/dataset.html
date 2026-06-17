@@ -57,6 +57,9 @@
 {% if ds['measurement'] == 'thin film carrier image' %}
   {% set _ = sidebar_actions.append({'label': 'Request segmentation', 'onclick': 'cgRequestCarrierSegmentation()', 'icon': 'bi-bounding-box'}) %}
 {% endif %}
+{% if ds['data_type'] == 'automated_RGA_TEY_batch_run' %}
+  {% set _ = sidebar_actions.append({'label': 'Request RGA analysis', 'onclick': 'cgRequestRgaAnalysis()', 'icon': 'bi-graph-up'}) %}
+{% endif %}
 {{ resource_sidebar(project_id, 'dataset', 'bi-database', ds['dataset_name'], resource_id=ds['unique_id'], actions=sidebar_actions) }}
 {% endblock %}
 
@@ -555,6 +558,10 @@
 
     function cgRequestCarrierSegmentation() {
         cgRequestProcessing('request-carrier-segmentation', 'carrier segmentation', 'bi-bounding-box');
+    }
+
+    function cgRequestRgaAnalysis() {
+        cgRequestProcessing('request-rga-analysis', 'RGA analysis', 'bi-graph-up');
     }
 </script>
 <input type="file" id="_dsUploadInput" multiple style="display:none;">
