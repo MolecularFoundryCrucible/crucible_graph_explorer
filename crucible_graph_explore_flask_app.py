@@ -162,12 +162,17 @@ def _crucible_user_exists(orcid):
     if flask.session.get('crucible_user_ok'):
         return True
     try:
-        app.admin_client.users.get(orcid)
+        if flask.session.get('crucible_apikey'):
+            # API key already bootstrapped — use self-service route, no admin needed
+            get_user_client().whoami()
+        else:
+            # First login: API key not in session yet, fall back to admin check
+            app.admin_client.users.get(orcid)
         flask.session['crucible_user_ok'] = True
         return True
     except Exception as e:
         err = str(e).lower()
-        if '404' in err or 'not found' in err:
+        if '404' in err or 'not found' in err or '401' in err:
             return False
         # Network / auth error — don't block login, log and proceed
         app.logger.warning("Could not verify Crucible account for %s: %s", orcid, e)

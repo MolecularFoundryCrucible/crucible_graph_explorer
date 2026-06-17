@@ -76,11 +76,11 @@ def create_blueprint(auth):
                 api_profile = {}
 
             user_info = {
-                'first_name': given,
-                'last_name':  family,
-                'email':      info.get('email', ''),
+                'first_name': api_profile.get('first_name') or given,
+                'last_name':  api_profile.get('last_name')  or family,
+                'email':      api_profile.get('email')      or info.get('email', ''),
                 'unique_id':  orcid,
-                'username':   api_profile.get('username') or '',
+                'username':   api_profile.get('username')   or '',
             }
 
         else:
