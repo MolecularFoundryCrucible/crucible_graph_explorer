@@ -48,7 +48,7 @@ def create_blueprint(auth):
         user_projects = get_user_projects(orcid, client)
 
         if is_own_profile:
-            # Name/email from OIDC session; username requires an API call.
+            # Profile from account.profile(); OIDC session values are fallback only.
             info = user_session.userinfo
             given  = info.get('given_name', '')
             family = info.get('family_name', '')
