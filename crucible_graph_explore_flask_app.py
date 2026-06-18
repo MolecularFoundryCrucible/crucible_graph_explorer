@@ -166,8 +166,11 @@ def _crucible_user_exists(orcid):
             # API key already bootstrapped — use self-service route, no admin needed
             get_user_client().whoami()
         else:
-            # First login: API key not in session yet, fall back to admin check
-            app.admin_client.users.get(orcid)
+            # First login: API key not in session yet, fall back to admin check.
+            # GET /users/{orcid} returns 200 with a null body (not 404) for an
+            # unknown ORCID, so an empty result means the account does not exist.
+            if not app.admin_client.users.get(orcid):
+                return False
         flask.session['crucible_user_ok'] = True
         return True
     except Exception as e:
