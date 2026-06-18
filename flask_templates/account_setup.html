@@ -43,7 +43,7 @@
     </div>
 
     <!-- account creation form -->
-    <form method="POST" action="{{ url_for('account_setup') }}" novalidate>
+    <form method="POST" action="{{ url_for('account_setup') }}">
         <div class="row g-3 mb-3">
             <div class="col-6">
                 <label class="form-label small fw-semibold" for="first_name">First name <span class="text-danger">*</span></label>
@@ -67,9 +67,10 @@
                 <span class="input-group-text">@</span>
                 <input type="text" class="form-control" id="username" name="username"
                        value="{{ username or '' }}" autocomplete="username"
-                       pattern="[a-z0-9_\-]{3,32}" placeholder="your-username">
+                       pattern="[a-z0-9_\-]{3,32}" placeholder="your-username"
+                       oninput="cgUsernameInput(this)">
             </div>
-            <div class="form-text">3–32 chars: lowercase letters, digits, hyphens, underscores</div>
+            <div class="form-text" id="username-hint">3–32 chars: lowercase letters, digits, hyphens, underscores</div>
         </div>
 
         <button type="submit" class="btn btn-primary w-100">

@@ -213,7 +213,7 @@
                         <input type="text" class="form-control" id="edit_username"
                                name="username" value="{{ username }}"
                                pattern="[a-z0-9_\-]{3,32}" autocomplete="username"
-                               placeholder="optional">
+                               placeholder="optional" oninput="cgUsernameInput(this)">
                     </div>
                     <div class="form-text" style="font-size: var(--fs-2xs);">3–32 chars: lowercase letters, digits, hyphens, underscores</div>
                 </div>
@@ -525,7 +525,12 @@
     // Toast feedback after profile update
     const params = new URLSearchParams(location.search);
     if (params.get('updated'))      cgToast('Profile updated', 'bi-check-circle');
-    if (params.get('update_error')) cgToast('Update failed — please try again', 'bi-exclamation-circle');
+    if (params.get('update_error')) {
+        const msg = params.get('error_msg') === 'invalid_username'
+            ? 'Invalid username — use 3–32 lowercase letters, digits, hyphens or underscores'
+            : 'Update failed — please try again';
+        cgToast(msg, 'bi-exclamation-circle', 4000);
+    }
 </script>
 
 {% endblock %}

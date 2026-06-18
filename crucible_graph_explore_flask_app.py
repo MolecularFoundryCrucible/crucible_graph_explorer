@@ -228,6 +228,9 @@ def logout():
     return redirect(url_for('login'))
 
 
+_USERNAME_RE = re.compile(r'^[a-z0-9_-]{3,32}$')
+
+
 def _suggest_username(admin_client, email: str, first: str, last: str) -> str:
     """Return the first available username derived from email or name."""
     if email and '@' in email:
@@ -271,6 +274,8 @@ def account_setup():
             error = 'First name is required.'
         elif not last_name:
             error = 'Last name is required.'
+        elif username and not _USERNAME_RE.match(username):
+            error = 'Username must be 3–32 characters: lowercase letters, digits, hyphens, underscores.'
         if not error:
             try:
                 app.admin_client.users.create({
@@ -326,6 +331,9 @@ def update_profile():
     last_name  = request.form.get('last_name',  '').strip()
     email      = request.form.get('email',    '').strip()
     username   = request.form.get('username', '').strip()
+
+    if username and not _USERNAME_RE.match(username):
+        return redirect(f'{request.script_root}/user/{orcid}?update_error=1&error_msg=invalid_username')
 
     updates = {}
     if first_name: updates['first_name'] = first_name
