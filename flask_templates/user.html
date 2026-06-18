@@ -526,10 +526,11 @@
     const params = new URLSearchParams(location.search);
     if (params.get('updated'))      cgToast('Profile updated', 'bi-check-circle');
     if (params.get('update_error')) {
-        const msg = params.get('error_msg') === 'invalid_username'
-            ? 'Invalid username — use 3–32 lowercase letters, digits, hyphens or underscores'
-            : 'Update failed — please try again';
-        cgToast(msg, 'bi-exclamation-circle', 4000);
+        const msgs = {
+            invalid_username: 'Invalid username — use 3–32 lowercase letters, digits, hyphens or underscores',
+            username_taken:   'That username is already taken — please choose another',
+        };
+        cgToast(msgs[params.get('error_msg')] || 'Update failed — please try again', 'bi-exclamation-circle', 4000);
     }
 </script>
 
