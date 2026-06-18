@@ -224,26 +224,30 @@
 
     // ── username input validation ─────────────────────────────────────────
     function cgUsernameInput(el) {
-        // Auto-lowercase and strip invalid characters as the user types
+        // Auto-lowercase only — never strip; show errors for invalid chars instead
         const pos = el.selectionStart;
-        const cleaned = el.value.toLowerCase().replace(/[^a-z0-9_-]/g, '');
-        if (cleaned !== el.value) {
-            el.value = cleaned;
-            el.setSelectionRange(pos, pos);
-        }
+        const lowered = el.value.toLowerCase();
+        if (lowered !== el.value) { el.value = lowered; el.setSelectionRange(pos, pos); }
+
         const hint = el.closest('.mb-3, .mb-4')?.querySelector('[id$="-hint"], .form-text');
-        if (!el.value) {
-            el.classList.remove('is-valid', 'is-invalid');
-            if (hint) { hint.className = 'form-text'; hint.textContent = '3–32 chars: lowercase letters, digits, hyphens, underscores'; }
-        } else if (el.value.length < 3) {
-            el.classList.add('is-invalid'); el.classList.remove('is-valid');
-            if (hint) { hint.className = 'form-text text-danger'; hint.textContent = 'Too short — minimum 3 characters'; }
-        } else if (el.value.length > 32) {
-            el.classList.add('is-invalid'); el.classList.remove('is-valid');
-            if (hint) { hint.className = 'form-text text-danger'; hint.textContent = 'Too long — maximum 32 characters'; }
+        const v = el.value;
+        let msg = '', bad = false, good = false;
+        if (!v) {
+            msg = '3–32 chars: lowercase letters, digits, hyphens, underscores';
+        } else if (/[^a-z0-9_-]/.test(v)) {
+            bad = true; msg = 'Only lowercase letters, digits, hyphens and underscores allowed';
+        } else if (v.length < 3) {
+            bad = true; msg = 'Too short — minimum 3 characters';
+        } else if (v.length > 32) {
+            bad = true; msg = 'Too long — maximum 32 characters';
         } else {
-            el.classList.add('is-valid'); el.classList.remove('is-invalid');
-            if (hint) { hint.className = 'form-text text-success'; hint.textContent = `@${el.value} looks good`; }
+            good = true; msg = `@${v} looks good`;
+        }
+        el.classList.toggle('is-invalid', bad);
+        el.classList.toggle('is-valid', good);
+        if (hint) {
+            hint.className = 'form-text' + (bad ? ' text-danger' : good ? ' text-success' : '');
+            hint.textContent = msg;
         }
     }
 
