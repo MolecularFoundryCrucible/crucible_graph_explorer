@@ -369,7 +369,7 @@ def check_username():
         own_orcid = user_session.userinfo.get('sub', '')
         results = get_user_client().users.search(q) or []
         # A match on your own ORCID is not "taken" — it's your current username
-        taken = any(r.get('username') == q and (r.get('orcid') or r.get('unique_id')) != own_orcid for r in results)
+        taken = any(r.get('username') == q and r.get('unique_id') != own_orcid for r in results)
         return jsonify({'available': not taken})
     except Exception as e:
         app.logger.warning("check_username failed for %r: %s", q, e)
