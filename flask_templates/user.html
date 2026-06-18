@@ -522,16 +522,23 @@
         navigator.clipboard.writeText(key).then(() => cgToast('API key copied', 'bi-clipboard-check'));
     }
 
-    // Toast feedback after profile update
-    const params = new URLSearchParams(location.search);
-    if (params.get('updated'))      cgToast('Profile updated', 'bi-check-circle');
-    if (params.get('update_error')) {
-        const msgs = {
-            invalid_username: 'Invalid username — use 3–32 lowercase letters, digits, hyphens or underscores',
-            username_taken:   'That username is already taken — please choose another',
-        };
-        cgToast(msgs[params.get('error_msg')] || 'Update failed — please try again', 'bi-exclamation-circle', 4000);
-    }
+    // Toast feedback after profile update — deferred so toast container is in DOM
+    document.addEventListener('DOMContentLoaded', () => {
+        const params = new URLSearchParams(location.search);
+        if (params.get('updated')) {
+            cgToast('Profile updated', 'bi-check-circle');
+        } else if (params.get('update_error')) {
+            const msgs = {
+                invalid_username: 'Invalid username — use 3–32 lowercase letters, digits, hyphens or underscores',
+                username_taken:   'That username is already taken — please choose another',
+            };
+            cgToast(msgs[params.get('error_msg')] || 'Update failed — please try again', 'bi-exclamation-circle', 4000);
+        }
+        // Clean up URL params without triggering a reload
+        if (params.get('updated') || params.get('update_error')) {
+            history.replaceState(null, '', location.pathname);
+        }
+    });
 </script>
 
 {% endblock %}

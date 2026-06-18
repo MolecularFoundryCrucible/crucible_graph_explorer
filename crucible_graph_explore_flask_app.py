@@ -350,8 +350,9 @@ def update_profile():
         return redirect(f'{request.script_root}/user/{orcid}?updated=1')
     except Exception as e:
         app.logger.error("Profile update failed for %s: %s", orcid, e)
-        err = str(e).lower()
-        if username and any(w in err for w in ('conflict', '409', 'already', 'taken', 'unique', 'duplicate')):
+        resp = getattr(e, 'response', None)
+        status = getattr(resp, 'status_code', 0) if resp else 0
+        if username and status == 409:
             return redirect(f'{request.script_root}/user/{orcid}?update_error=1&error_msg=username_taken')
         return redirect(f'{request.script_root}/user/{orcid}?update_error=1')
 
@@ -363,8 +364,11 @@ def check_username():
     if not _USERNAME_RE.match(q):
         return jsonify({'available': False})
     try:
+        user_session = UserSession(flask.session)
+        own_orcid = user_session.userinfo.get('sub', '')
         results = get_user_client().users.search(q) or []
-        taken = any(r.get('username') == q for r in results)
+        # A match on your own ORCID is not "taken" — it's your current username
+        taken = any(r.get('username') == q and r.get('orcid') != own_orcid for r in results)
         return jsonify({'available': not taken})
     except Exception:
         return jsonify({'available': None})
