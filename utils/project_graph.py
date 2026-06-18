@@ -17,7 +17,7 @@ def generate_project_cache(project_id, crucible_client, include_metadata=True, s
     with ThreadPoolExecutor(max_workers=2) as ex:
         samples_f  = ex.submit(
             crucible_client.samples.list,
-            project_id=project_id, limit=None,
+            project_id=project_id, limit=None, include_links=True
         )
         datasets_f = ex.submit(
             crucible_client.datasets.list,
@@ -26,11 +26,13 @@ def generate_project_cache(project_id, crucible_client, include_metadata=True, s
     pc['samples']  = samples_f.result()
     pc['datasets'] = datasets_f.result()
 
-    # The /samples list returns the 'datasets' compat field as None when a sample
-    # has no associated datasets; normalize to a list so consumers can iterate it.
     for s in pc['samples']:
-        if s.get('datasets') is None:
-            s['datasets'] = []
+        if not s.get('datasets'):
+            s['datasets'] = [
+                {'unique_id': lnk['unique_id'], 'dataset_name': lnk.get('name', '')}
+                for lnk in (s.get('links') or [])
+                if lnk.get('resource_type') == 'dataset' and lnk.get('relationship') == 'associated'
+            ]
 
     pc['samples_by_id'] = {s['unique_id']: s for s in pc['samples']}
     pc['samples_by_name'] = {s['sample_name']: s for s in pc['samples']}
