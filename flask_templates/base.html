@@ -264,7 +264,7 @@
                         if (el.value !== v) return; // value changed while fetching
                         if (data.available === true)       _setHint(false, true,  `@${v} is available`);
                         else if (data.available === false) _setHint(true,  false, `@${v} is already taken`);
-                        // null = unknown (network/error) — leave neutral
+                        // null = server couldn't check — stay neutral, don't block submit
                     })
                     .catch(() => _setHint(false, false, '3–32 chars: lowercase letters, digits, hyphens, underscores'));
             }, 400);
