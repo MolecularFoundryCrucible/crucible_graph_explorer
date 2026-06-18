@@ -289,8 +289,9 @@ def account_setup():
                 return redirect(request.script_root + '/')
             except Exception as e:
                 app.logger.error("Account creation failed for %s: %s", orcid, e)
-                err = str(e).lower()
-                if username and any(w in err for w in ('conflict', '409', 'already', 'taken', 'unique', 'duplicate')):
+                resp = getattr(e, 'response', None)
+                status = getattr(resp, 'status_code', 0) if resp else 0
+                if username and status == 409:
                     error = f'Username @{username} is already taken — please choose a different one.'
                 else:
                     error = 'Account creation failed. Please try again.'
