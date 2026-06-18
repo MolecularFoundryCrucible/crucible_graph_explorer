@@ -254,10 +254,11 @@
         } else if (v.length > 32) {
             _setHint(true, false, 'Too long — maximum 32 characters');
         } else {
-            // Format valid — debounce availability check
+            // Format valid — show neutral hint while typing, check after pause
             el.classList.remove('is-valid', 'is-invalid');
-            if (hint) { hint.className = 'form-text text-muted'; hint.textContent = 'Checking…'; }
+            if (hint) { hint.className = 'form-text'; hint.textContent = '3–32 chars: lowercase letters, digits, hyphens, underscores'; }
             _cgUnTimer[id] = setTimeout(() => {
+                if (hint) { hint.className = 'form-text text-muted'; hint.textContent = 'Checking…'; }
                 fetch(`${_CG_BASE}/api/check-username?q=${encodeURIComponent(v)}`)
                     .then(r => r.json())
                     .then(data => {
