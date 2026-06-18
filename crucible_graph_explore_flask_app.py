@@ -133,7 +133,7 @@ def auth_test():
 
 
 _LOGIN_EXEMPT       = {'/login', '/login/go', '/redirect_uri', '/auth-test/'}
-_ACCOUNT_SETUP_PATHS = {'/account/setup', '/account/profile'}
+_ACCOUNT_SETUP_PATHS = {'/account/setup', '/account/profile', '/api/check-username'}
 
 
 def _fetch_user_api_key() -> None:
@@ -369,8 +369,8 @@ def check_username():
         return jsonify({'available': False})
     try:
         user_session = UserSession(flask.session)
-        own_orcid = user_session.userinfo.get('sub', '')
-        results = get_user_client().users.search(q) or []
+        own_orcid = (user_session.userinfo or {}).get('sub', '')
+        results = app.admin_client.users.search(q) or []
         # A match on your own ORCID is not "taken" — it's your current username
         taken = any(r.get('username') == q and r.get('unique_id') != own_orcid for r in results)
         return jsonify({'available': not taken})
