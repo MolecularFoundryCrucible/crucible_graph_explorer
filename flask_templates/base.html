@@ -128,6 +128,7 @@
     {% endblock %}
 
     <script>
+    const _CG_BASE = {{ base | tojson }};
     // ── color & avatar utilities ──────────────────────────────────────────
     function hashColor(str) {
         // HSL-based: hue spans full spectrum, saturation 45-74% (never gray),
@@ -220,6 +221,54 @@
         adv.style.display = open ? 'none' : '';
         if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
         if (chevron) chevron.style.color     = open ? '' : 'var(--bs-body-color)';
+    }
+
+    // ── username input validation ─────────────────────────────────────────
+    const _cgUnTimer = {};
+    function cgUsernameInput(el) {
+        // Auto-lowercase only — never strip; show errors for invalid chars instead
+        const pos = el.selectionStart;
+        const lowered = el.value.toLowerCase();
+        if (lowered !== el.value) { el.value = lowered; el.setSelectionRange(pos, pos); }
+
+        const hint = el.closest('.mb-3, .mb-4')?.querySelector('[id$="-hint"], .form-text');
+        const v = el.value;
+        const id = el.id || 'default';
+        clearTimeout(_cgUnTimer[id]);
+
+        function _setHint(bad, good, msg) {
+            el.classList.toggle('is-invalid', bad);
+            el.classList.toggle('is-valid', good);
+            if (hint) {
+                hint.className = 'form-text' + (bad ? ' text-danger' : good ? ' text-success' : '');
+                hint.textContent = msg;
+            }
+        }
+
+        if (!v) {
+            _setHint(false, false, '3–32 chars: lowercase letters, digits, hyphens, underscores');
+        } else if (/[^a-z0-9_-]/.test(v)) {
+            _setHint(true, false, 'Only lowercase letters, digits, hyphens and underscores allowed');
+        } else if (v.length < 3) {
+            _setHint(true, false, 'Too short — minimum 3 characters');
+        } else if (v.length > 32) {
+            _setHint(true, false, 'Too long — maximum 32 characters');
+        } else {
+            // Format valid — neutral hint while typing, update silently when check returns
+            el.classList.remove('is-valid', 'is-invalid');
+            if (hint) { hint.className = 'form-text'; hint.textContent = '3–32 chars: lowercase letters, digits, hyphens, underscores'; }
+            _cgUnTimer[id] = setTimeout(() => {
+                fetch(`${_CG_BASE}/api/check-username?q=${encodeURIComponent(v)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (el.value !== v) return; // value changed while fetching
+                        if (data.available === true)       _setHint(false, true,  `@${v} is available`);
+                        else if (data.available === false) _setHint(true,  false, `@${v} is already taken`);
+                        // null = server couldn't check — stay neutral, don't block submit
+                    })
+                    .catch(() => _setHint(false, false, '3–32 chars: lowercase letters, digits, hyphens, underscores'));
+            }, 400);
+        }
     }
 
     // ── toast notifications ───────────────────────────────────────────────
