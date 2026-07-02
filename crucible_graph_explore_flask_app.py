@@ -139,16 +139,17 @@ _ACCOUNT_SETUP_PATHS = {'/account/setup', '/account/profile', '/api/check-userna
 def _fetch_user_api_key() -> None:
     """Fetch the user's personal Crucible API key and store it in the session.
 
-    Calls GET /users/{orcid}/apikey via the admin client. Returns 404 if the
-    user has no token yet. Silently logs and returns on any failure so login
-    is never blocked.
+    Calls POST /users/{orcid}/apikey via the admin client, which returns the
+    user's key and mints one if they don't have it yet. Returns 404 only if the
+    user has no Crucible account. Silently logs and returns on any failure so
+    login is never blocked.
     """
     if flask.session.get('crucible_apikey'):
         return
     try:
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        result = app.admin_client._request("GET", f"/users/{orcid}/apikey")
+        result = app.admin_client._request("POST", f"/users/{orcid}/apikey")
         key = result.get('api_key')
         if key:
             flask.session['crucible_apikey'] = key
