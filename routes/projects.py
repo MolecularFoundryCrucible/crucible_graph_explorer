@@ -98,10 +98,15 @@ def create_blueprint(auth):
     @auth.oidc_auth('orcid')
     def project_overview(project_id):
         import views.projects as project_views
+        _t0 = time.perf_counter()
         client = get_user_client()
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
+        _t_client = time.perf_counter()
+
         user_projects = get_user_projects(orcid, client)
+        _t_projects = time.perf_counter()
+
         project_meta = next((p for p in user_projects if p['project_id'] == project_id), None)
         if project_meta is None:
             abort(403)
@@ -129,6 +134,17 @@ def create_blueprint(auth):
             project_users.sort(key=lambda u: u['name'].lower() or u['orcid'])
         except Exception:
             pass
+        _t_users = time.perf_counter()
+
+        logger.info(
+            "project_overview %s timing: client=%.3fs get_user_projects=%.3fs "
+            "get_users=%.3fs total=%.3fs",
+            project_id,
+            _t_client - _t0,
+            _t_projects - _t_client,
+            _t_users - _t_projects,
+            _t_users - _t0,
+        )
 
         # Samples and datasets are loaded asynchronously by the page JS
         # via /api/overview-data — no get_project() call here.
@@ -144,14 +160,31 @@ def create_blueprint(auth):
     @auth.oidc_auth('orcid')
     def project_api_overview_data(project_id):
         """Return slim samples + datasets JSON for async project overview loading."""
+        _t0 = time.perf_counter()
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
         client = get_user_client()
+
+        cache_hit = (orcid, project_id, False) in _project_cache
         pc = get_project(project_id, orcid, client=client)
-        return jsonify({
+        _t_get = time.perf_counter()
+
+        payload = {
             'samples':  [_slim_sample(s)   for s in pc['samples']],
             'datasets': [_slim_dataset(ds) for ds in pc['datasets']],
-        })
+        }
+        _t_slim = time.perf_counter()
+
+        logger.info(
+            "overview-data %s timing: cache_hit=%s get_project=%.3fs slim=%.3fs "
+            "total=%.3fs (samples=%d datasets=%d)",
+            project_id, cache_hit,
+            _t_get - _t0,
+            _t_slim - _t_get,
+            _t_slim - _t0,
+            len(pc['samples']), len(pc['datasets']),
+        )
+        return jsonify(payload)
 
     @bp.route("/<project_id>/api/sample-types")
     @auth.oidc_auth('orcid')
