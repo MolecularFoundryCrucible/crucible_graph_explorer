@@ -1,9 +1,13 @@
+import logging
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import cachetools
 import flask
 from flask_pyoidc.user_session import UserSession
+
+logger = logging.getLogger(__name__)
 
 _PROJECT_CACHE_TTL = 1200  # seconds (20 min)
 
@@ -47,22 +51,30 @@ def get_user_name(orcid: str) -> str | None:
     return name
 
 
-def get_user_projects(orcid: str, client=None) -> list:
-    with _user_projects_lock:
-        if orcid in _user_projects_cache:
-            return _user_projects_cache[orcid]
+def get_user_projects(orcid: str, client=None, force_refresh: bool = False) -> list:
+    if not force_refresh:
+        with _user_projects_lock:
+            if orcid in _user_projects_cache:
+                return _user_projects_cache[orcid]
 
     if client is None:
         from utils.auth import get_user_client
         client = get_user_client()
 
+    _t0 = time.perf_counter()
     projects = client.projects.list(orcid=orcid, limit=10000)
+    _elapsed = time.perf_counter() - _t0
 
     with _user_projects_lock:
         _user_projects_cache[orcid] = projects
 
     with _membership_lock:
         _project_membership_cache[orcid] = frozenset(p['project_id'] for p in projects)
+
+    logger.info(
+        "get_user_projects %s: fetched %d projects in %.3fs",
+        orcid, len(projects), _elapsed,
+    )
 
     return projects
 

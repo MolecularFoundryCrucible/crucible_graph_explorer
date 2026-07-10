@@ -52,7 +52,7 @@ def create_blueprint(auth):
         orcid = user_session.userinfo['sub']
         info = user_session.userinfo
         user_name = info.get('given_name') or info.get('name') or orcid
-        user_projects = get_user_projects(orcid, client)
+        user_projects = get_user_projects(orcid, client, force_refresh=True)
 
         for p in user_projects:
             lead = p.get('lead') or {}
