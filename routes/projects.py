@@ -165,6 +165,8 @@ def create_blueprint(auth):
         orcid = user_session.userinfo['sub']
         client = get_user_client()
 
+        if request.args.get('refresh'):
+            clear_project_cache(project_id, orcid)
         cache_hit = (orcid, project_id, False) in _project_cache
         pc = get_project(project_id, orcid, client=client)
         _t_get = time.perf_counter()

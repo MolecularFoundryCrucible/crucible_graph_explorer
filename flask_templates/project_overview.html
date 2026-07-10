@@ -218,6 +218,10 @@ function toggleSidebar() {
     }
     .subtitle-loaded { animation: subtitleIn 0.25s ease both; }
 
+    /* ── refresh button spin ──────────────────────────────────────────── */
+    .cg-refreshing .bi-arrow-clockwise { animation: cgSpin 0.7s linear infinite; }
+    @keyframes cgSpin { to { transform: rotate(360deg); } }
+
     /* ── recently visited strip ──────────────────────────────────────────── */
     #recentlyVisited {
         display: flex; align-items: center; gap: 0.4rem;
@@ -334,6 +338,12 @@ function toggleSidebar() {
                 onclick="setAllGroups(false); event.stopPropagation();" title="Collapse all">
             <i class="bi bi-chevron-contract"></i>
             <span class="d-none d-lg-inline">Collapse</span>
+        </button>
+        <button id="refreshBtn" class="btn btn-sm btn-link text-muted py-0 px-1 d-flex align-items-center gap-1"
+                style="font-size: var(--fs-sm); text-decoration:none;"
+                onclick="loadOverviewData(true); event.stopPropagation();" title="Refresh samples &amp; datasets">
+            <i class="bi bi-arrow-clockwise"></i>
+            <span class="d-none d-lg-inline">Refresh</span>
         </button>
 
         <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
@@ -1046,6 +1056,56 @@ function toggleSidebar() {
     const _origSwitchTab = switchTab;
     switchTab = function(tab) { _kbClear(); _kbRows = []; _origSwitchTab(tab); _writeHash(tab, document.getElementById('filterInput').value); };
 
+    // ── overview data loading ──────────────────────────────────────────────────
+    // Capture the shimmer skeleton markup before it's removed, so a refresh can
+    // re-inject it and feel like a fresh load.
+    const SAMPLES_SKELETON  = document.getElementById('samplesSpinner')?.outerHTML  || '';
+    const DATASETS_SKELETON = document.getElementById('datasetsSpinner')?.outerHTML || '';
+
+    const _overviewErrHtml = '<div class="text-center text-muted py-5">' +
+        '<i class="bi bi-exclamation-circle fs-2 d-block mb-2 text-danger opacity-75"></i>' +
+        '<div class="small">Failed to load. ' +
+        '<a href="" onclick="location.reload();return false;">Retry</a></div></div>';
+
+    function showOverviewSkeletons() {
+        document.getElementById('samples-groups').innerHTML  = SAMPLES_SKELETON;
+        document.getElementById('datasets-groups').innerHTML = DATASETS_SKELETON;
+        document.getElementById('sampleNav').innerHTML  = '';
+        document.getElementById('datasetNav').innerHTML = '';
+    }
+
+    function loadOverviewData(refresh) {
+        const btn = document.getElementById('refreshBtn');
+        if (refresh) {
+            showOverviewSkeletons();
+            btn?.classList.add('cg-refreshing');
+        }
+        const sgb = document.getElementById('sampleGroupBySelect')?.value  || 'sample_type';
+        const dgb = document.getElementById('datasetGroupBySelect')?.value || 'measurement';
+        const ssb = document.getElementById('sampleSortBySelect')?.value   || 'name_asc';
+        const dsb = document.getElementById('datasetSortBySelect')?.value  || 'name_asc';
+
+        return fetch(cgUrl(`/${PID}/api/overview-data${refresh ? '?refresh=1' : ''}`))
+            .then(r => r.ok ? r.json() : Promise.reject(r.status))
+            .then(data => {
+                SAMPLES  = data.samples;
+                DATASETS = data.datasets;
+                document.getElementById('samplesSpinner')?.remove();
+                document.getElementById('datasetsSpinner')?.remove();
+                renderSampleGroups(sgb, ssb);
+                renderDatasetGroups(dgb, dsb);
+                if (refresh) cgToast('Refreshed', 'bi-check-circle');
+            })
+            .catch(() => {
+                ['samplesSpinner', 'datasetsSpinner'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.outerHTML = _overviewErrHtml;
+                });
+                if (refresh) cgToast('Refresh failed', 'bi-exclamation-circle', 4000);
+            })
+            .finally(() => { btn?.classList.remove('cg-refreshing'); });
+    }
+
     // ── init ──────────────────────────────────────────────────────────────────
     (function () {
         const sgb = localStorage.getItem('pref_sample_groupby')  || 'sample_type';
@@ -1087,29 +1147,7 @@ function toggleSidebar() {
             });
         }
 
-        const errHtml = '<div class="text-center text-muted py-5">' +
-            '<i class="bi bi-exclamation-circle fs-2 d-block mb-2 text-danger opacity-75"></i>' +
-            '<div class="small">Failed to load. ' +
-            '<a href="" onclick="location.reload();return false;">Retry</a></div></div>';
-
-        fetch(`{{ base }}/${PID}/api/overview-data`)
-            .then(r => r.ok ? r.json() : Promise.reject(r.status))
-            .then(data => {
-                SAMPLES  = data.samples;
-                DATASETS = data.datasets;
-                document.getElementById('samplesSpinner')?.remove();
-                document.getElementById('datasetsSpinner')?.remove();
-                renderSampleGroups(sgb, ssb);
-                renderDatasetGroups(dgb, dsb);
-                // Apply URL filter after render
-                if (hs.q) applyFilter();
-            })
-            .catch(() => {
-                ['samplesSpinner', 'datasetsSpinner'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.outerHTML = errHtml;
-                });
-            });
+        loadOverviewData(false);
 
         renderRecentlyVisited();
     })();
