@@ -18,6 +18,12 @@ into this directory.  It must expose:
         Factory that returns a configured Blueprint.  Routes inside should
         follow the pattern /<project_id>/<dsid>.
 
+    DATA_TYPE_STEMS : list[str]  (optional)
+        data_type stems this module handles, e.g.
+        'ScopeFoundryH5.qspleem_sv_ramp'.  A dataset whose data_type is that
+        stem plus a '.subform' suffix routes to this view.  Coexists with
+        MEASUREMENT_TYPES for backward compatibility.
+
 Available helpers
 -----------------
     is_user_in_project(project_id)
@@ -30,6 +36,11 @@ from pathlib import Path
 
 # Maps measurement_type -> list of {url_prefix, label}
 _registry: dict = {}
+
+# Maps data_type stem (data_type minus its trailing .subform) -> list of {url_prefix, label}.
+# Lets viewers route on the technical data_type (e.g. 'ScopeFoundryH5.qspleem_sv_ramp')
+# in addition to the human-readable measurement.
+_registry_by_dtype_stem: dict = {}
 
 
 def register_all(app, auth, helpers):
@@ -53,6 +64,8 @@ def register_all(app, auth, helpers):
             }
             for mtype in module.MEASUREMENT_TYPES:
                 _registry.setdefault(mtype, []).append(entry)
+            for stem in getattr(module, 'DATA_TYPE_STEMS', []):
+                _registry_by_dtype_stem.setdefault(stem, []).append(entry)
             app.logger.info(f'dataset_views: registered {name!r} → {module.MEASUREMENT_TYPES} at {prefix}')
         except Exception as err:
             app.logger.error(f'dataset_views: failed to register {name}: {err}')
@@ -60,9 +73,22 @@ def register_all(app, auth, helpers):
     app.logger.info(f'dataset_views registry: { {k: [e["label"] for e in v] for k, v in _registry.items()} }')
 
 
-def get_views(measurement: str, project_id: str, dsid: str) -> list:
-    """Return all custom view dicts for a dataset, each with 'url' and 'label'."""
-    return [
-        {'url': f"{entry['url_prefix']}/{project_id}/{dsid}", 'label': entry['label']}
-        for entry in _registry.get(measurement, [])
-    ]
+def get_views(measurement: str, data_type: str, project_id: str, dsid: str) -> list:
+    """Return all custom view dicts for a dataset, each with 'url' and 'label'.
+
+    Matches on both the human-readable ``measurement`` and, when present, the
+    ``data_type`` stem (``data_type`` minus its trailing ``.subform``), so a
+    dataset routes correctly under either the old measurement-keyed scheme or
+    the new data_type scheme.  Deduplicated by url_prefix.
+    """
+    entries = list(_registry.get(measurement, []))
+    if data_type:
+        stem = data_type.rsplit('.', 1)[0]
+        entries += _registry_by_dtype_stem.get(stem, [])
+    seen, out = set(), []
+    for entry in entries:
+        if entry['url_prefix'] in seen:
+            continue
+        seen.add(entry['url_prefix'])
+        out.append({'url': f"{entry['url_prefix']}/{project_id}/{dsid}", 'label': entry['label']})
+    return out

@@ -5,8 +5,9 @@
 {{ super() }}
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
-#frame-img {
+#frame-canvas {
     width: 100%;
+    image-rendering: pixelated;
     border: 1px solid var(--bs-border-color);
     border-radius: 4px;
     display: block;
@@ -22,8 +23,10 @@
 {% endblock %}
 
 {% block breadcrumb %}
+{% if project_id %}
     <li class="breadcrumb-item"><a href="{{ base }}/{{project_id}}/"><b>Project</b> {{project_id}}</a></li>
     <li class="breadcrumb-item"><a href="{{ base }}/{{project_id}}/datasets/{{ds['unique_id']}}"><b>Dataset</b> {{ds['dataset_name']}}</a></li>
+{% endif %}
     <li class="breadcrumb-item active" aria-current="page">SV Ramp Viewer</li>
 {% endblock %}
 
@@ -31,9 +34,11 @@
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h1 class="fs-4 fw-semibold mb-0" style="overflow-wrap:break-word;">{{ds['dataset_name']}}</h1>
+    {% if project_id %}
     <a href="{{ base }}/{{project_id}}/datasets/{{ds['unique_id']}}" class="btn btn-sm btn-outline-secondary flex-shrink-0">
         <i class="bi bi-database me-1"></i>Dataset
     </a>
+    {% endif %}
 </div>
 
 <!-- ── IV curve ────────────────────────────────────────────────────────── -->
@@ -68,13 +73,14 @@
 
         <!-- Frame image -->
         <div id="frame-wrapper">
-            <img id="frame-img" alt="LEEM frame" src="">
+            <canvas id="frame-canvas"></canvas>
             <div id="frame-spinner">
                 <div class="spinner-border text-secondary" role="status">
                     <span class="visually-hidden">Loading…</span>
                 </div>
             </div>
         </div>
+        <div id="frame-error" class="alert alert-warning mt-2 d-none"></div>
 
     </div>
 </div>
@@ -88,53 +94,132 @@
     const svArray   = {{ sv_array   | tojson }};
     const imavg     = {{ imavg_array | tojson }};
     const nFrames   = {{ n_frames }};
+    let   stream    = {{ stream | tojson }};
+
+    // ── Raw-byte decode helpers ──────────────────────────────────────────────
+    const PLATFORM_LE = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
+
+    function decodeValues(buf, dtypeStr) {
+        const little = dtypeStr[0] !== '>';
+        const kind   = dtypeStr[1];
+        const size   = parseInt(dtypeStr.slice(2), 10);
+        if (little === PLATFORM_LE) {
+            if (kind === 'u' && size === 1) return new Uint8Array(buf);
+            if (kind === 'u' && size === 2) return new Uint16Array(buf);
+            if (kind === 'u' && size === 4) return new Uint32Array(buf);
+            if (kind === 'i' && size === 1) return new Int8Array(buf);
+            if (kind === 'i' && size === 2) return new Int16Array(buf);
+            if (kind === 'i' && size === 4) return new Int32Array(buf);
+            if (kind === 'f' && size === 4) return new Float32Array(buf);
+            if (kind === 'f' && size === 8) return new Float64Array(buf);
+        }
+        const n = buf.byteLength / size, dv = new DataView(buf), out = new Float64Array(n);
+        for (let i = 0; i < n; i++) {
+            const o = i * size;
+            if      (kind === 'u' && size === 1) out[i] = dv.getUint8(o);
+            else if (kind === 'u' && size === 2) out[i] = dv.getUint16(o, little);
+            else if (kind === 'u' && size === 4) out[i] = dv.getUint32(o, little);
+            else if (kind === 'i' && size === 1) out[i] = dv.getInt8(o);
+            else if (kind === 'i' && size === 2) out[i] = dv.getInt16(o, little);
+            else if (kind === 'i' && size === 4) out[i] = dv.getInt32(o, little);
+            else if (kind === 'f' && size === 4) out[i] = dv.getFloat32(o, little);
+            else if (kind === 'f' && size === 8) out[i] = dv.getFloat64(o, little);
+        }
+        return out;
+    }
+
+    function percentile(vals, p) {
+        const arr = vals.slice();
+        arr.sort((a, b) => a - b);
+        const idx = (p / 100) * (arr.length - 1);
+        const lo = Math.floor(idx), hi = Math.ceil(idx);
+        return lo === hi ? arr[lo] : arr[lo] + (arr[hi] - arr[lo]) * (idx - lo);
+    }
+
+    function renderGray(canvas, vals, W, H, lo, hi) {
+        canvas.width = W; canvas.height = H;
+        const ctx = canvas.getContext('2d');
+        const imgData = ctx.createImageData(W, H);
+        const d = imgData.data;
+        const scale = hi > lo ? 255 / (hi - lo) : 0;
+        for (let i = 0; i < vals.length; i++) {
+            let v = (vals[i] - lo) * scale;
+            v = v < 0 ? 0 : v > 255 ? 255 : v;
+            const o = i * 4;
+            d[o] = d[o + 1] = d[o + 2] = v; d[o + 3] = 255;
+        }
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    async function refreshSpec() {
+        const r = await fetch(`${base}/stream-spec`);
+        if (r.ok) stream = await r.json();
+    }
+
+    async function fetchFrameBytes(fi) {
+        const start = stream.data_offset + fi * stream.frame_bytes;
+        const end   = start + stream.frame_bytes - 1;
+        const range = { headers: { Range: `bytes=${start}-${end}` } };
+        let resp = await fetch(stream.url, range);
+        if (resp.status === 401 || resp.status === 403) {
+            await refreshSpec();
+            const r2 = { headers: { Range: `bytes=${stream.data_offset + fi * stream.frame_bytes}-${stream.data_offset + fi * stream.frame_bytes + stream.frame_bytes - 1}` } };
+            resp = await fetch(stream.url, r2);
+        }
+        if (resp.status !== 206 && resp.status !== 200) {
+            throw new Error(`Range fetch failed (HTTP ${resp.status})`);
+        }
+        return resp.arrayBuffer();
+    }
 
     // ── State ──────────────────────────────────────────────────────────────
     let currentFi = 0;
-    let loading   = false;
+    let reqToken  = 0;   // discards stale in-flight loads on rapid scrubbing
 
     // ── DOM refs ───────────────────────────────────────────────────────────
-    const img        = document.getElementById('frame-img');
+    const canvas     = document.getElementById('frame-canvas');
     const spinner    = document.getElementById('frame-spinner');
+    const errorBox   = document.getElementById('frame-error');
     const slider     = document.getElementById('frame-slider');
     const svBadge    = document.getElementById('sv-badge');
     const frameBadge = document.getElementById('frame-badge');
     const btnPrev    = document.getElementById('btn-prev');
     const btnNext    = document.getElementById('btn-next');
 
-    // ── Helpers ────────────────────────────────────────────────────────────
     function updateBadges(fi) {
-        const sv = svArray[fi];
-        svBadge.textContent   = `SV ${sv.toFixed(2)} V`;
+        svBadge.textContent    = `SV ${svArray[fi].toFixed(2)} V`;
         frameBadge.textContent = `frame ${fi + 1} / ${nFrames}`;
     }
 
-    function loadFrame(fi) {
-        if (loading) return;
+    async function loadFrame(fi) {
         fi = Math.max(0, Math.min(nFrames - 1, fi));
         currentFi = fi;
         updateBadges(fi);
         slider.value = fi;
-
-        // Move IV curve marker
         Plotly.restyle('iv-plot', { x: [[svArray[fi]]], y: [[imavg[fi]]] }, [1]);
 
-        // Load image
-        loading = true;
+        const token = ++reqToken;
         spinner.style.display = 'flex';
-        const newSrc = `${base}/frame?fi=${fi}`;
-        img.src = newSrc;
+        errorBox.classList.add('d-none');
+        try {
+            const buf = await fetchFrameBytes(fi);
+            if (token !== reqToken) return;     // a newer frame was requested
+            const vals = decodeValues(buf, stream.dtype);
+            const lo = percentile(vals, 2), hi = percentile(vals, 98);
+            renderGray(canvas, vals, stream.width, stream.height, lo, hi);
+        } catch (err) {
+            if (token !== reqToken) return;
+            errorBox.textContent = `Could not load frame ${fi + 1}: ${err.message}`;
+            errorBox.classList.remove('d-none');
+        } finally {
+            if (token === reqToken) spinner.style.display = 'none';
+        }
     }
-
-    img.addEventListener('load',  () => { spinner.style.display = 'none'; loading = false; });
-    img.addEventListener('error', () => { spinner.style.display = 'none'; loading = false; });
 
     // ── Controls ───────────────────────────────────────────────────────────
     slider.addEventListener('input', () => loadFrame(parseInt(slider.value)));
-
     btnPrev.addEventListener('click', () => loadFrame(currentFi - 1));
     btnNext.addEventListener('click', () => loadFrame(currentFi + 1));
-
     document.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowLeft')  loadFrame(currentFi - 1);
         if (e.key === 'ArrowRight') loadFrame(currentFi + 1);
@@ -148,7 +233,6 @@
         name: 'Mean intensity',
         hovertemplate: 'SV: %{x:.2f} V<br>Intensity: %{y:.3e}<extra></extra>',
     };
-
     const markerTrace = {
         x: [svArray[0]], y: [imavg[0]],
         type: 'scatter', mode: 'markers',
@@ -156,7 +240,6 @@
                   line: { color: 'white', width: 1.5 } },
         showlegend: false, hoverinfo: 'skip',
     };
-
     const layout = {
         xaxis: { title: { text: 'Sample Voltage (V)' }, showgrid: true },
         yaxis: { title: { text: 'Mean Intensity (counts)' }, showgrid: true,
@@ -164,16 +247,14 @@
         margin: { t: 10, r: 20, b: 50, l: 70 },
         dragmode: 'zoom',
     };
-
     Plotly.newPlot('iv-plot', [lineTrace, markerTrace], layout, { responsive: true });
 
     document.getElementById('iv-plot').on('plotly_click', (e) => {
         if (!e.points.length) return;
-        const pt = e.points[0];
-        // Find nearest frame index by SV value
+        const px = e.points[0].x;
         let best = 0, bestDist = Infinity;
         for (let i = 0; i < svArray.length; i++) {
-            const d = Math.abs(svArray[i] - pt.x);
+            const d = Math.abs(svArray[i] - px);
             if (d < bestDist) { bestDist = d; best = i; }
         }
         loadFrame(best);

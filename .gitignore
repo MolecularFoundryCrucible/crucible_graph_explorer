@@ -29,3 +29,6 @@ cache/
 # Mac
 .DS_Store
 .secret
+
+# Local viewer test data (served only by the /local dev routes; never deployed)
+test_data/
