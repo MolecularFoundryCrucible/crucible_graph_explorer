@@ -16,17 +16,22 @@ Requires bucket CORS to allow GET with the Range request header and to expose
 Content-Range (see cors.json).
 """
 
+import os
 import time
 
 import fsspec
 import h5py
-from flask import Blueprint, abort, jsonify, render_template
+from flask import Blueprint, abort, jsonify, render_template, request, send_from_directory
 
 from utils.auth import get_user_client
 
 MEASUREMENT_TYPES = ['sv_ramp']
+DATA_TYPE_STEMS = ['ScopeFoundryH5.qspleem_sv_ramp']
 URL_PREFIX = '/dataset-view/sv-ramp-gcs'
 LABEL = 'SV Ramp Viewer'
+
+# Directory of local .h5 files for the /local dev test route (not deployed to prod).
+_TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'test_data')
 
 _URL_TTL = 600  # seconds — refresh signed URL before it expires
 
@@ -101,6 +106,41 @@ def _stream_spec(entry: dict) -> dict:
     }
 
 
+def _local_meta(filename: str, browser_url: str) -> dict:
+    """Read frame geometry from a local test_data file for the /local dev route.
+
+    Mirrors _ensure_meta but reads a local path directly with h5py; the stream
+    url points at the /localfile route so the browser Range-fetches it same-origin.
+    """
+    path = os.path.join(_TEST_DATA_DIR, filename)
+    if not os.path.isfile(path):
+        abort(404)
+    with h5py.File(path, 'r') as h5:
+        meas     = h5['measurement/sv_ramp']
+        sv_array = meas['0000_sv_array'][:].tolist()
+        imavg    = meas['000_imavg_array'][:].tolist()
+        im_ds    = meas['000_im_array']
+        shape    = im_ds.shape
+        dtype    = im_ds.dtype
+        offset   = im_ds.id.get_offset()
+    if offset is None:
+        abort(500)  # chunked/unallocated — Range streaming impossible
+    return {
+        'sv_array':    sv_array,
+        'imavg_array': imavg,
+        'n_frames':    int(shape[0]),
+        'stream': {
+            'url':         browser_url,
+            'data_offset': int(offset),
+            'frame_bytes': int(shape[1]) * int(shape[2]) * dtype.itemsize,
+            'height':      int(shape[1]),
+            'width':       int(shape[2]),
+            'dtype':       dtype.str,
+            'n_frames':    int(shape[0]),
+        },
+    }
+
+
 def create_blueprint(auth, helpers):
     bp = Blueprint('dview_sv_ramp_gcs', __name__)
     is_user_in_project = helpers['is_user_in_project']
@@ -130,5 +170,26 @@ def create_blueprint(auth, helpers):
             abort(403)
         meta = _ensure_meta(dsid, get_user_client())
         return jsonify(_stream_spec(meta))
+
+    # ── local dev test route: point the browser at a test_data file ──────────────
+    @bp.route('/localfile/<filename>')
+    @auth.oidc_auth('orcid')
+    def localfile(filename):
+        return send_from_directory(_TEST_DATA_DIR, filename, conditional=True)
+
+    @bp.route('/local/<filename>')
+    @auth.oidc_auth('orcid')
+    def local_view(filename):
+        browser_url = f"{request.script_root}{URL_PREFIX}/localfile/{filename}"
+        data = _local_meta(filename, browser_url)
+        return render_template(
+            'dataset_views/sv_ramp_gcs.html',
+            project_id=None,
+            ds={'dataset_name': filename, 'unique_id': None},
+            sv_array=data['sv_array'],
+            imavg_array=data['imavg_array'],
+            n_frames=data['n_frames'],
+            stream=data['stream'],
+        )
 
     return bp

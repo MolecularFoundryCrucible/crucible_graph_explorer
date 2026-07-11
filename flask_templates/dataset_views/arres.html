@@ -9,24 +9,22 @@
 <style>
     .tab-bar {
         display: flex;
+        justify-content: center;
         border-bottom: 1px solid var(--bs-border-color);
         margin-bottom: 0.75rem;
     }
     .tab-stat {
-        flex: 1;
-        text-align: center;
-        padding: 0.6rem 1rem;
+        padding: 0.25rem 0.75rem;
         cursor: pointer;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         border-bottom: 4px solid transparent;
-        opacity: 0.55;
-        transition: opacity 0.15s;
+        color: var(--bs-secondary-color);
         user-select: none;
     }
     .tab-stat.active {
-        background: var(--bs-body-bg) !important;
         border-bottom: 4px solid var(--bs-primary);
-        opacity: 1;
+        color: var(--bs-body-color);
+        font-weight: 500;
     }
     .contrast-bar {
         display: flex;
@@ -54,17 +52,21 @@
 {% block main_col_class %}col-12{% endblock %}
 
 {% block breadcrumb %}
+{% if project_id %}
     <li class="breadcrumb-item"><a href="{{ base }}/{{ project_id }}/"><b>Project</b> {{ project_id }}</a></li>
     <li class="breadcrumb-item"><a href="{{ base }}/{{ project_id }}/datasets/{{ ds['unique_id'] }}"><b>Dataset</b> {{ ds['dataset_name'] }}</a></li>
-    <li class="breadcrumb-item active" aria-current="page"><i class="bi bi-graph-up me-1"></i>ARRES</li>
+{% endif %}
+    <li class="breadcrumb-item active" aria-current="page"><i class="bi bi-graph-up me-1"></i>ARRES <span id="scanTypeLabel"></span></li>
 {% endblock %}
 
 {% block content %}
 <div class="px-3">
-    <h5 class="fw-semibold mb-1">
-        <i class="bi bi-graph-up me-2"></i>ARRES <span id="scanTypeLabel"></span> Viewer
-    </h5>
-    <p class="text-muted small mb-3">{{ ds['dataset_name'] }}</p>
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <h1 class="fs-4 fw-semibold mb-0" style="overflow-wrap:break-word;"><i class="bi bi-graph-up me-2"></i>{{ ds['dataset_name'] }}</h1>
+        {% if project_id %}
+        <a href="{{ base }}/{{ project_id }}/datasets/{{ ds['unique_id'] }}" class="btn btn-sm btn-outline-secondary flex-shrink-0"><i class="bi bi-database me-1"></i>Dataset</a>
+        {% endif %}
+    </div>
 
     <!-- Loading / error states -->
     <div id="loading" class="text-muted">
@@ -81,10 +83,10 @@
                 <i class="bi bi-arrow-down-circle me-1"></i>Spin Down
             </div>
             <div class="tab-stat" data-tab="diff">
-                <i class="bi bi-subtract me-1"></i>Up &minus; Down
+                <i class="bi bi-subtract me-1"></i>Difference
             </div>
             <div class="tab-stat" data-tab="pol">
-                <i class="bi bi-percent me-1"></i>Polarization
+                <i class="bi bi-percent me-1"></i>Asymmetry
             </div>
         </div>
 
@@ -355,9 +357,7 @@
 
     // --- Load: signed URL → fetch from bucket → parse in-browser ---
     (async () => {
-        const dsid = {{ ds['unique_id'] | tojson }};
-        const projectId = {{ project_id | tojson }};
-        const fileUrlEndpoint = cgUrl(`/dataset-view/arres/${projectId}/${dsid}/file-url`);
+        const fileUrlEndpoint = {{ file_url_endpoint | tojson }};
 
         let data;
         try {

@@ -11,13 +11,17 @@ Requires bucket CORS to allow GET from the serving origin (see cors.json).
 
 import os
 
-from flask import Blueprint, abort, jsonify, render_template
+from flask import Blueprint, abort, jsonify, render_template, request, send_from_directory
 
 from utils.auth import get_user_client
 
 MEASUREMENT_TYPES = ['arres_ek', 'arres_mm']
+DATA_TYPE_STEMS = ['ScopeFoundryH5.qspleem_arres_ek', 'ScopeFoundryH5.qspleem_arres_mm']
 URL_PREFIX = '/dataset-view/arres'
 LABEL = 'ARRES Viewer'
+
+# Directory of local .h5 files for the /local dev test route (not deployed to prod).
+_TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'test_data')
 
 
 def _find_h5_file(associated_files):
@@ -36,7 +40,8 @@ def create_blueprint(auth, helpers):
             abort(403)
         ds = get_user_client().datasets.get(dsid)
         return render_template('dataset_views/arres.html',
-                               project_id=project_id, ds=ds)
+                               project_id=project_id, ds=ds,
+                               file_url_endpoint=f'{request.script_root}{URL_PREFIX}/{project_id}/{dsid}/file-url')
 
     @bp.route('/<project_id>/<dsid>/file-url')
     @auth.oidc_auth('orcid')
@@ -56,5 +61,27 @@ def create_blueprint(auth, helpers):
             return jsonify({'error': str(e)}), 502
 
         return jsonify({'url': url, 'filename': os.path.basename(h5_file['filename'])})
+
+    # ── local dev test route: serve a test_data file; browser parses it ────────
+    @bp.route('/localfile/<filename>')
+    @auth.oidc_auth('orcid')
+    def localfile(filename):
+        return send_from_directory(_TEST_DATA_DIR, filename, conditional=True)
+
+    @bp.route('/local/<filename>')
+    @auth.oidc_auth('orcid')
+    def local_view(filename):
+        return render_template('dataset_views/arres.html',
+                               project_id=None,
+                               ds={'dataset_name': filename, 'unique_id': None},
+                               file_url_endpoint=f'{request.script_root}{URL_PREFIX}/local/{filename}/file-url')
+
+    @bp.route('/local/<filename>/file-url')
+    @auth.oidc_auth('orcid')
+    def local_file_url(filename):
+        if not os.path.isfile(os.path.join(_TEST_DATA_DIR, filename)):
+            return jsonify({'error': 'file not found'}), 404
+        return jsonify({'url': f'{request.script_root}{URL_PREFIX}/localfile/{filename}',
+                        'filename': filename})
 
     return bp

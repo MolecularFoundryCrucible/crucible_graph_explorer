@@ -194,7 +194,7 @@ def create_blueprint(auth):
                                thumbnails=thumbnails,
                                child_dataset_thumbnails=child_dataset_thumbnails,
                                markdown_html=markdown_html,
-                               custom_views=dataset_views.get_views(ds.get('measurement'), project_id, dsid),
+                               custom_views=dataset_views.get_views(ds.get('measurement'), ds.get('data_type'), project_id, dsid),
                                prev_sibling=prev_sibling,
                                next_sibling=next_sibling,
                                sibling_index=ds_sibling_idx + 1,
