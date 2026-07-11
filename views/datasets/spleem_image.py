@@ -23,7 +23,7 @@ from flask import Blueprint, abort, jsonify, render_template, request, send_from
 
 from utils.auth import get_user_client
 
-MEASUREMENT_TYPES = ['spleem_image']
+MEASUREMENT_TYPES = ['spleem_image', 'SPLEEM_image']  # incl. pre-flip SF group name (old datasets)
 DATA_TYPE_STEMS = ['ScopeFoundryH5.qspleem_spleem_image']
 URL_PREFIX = '/dataset-view/spleem-image'
 LABEL = 'SPLEEM Image Viewer'
