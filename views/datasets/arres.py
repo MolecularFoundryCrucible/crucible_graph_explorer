@@ -15,7 +15,7 @@ from flask import Blueprint, abort, jsonify, render_template, request, send_from
 
 from utils.auth import get_user_client
 
-MEASUREMENT_TYPES = ['arres_ek', 'arres_mm']
+MEASUREMENT_TYPES = ['arres_ek', 'arres_mm', 'ARRES_EK', 'ARRES_MM']  # incl. pre-flip SF group names (old datasets)
 DATA_TYPE_STEMS = ['ScopeFoundryH5.qspleem_arres_ek', 'ScopeFoundryH5.qspleem_arres_mm']
 URL_PREFIX = '/dataset-view/arres'
 LABEL = 'ARRES Viewer'

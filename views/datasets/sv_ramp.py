@@ -27,7 +27,7 @@ from utils.auth import get_user_client
 
 MEASUREMENT_TYPES = ['sv_ramp']
 DATA_TYPE_STEMS = ['ScopeFoundryH5.qspleem_sv_ramp']
-URL_PREFIX = '/dataset-view/sv-ramp-gcs'
+URL_PREFIX = '/dataset-view/sv-ramp'
 LABEL = 'SV Ramp Viewer'
 
 # Directory of local .h5 files for the /local dev test route (not deployed to prod).
@@ -142,7 +142,7 @@ def _local_meta(filename: str, browser_url: str) -> dict:
 
 
 def create_blueprint(auth, helpers):
-    bp = Blueprint('dview_sv_ramp_gcs', __name__)
+    bp = Blueprint('dview_sv_ramp', __name__)
     is_user_in_project = helpers['is_user_in_project']
 
     @bp.route('/<project_id>/<dsid>')
@@ -153,7 +153,7 @@ def create_blueprint(auth, helpers):
         ds   = get_user_client().datasets.get(dsid)
         meta = _ensure_meta(dsid, get_user_client())
         return render_template(
-            'dataset_views/sv_ramp_gcs.html',
+            'dataset_views/sv_ramp.html',
             project_id=project_id,
             ds=ds,
             sv_array=meta['sv_array'],
@@ -183,7 +183,7 @@ def create_blueprint(auth, helpers):
         browser_url = f"{request.script_root}{URL_PREFIX}/localfile/{filename}"
         data = _local_meta(filename, browser_url)
         return render_template(
-            'dataset_views/sv_ramp_gcs.html',
+            'dataset_views/sv_ramp.html',
             project_id=None,
             ds={'dataset_name': filename, 'unique_id': None},
             sv_array=data['sv_array'],
