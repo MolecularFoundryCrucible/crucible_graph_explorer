@@ -158,14 +158,14 @@
     }
 
     async function fetchFrameBytes(fi) {
-        const start = stream.data_offset + fi * stream.frame_bytes;
+        const start = stream.frame_offsets[fi];
         const end   = start + stream.frame_bytes - 1;
         const range = { headers: { Range: `bytes=${start}-${end}` } };
         let resp = await fetch(stream.url, range);
         if (resp.status === 401 || resp.status === 403) {
             await refreshSpec();
-            const r2 = { headers: { Range: `bytes=${stream.data_offset + fi * stream.frame_bytes}-${stream.data_offset + fi * stream.frame_bytes + stream.frame_bytes - 1}` } };
-            resp = await fetch(stream.url, r2);
+            const s2 = stream.frame_offsets[fi];
+            resp = await fetch(stream.url, { headers: { Range: `bytes=${s2}-${s2 + stream.frame_bytes - 1}` } });
         }
         if (resp.status !== 206 && resp.status !== 200) {
             throw new Error(`Range fetch failed (HTTP ${resp.status})`);

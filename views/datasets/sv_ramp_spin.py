@@ -34,9 +34,27 @@ _URL_TTL = 600
 _TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'test_data')
 
 # {dsid: { sv_array, imavg_up, imavg_down, asym_array, n_frames,
-#           url, url_at, filename, mfid, up_offset, down_offset,
+#           url, url_at, filename, mfid, up_offsets, down_offsets,
 #           frame_bytes, height, width, dtype }}
 _cache: dict[str, dict] = {}
+
+
+def _frame_offsets(im_ds, n_frames: int, frame_bytes: int) -> list:
+    """Byte offset of each frame's raw pixel data (see sv_ramp.py). Handles a
+    contiguous stack or one-uncompressed-chunk-per-frame (what live acquisitions
+    write), so the browser can Range-fetch a single frame per request."""
+    if im_ds.compression is not None:
+        abort(500)  # compressed chunks can't be raw Range-read
+    if im_ds.chunks is None:
+        base = im_ds.id.get_offset()
+        if base is None:
+            abort(500)  # unallocated
+        return [base + i * frame_bytes for i in range(n_frames)]
+    by_frame = {}
+    for i in range(im_ds.id.get_num_chunks()):
+        info = im_ds.id.get_chunk_info(i)
+        by_frame[int(info.chunk_offset[0])] = int(info.byte_offset)
+    return [by_frame[i] for i in range(n_frames)]
 
 
 def _ensure_meta(dsid, crucible_client):
@@ -66,19 +84,17 @@ def _ensure_meta(dsid, crucible_client):
             down_ds = meas['000_im_down_array']
             shape = up_ds.shape
             dtype = up_ds.dtype
-            up_offset = up_ds.id.get_offset()
-            down_offset = down_ds.id.get_offset()
+            frame_bytes  = int(shape[1]) * int(shape[2]) * dtype.itemsize
+            n            = int(shape[0])
+            up_offsets   = _frame_offsets(up_ds, n, frame_bytes)
+            down_offsets = _frame_offsets(down_ds, n, frame_bytes)
 
-        if up_offset is None or down_offset is None:
-            abort(500)  # chunked/unallocated — Range streaming impossible
-
-        frame_bytes = int(shape[1]) * int(shape[2]) * dtype.itemsize
         entry = {
             'filename': filename, 'mfid': mfid, 'url': url, 'url_at': now,
             'sv_array': sv_array, 'imavg_up': imavg_up,
             'imavg_down': imavg_down, 'asym_array': asym_array,
-            'n_frames': int(shape[0]), 'up_offset': int(up_offset),
-            'down_offset': int(down_offset), 'frame_bytes': frame_bytes,
+            'n_frames': int(shape[0]), 'up_offsets': up_offsets,
+            'down_offsets': down_offsets, 'frame_bytes': frame_bytes,
             'height': int(shape[1]), 'width': int(shape[2]), 'dtype': dtype.str,
         }
         _cache[dsid] = entry
@@ -93,10 +109,10 @@ def _ensure_meta(dsid, crucible_client):
 
 def _stream_spec(entry):
     return {
-        'url':         entry['url'],
-        'up_offset':   entry['up_offset'],
-        'down_offset': entry['down_offset'],
-        'frame_bytes': entry['frame_bytes'],
+        'url':          entry['url'],
+        'up_offsets':   entry['up_offsets'],
+        'down_offsets': entry['down_offsets'],
+        'frame_bytes':  entry['frame_bytes'],
         'height':      entry['height'],
         'width':       entry['width'],
         'dtype':       entry['dtype'],
@@ -123,23 +139,23 @@ def _local_meta(filename: str, browser_url: str) -> dict:
         down_ds     = meas['000_im_down_array']
         shape       = up_ds.shape
         dtype       = up_ds.dtype
-        up_offset   = up_ds.id.get_offset()
-        down_offset = down_ds.id.get_offset()
-    if up_offset is None or down_offset is None:
-        abort(500)  # chunked/unallocated — Range streaming impossible
+        frame_bytes  = int(shape[1]) * int(shape[2]) * dtype.itemsize
+        n            = int(shape[0])
+        up_offsets   = _frame_offsets(up_ds, n, frame_bytes)
+        down_offsets = _frame_offsets(down_ds, n, frame_bytes)
     return {
         'sv_array': sv_array, 'imavg_up': imavg_up,
         'imavg_down': imavg_down, 'asym_array': asym_array,
         'n_frames': int(shape[0]),
         'stream': {
-            'url':         browser_url,
-            'up_offset':   int(up_offset),
-            'down_offset': int(down_offset),
-            'frame_bytes': int(shape[1]) * int(shape[2]) * dtype.itemsize,
-            'height':      int(shape[1]),
-            'width':       int(shape[2]),
-            'dtype':       dtype.str,
-            'n_frames':    int(shape[0]),
+            'url':          browser_url,
+            'up_offsets':   up_offsets,
+            'down_offsets': down_offsets,
+            'frame_bytes':  frame_bytes,
+            'height':       int(shape[1]),
+            'width':        int(shape[2]),
+            'dtype':        dtype.str,
+            'n_frames':     int(shape[0]),
         },
     }
 

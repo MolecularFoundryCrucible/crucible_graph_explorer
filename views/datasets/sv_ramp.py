@@ -36,7 +36,7 @@ _TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__
 _URL_TTL = 600  # seconds — refresh signed URL before it expires
 
 # {dsid: {url, url_at, sv_array, imavg_array, n_frames,
-#          data_offset, frame_bytes, height, width, dtype}}
+#          frame_offsets, frame_bytes, height, width, dtype}}
 _cache: dict[str, dict] = {}
 
 
@@ -50,6 +50,27 @@ def _find_h5_url(crucible_client, dsid: str) -> str:
     if not url:
         abort(404)
     return url
+
+
+def _frame_offsets(im_ds, n_frames: int, frame_bytes: int) -> list:
+    """Byte offset of each frame's raw pixel data, so the browser can Range-fetch
+    one frame per request.  Handles both layouts real files come in:
+      - contiguous stack (chunks is None): offset + i*frame_bytes
+      - one uncompressed chunk per frame (chunks == (1, H, W)): the chunk's
+        byte_offset, read via get_chunk_info (this is what live acquisitions write)
+    """
+    if im_ds.compression is not None:
+        abort(500)  # compressed chunks can't be raw Range-read
+    if im_ds.chunks is None:
+        base = im_ds.id.get_offset()
+        if base is None:
+            abort(500)  # unallocated
+        return [base + i * frame_bytes for i in range(n_frames)]
+    by_frame = {}
+    for i in range(im_ds.id.get_num_chunks()):
+        info = im_ds.id.get_chunk_info(i)
+        by_frame[int(info.chunk_offset[0])] = int(info.byte_offset)
+    return [by_frame[i] for i in range(n_frames)]
 
 
 def _ensure_meta(dsid: str, crucible_client) -> dict:
@@ -67,23 +88,20 @@ def _ensure_meta(dsid: str, crucible_client) -> dict:
             im_ds    = meas['000_im_array']
             shape    = im_ds.shape          # (N, H, W)
             dtype    = im_ds.dtype
-            offset   = im_ds.id.get_offset()  # byte offset of raw data in file
+            frame_bytes   = int(shape[1]) * int(shape[2]) * dtype.itemsize
+            frame_offsets = _frame_offsets(im_ds, int(shape[0]), frame_bytes)
 
-        if offset is None:
-            abort(500)  # dataset is chunked/unallocated — Range streaming impossible
-
-        frame_bytes = int(shape[1]) * int(shape[2]) * dtype.itemsize
         entry = {
-            'url':         url,
-            'url_at':      now,
-            'sv_array':    sv_array,
-            'imavg_array': imavg,
-            'n_frames':    int(shape[0]),
-            'data_offset': int(offset),
-            'frame_bytes': frame_bytes,
-            'height':      int(shape[1]),
-            'width':       int(shape[2]),
-            'dtype':       dtype.str,        # e.g. '<u2'
+            'url':           url,
+            'url_at':        now,
+            'sv_array':      sv_array,
+            'imavg_array':   imavg,
+            'n_frames':      int(shape[0]),
+            'frame_offsets': frame_offsets,
+            'frame_bytes':   frame_bytes,
+            'height':        int(shape[1]),
+            'width':         int(shape[2]),
+            'dtype':         dtype.str,        # e.g. '<u2'
         }
         _cache[dsid] = entry
 
@@ -96,13 +114,13 @@ def _ensure_meta(dsid: str, crucible_client) -> dict:
 
 def _stream_spec(entry: dict) -> dict:
     return {
-        'url':         entry['url'],
-        'data_offset': entry['data_offset'],
-        'frame_bytes': entry['frame_bytes'],
-        'height':      entry['height'],
-        'width':       entry['width'],
-        'dtype':       entry['dtype'],
-        'n_frames':    entry['n_frames'],
+        'url':           entry['url'],
+        'frame_offsets': entry['frame_offsets'],
+        'frame_bytes':   entry['frame_bytes'],
+        'height':        entry['height'],
+        'width':         entry['width'],
+        'dtype':         entry['dtype'],
+        'n_frames':      entry['n_frames'],
     }
 
 
@@ -122,21 +140,20 @@ def _local_meta(filename: str, browser_url: str) -> dict:
         im_ds    = meas['000_im_array']
         shape    = im_ds.shape
         dtype    = im_ds.dtype
-        offset   = im_ds.id.get_offset()
-    if offset is None:
-        abort(500)  # chunked/unallocated — Range streaming impossible
+        frame_bytes   = int(shape[1]) * int(shape[2]) * dtype.itemsize
+        frame_offsets = _frame_offsets(im_ds, int(shape[0]), frame_bytes)
     return {
         'sv_array':    sv_array,
         'imavg_array': imavg,
         'n_frames':    int(shape[0]),
         'stream': {
-            'url':         browser_url,
-            'data_offset': int(offset),
-            'frame_bytes': int(shape[1]) * int(shape[2]) * dtype.itemsize,
-            'height':      int(shape[1]),
-            'width':       int(shape[2]),
-            'dtype':       dtype.str,
-            'n_frames':    int(shape[0]),
+            'url':           browser_url,
+            'frame_offsets': frame_offsets,
+            'frame_bytes':   frame_bytes,
+            'height':        int(shape[1]),
+            'width':         int(shape[2]),
+            'dtype':         dtype.str,
+            'n_frames':      int(shape[0]),
         },
     }
 

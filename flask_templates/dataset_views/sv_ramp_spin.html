@@ -338,11 +338,11 @@
         const needDown = ch === 'down' || ch === 'diff' || ch === 'asym';
         let up = null, down = null;
         if (needUp) {
-            const s = STREAM.up_offset + fi * fb;
+            const s = STREAM.up_offsets[fi];
             up = Float64Array.from(decodeValues(await rangeFetch(s, s + fb - 1), STREAM.dtype));
         }
         if (needDown) {
-            const s = STREAM.down_offset + fi * fb;
+            const s = STREAM.down_offsets[fi];
             down = Float64Array.from(decodeValues(await rangeFetch(s, s + fb - 1), STREAM.dtype));
         }
         return { vals: channelArray(ch, up, down), W, H };
@@ -524,14 +524,14 @@
     let roiPlotInited = false;
 
     async function roiCurvesStream(x0, y0, x1, y1) {
-        const W = STREAM.width, fb = STREAM.frame_bytes;
+        const W = STREAM.width;
         const itemsize = parseInt(STREAM.dtype.slice(2), 10);
         const rowBytes = W * itemsize;
         const nRows = y1 - y0 + 1;
         const roiBytes = nRows * rowBytes;
 
-        async function meanFor(offset, fi) {
-            const s = offset + fi * fb + y0 * rowBytes;
+        async function meanFor(offsets, fi) {
+            const s = offsets[fi] + y0 * rowBytes;
             const vals = decodeValues(await rangeFetch(s, s + roiBytes - 1), STREAM.dtype);
             let sum = 0, cnt = 0;
             for (let r = 0; r < nRows; r++)
@@ -540,8 +540,8 @@
         }
 
         const idx = Array.from({ length: nFrames }, (_, i) => i);
-        const up   = await pMapLimit(idx, 8, fi => meanFor(STREAM.up_offset, fi));
-        const down = await pMapLimit(idx, 8, fi => meanFor(STREAM.down_offset, fi));
+        const up   = await pMapLimit(idx, 8, fi => meanFor(STREAM.up_offsets, fi));
+        const down = await pMapLimit(idx, 8, fi => meanFor(STREAM.down_offsets, fi));
         const asym = up.map((u, i) => { const t = u + down[i]; return t > 0 ? (u - down[i]) / t : 0; });
         return { imavg_up: up, imavg_down: down, asym };
     }
