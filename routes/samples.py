@@ -41,15 +41,23 @@ def create_blueprint(auth):
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
 
-        result = get_user_client().samples.create(
-            sample_name=sample_name,
-            sample_type=sample_type,
-            description=description,
-            project_id=project_id,
-            owner_orcid=orcid,
-            parents=[{'unique_id': pid} for pid in parent_ids],
-            children=[{'unique_id': cid} for cid in child_ids],
-        )
+        try:
+            result = get_user_client().samples.create(
+                sample_name=sample_name,
+                sample_type=sample_type,
+                description=description,
+                project_id=project_id,
+                owner_orcid=orcid,
+                parents=[{'unique_id': pid} for pid in parent_ids],
+                children=[{'unique_id': cid} for cid in child_ids],
+            )
+        except Exception:
+            results = get_user_client().samples.list(sample_name = sample_name, project_id = project_id)
+            if len(results) > 0:
+                result = results[-1]
+            else:
+                raise
+
         clear_project_cache(project_id, orcid)
         return redirect(f'{request.script_root}/{project_id}/samples/{result["unique_id"]}')
 

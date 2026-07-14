@@ -271,22 +271,31 @@ def create_blueprint(auth):
 
         try:
             client = get_user_client()
-            result = client.samples.create(
-                sample_name=sample_name,
-                sample_type=sample_type,
-                description=description,
-                project_id=project_id,
-                owner_orcid=orcid,
-                timestamp=timestamp,
-                public=public_val,
-                parents=parents,
-                children=children,
-                scientific_metadata=sci_meta,
-            )
+            try:
+                result = client.samples.create(
+                    sample_name=sample_name,
+                    sample_type=sample_type,
+                    description=description,
+                    project_id=project_id,
+                    owner_orcid=orcid,
+                    timestamp=timestamp,
+                    public=public_val,
+                    parents=parents,
+                    children=children,
+                    scientific_metadata=sci_meta,
+                )
+            except Exception:
+                # will error if the sample isn't found; sending user to next except block with 500 error
+                results = client.samples.list(sample_name = sample_name, project_id = project_id)
+                if len(results) > 0:
+                    result = results[-1]
+                else:
+                    raise
+
             uid = result.get('unique_id', '')
             for did in linked_datasets:
                 client.datasets.add_sample(did, uid)
-        except Exception as exc:
+        except Exception as exc:     
             return jsonify({'error': str(exc)}), 500
 
         clear_project_cache(project_id, orcid)
