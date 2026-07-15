@@ -37,13 +37,16 @@ steps:
         CHAT_MODEL=${_CHAT_MODEL},
         VERTEX_PROJECT_ID=${PROJECT_ID},
         VERTEX_REGION=${_REGION},
-        CRUCIBLE_DOWNLOAD_DIR=/tmp/crucible-downloads
+        CRUCIBLE_DOWNLOAD_DIR=/tmp/crucible-downloads,
+        HYPERSPEC_URL=${_HYPERSPEC_URL},
+        HYPERSPEC_BUCKET=app-hyperspec
       - '--set-secrets'
       - >-
         CRUCIBLE_API_KEY=crucible_admin_apikey:latest,
         PYOIDC_SECRET=pyoidc_secret_key:latest,
         ORCID_CLIENT_ID=orcid_client_id:latest,
-        ORCID_CLIENT_SECRET=orcid_client_secret:latest
+        ORCID_CLIENT_SECRET=orcid_client_secret:latest,
+        HYPERSPEC_SSO_SECRET=hyperspec_sso_secret:latest
       - '--service-account'
       - 'graph-explorer-cloudrun@mf-crucible.iam.gserviceaccount.com'
       - '--allow-unauthenticated'
@@ -54,5 +57,8 @@ substitutions:
   _IMAGE_PATH: '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_SERVICE_NAME}/app'
   _SERVICE_URL: 'https://${_SERVICE_NAME}-${PROJECT_NUMBER}.us-central1.run.app'
   _CHAT_MODEL: 'gemini-2.5-pro'
+  # Base URL of the Hyperspec Cloud Run service ("Open in Hyperspec" target).
+  # Empty disables the integration (the button is hidden).
+  _HYPERSPEC_URL: 'https://hyperspec-app-776258882599.us-central1.run.app'
 images:
   - '${_IMAGE_PATH}'

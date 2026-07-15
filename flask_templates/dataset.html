@@ -316,6 +316,14 @@
                 {{file['size'] | humanize_size}}
             </span>
             {% if file.get('has_download_link') %}
+            {% if hyperspec_enabled and basename.lower().endswith(hyperspec_extensions) %}
+            <button class="btn btn-sm btn-outline-secondary border-0 border-start rounded-0 px-3"
+                    style="flex-shrink:0; height:100%; border-radius:0 !important;"
+                    onclick="openInHyperspec(event, '{{file['mfid']}}')"
+                    title="Open {{basename}} in Hyperspec">
+                <i class="bi bi-box-arrow-up-right"></i>
+            </button>
+            {% endif %}
             <button class="btn btn-sm btn-outline-secondary border-0 border-start rounded-0 px-3"
                     style="flex-shrink:0; height:100%; border-radius:0 !important;"
                     onclick="shareFile(event, '{{file['mfid']}}')"
@@ -471,6 +479,28 @@
         } finally {
             btn.disabled = false;
             icon.className = 'bi bi-download';
+        }
+    }
+
+    async function openInHyperspec(event, mfid) {
+        const btn = event.currentTarget;
+        const icon = btn.querySelector('i');
+        btn.disabled = true;
+        icon.className = 'bi bi-hourglass-split';
+        try {
+            const resp = await fetch(
+                '{{ base }}/{{project_id}}/datasets/{{ds["unique_id"]}}/files/' + mfid + '/open-in-hyperspec',
+                { method: 'POST' }
+            );
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+            window.open(data.url, '_blank', 'noopener');
+            cgToast('Opened in Hyperspec', 'bi-box-arrow-up-right');
+        } catch (err) {
+            alert('Could not open in Hyperspec: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            icon.className = 'bi bi-box-arrow-up-right';
         }
     }
 
