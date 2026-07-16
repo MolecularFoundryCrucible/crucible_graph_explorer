@@ -15,7 +15,7 @@ from flask_vite import Vite
 from werkzeug.middleware.proxy_fix import ProxyFix
 from crucible import CrucibleClient
 
-from utils.auth import get_user_client
+from utils.auth import attach_request_logging, get_user_client
 from utils.cache import clear_project_cache, get_project, is_user_in_project
 from utils.graph import get_entity_graph_nx, get_project_graph
 from utils.helpers import abbrev_name, humanize_size
@@ -78,6 +78,7 @@ app.config.update(
 crucible_api_url = os.getenv("CRUCIBLE_API_URL", "https://crucible.lbl.gov/api/v2")
 crucible_api_key = os.getenv("CRUCIBLE_API_KEY")
 app.admin_client = CrucibleClient(api_url=crucible_api_url, api_key=crucible_api_key)
+attach_request_logging(app.admin_client, tag="crucible-admin")
 app.config['CRUCIBLE_API_URL'] = crucible_api_url
 
 PROVIDER_NAME = 'orcid'

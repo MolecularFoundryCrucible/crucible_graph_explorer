@@ -40,7 +40,6 @@ def create_blueprint(auth):
 
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-
         try:
             result = get_user_client().samples.create(
                 sample_name=sample_name,
@@ -59,7 +58,9 @@ def create_blueprint(auth):
                 raise
 
         clear_project_cache(project_id, orcid)
-        return redirect(f'{request.script_root}/{project_id}/samples/{result["unique_id"]}')
+        sample_mfid = result.get("unique_id")
+        logger.info(f'{sample_mfid=}')
+        return redirect(f'{request.script_root}/{project_id}/samples/{sample_mfid}')
 
     @bp.route("/<project_id>/samples/<sample_id>/edit", methods=['GET'])
     @auth.oidc_auth('orcid')
