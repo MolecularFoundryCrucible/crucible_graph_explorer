@@ -1,0 +1,610 @@
+{% extends "base.html" %}
+{% block title %}{{ ds['dataset_name'] }} — Mosaic Viewer{% endblock %}
+
+{% block breadcrumb %}
+    {% if project_id %}
+    <li class="breadcrumb-item"><a href="{{ base }}/{{ project_id }}/"><b>Project</b> {{ project_id }}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{ project_id }}/datasets/{{ ds['unique_id'] }}"><b>Dataset</b> {{ ds['dataset_name'] }}</a></li>
+    {% else %}
+    <li class="breadcrumb-item"><b>Local</b> {{ ds['dataset_name'] }}</li>
+    {% endif %}
+    <li class="breadcrumb-item active" aria-current="page">Mosaic Viewer</li>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+    <h1 class="fs-4 fw-semibold mb-0" style="overflow-wrap:break-word;">{{ ds['dataset_name'] }}</h1>
+    {% if project_id %}
+    <a href="{{ base }}/{{ project_id }}/datasets/{{ ds['unique_id'] }}"
+       class="btn btn-sm btn-outline-secondary flex-shrink-0">
+        <i class="bi bi-database me-1"></i>Dataset
+    </a>
+    {% endif %}
+</div>
+
+<div class="text-muted mb-2" style="font-size:var(--fs-sm);">
+    <i class="bi bi-info-circle me-1"></i>Click to drop markers ·
+    <span class="fw-medium">Shift-click</span> to move the origin
+    (starts at the top-left corner).
+</div>
+
+<!-- Viewer surface. Its height is computed in JS from the viewport so it fills
+     the space below the navbar/breadcrumb without a hardcoded pixel offset. -->
+<div id="mosaic-stage" class="d-flex border rounded" style="overflow:hidden;">
+
+    <!-- Viewer column (image + overlays) -->
+    <div id="mosaic-viewport" class="position-relative flex-grow-1"
+         style="background:var(--bs-tertiary-bg); overflow:hidden;">
+
+        <div id="osd-viewer" style="width:100%; height:100%;"></div>
+
+        <!-- Loading state (removed once OpenSeadragon fires 'open') -->
+        <div id="mosaic-loading"
+             class="position-absolute top-50 start-50 translate-middle text-center text-muted">
+            <div class="spinner-border mb-2" role="status" aria-hidden="true"></div>
+            <div style="font-size:var(--fs-sm);">Loading mosaic…</div>
+        </div>
+
+        <!-- Error state -->
+        <div id="mosaic-error"
+             class="position-absolute top-50 start-50 translate-middle text-center text-danger d-none"
+             style="max-width:36rem;">
+            <i class="bi bi-exclamation-triangle fs-2 d-block mb-2"></i>
+            <div id="mosaic-error-msg" style="font-size:var(--fs-sm); word-break:break-word;"></div>
+        </div>
+
+        <!-- Live hover readout: pixel + physical distance from the reference point.
+             pointer-events:none so it never intercepts pan/zoom. -->
+        <div id="mosaic-readout" class="position-absolute d-none"
+             style="left:.5rem; bottom:.5rem; z-index:10; pointer-events:none;
+                    background:var(--bs-body-bg); border:1px solid var(--bs-border-color);
+                    border-radius:.375rem; padding:.4rem .55rem; box-shadow:var(--cg-shadow-sm);
+                    font-size:var(--fs-xs); line-height:1.4;">
+            <div><span class="text-muted d-inline-block" style="width:2.2rem;">px</span><span id="ro-px" class="mfid"></span></div>
+            <div id="ro-mm-row"><span class="text-muted d-inline-block" style="width:2.2rem;">mm</span><span id="ro-mm" class="mfid"></span></div>
+            <div class="text-muted" style="font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:.07em; margin-top:.15rem;">from <span id="ro-ref">origin</span></div>
+        </div>
+    </div>
+
+    <!-- Marker side panel -->
+    <div id="marker-panel" class="d-flex flex-column flex-shrink-0"
+         style="width:15rem; border-left:1px solid var(--bs-border-color); background:var(--bs-body-bg);">
+        <div class="d-flex align-items-center justify-content-between px-2 py-2 border-bottom">
+            <span style="font-size:var(--fs-sm); font-weight:600;">
+                <i class="bi bi-geo-alt-fill me-1"></i>Markers</span>
+            <span id="marker-count" class="badge border text-muted"
+                  style="background:var(--bs-tertiary-bg); font-size:var(--fs-xs);">0</span>
+        </div>
+        <div id="marker-list" class="flex-grow-1 p-1" style="overflow-y:auto;"></div>
+        <div class="text-muted px-2 py-1 border-top"
+             style="font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:.07em;">
+            Hover a marker + Delete to remove
+        </div>
+    </div>
+</div>
+
+<!-- Third-party viewer libs. geotiff-tilesource bundles geotiff.js and extends
+     the global OpenSeadragon with GeoTIFFTileSource; it must load after OSD.
+     geotiff.js cannot read SubIFD pyramids in ANY version (confirmed by the
+     maintainer in issue #35), which is why the stitcher emits an IFD pyramid
+     (overviews as reduced-resolution top-level pages) instead. Pin >= 2.3.2:
+     PR #38 (shipped in 2.3.2) fixed IFD-pyramid detection so large (>~32k px)
+     files don't silently fall back to the base level only (issue #37). OSD 6+
+     is required by its RawTiffPlugin. -->
+<script src="https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/openseadragon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/geotiff-tilesource@2.3.2/dist/geotiff-tilesource.min.js"></script>
+
+<style>
+    /* Origin crosshair overlay. White drop-shadow keeps it legible over any
+       imagery; non-interactive so it never intercepts clicks. */
+    .mosaic-origin { color: var(--bs-danger); pointer-events: none;
+        filter: drop-shadow(0 0 1.5px rgba(255,255,255,0.9)); }
+    .mosaic-origin svg line   { stroke: currentColor; stroke-width: 2; }
+    .mosaic-origin svg circle { stroke: currentColor; stroke-width: 2; fill: none; }
+    /* Numbered marker dot. White ring/text for contrast over arbitrary imagery
+       (intentionally not a theme token — must read on any pixel). */
+    .mosaic-marker {
+        /* Non-interactive: hover + click are resolved by a screen-space hit test
+           on the container, because OSD overlays don't reliably get DOM mouse
+           events (and a DOM handler can't veto OSD's canvas-click anyway). */
+        pointer-events: none;
+        width: 20px; height: 20px; border-radius: 50%;
+        background: var(--cg-accent-mid); border: 2px solid #fff;
+        box-shadow: var(--cg-shadow-sm); color: #fff;
+        font-size: var(--fs-2xs); font-weight: 600; line-height: 1;
+        display: flex; align-items: center; justify-content: center;
+        transition: transform .1s ease;
+    }
+    /* Highlighted (hovered from canvas or the side panel). */
+    .mosaic-marker.hi { transform: scale(1.4); z-index: 20; }
+
+    /* Side-panel rows */
+    .marker-item { border-bottom: 1px solid var(--bs-border-color); }
+    .marker-row:hover, .marker-row.active { background: var(--cg-hover-bg); }
+    .mosaic-marker-chip {
+        flex-shrink: 0; width: 1.25rem; height: 1.25rem; border-radius: 50%;
+        background: var(--cg-accent-mid); color: #fff;
+        font-size: var(--fs-2xs); font-weight: 600;
+        display: inline-flex; align-items: center; justify-content: center;
+    }
+    .marker-name[contenteditable="true"] {
+        white-space: normal; cursor: text; outline: none;
+        background: var(--bs-body-bg); border-radius: .2rem; padding: 0 .2rem;
+        box-shadow: 0 0 0 1px var(--cg-accent-mid);
+    }
+    .marker-body { padding: .35rem .6rem .6rem 2.4rem; }   /* indent under the chip */
+    .marker-chevron { transition: transform .12s ease; }
+    .marker-chevron.open { transform: rotate(90deg); }
+</style>
+
+<script>
+// FILE_URL is set for the same-origin local dev route; null for a dataset view
+// (then we fetch a fresh signed GCS URL from /file-url). Both already carry the
+// deployment prefix (built server-side with request.script_root).
+const FILE_URL = {{ file_url | tojson }};
+const BASE_URL = {{ base_url | tojson }};
+
+const OSD_IMAGE_PREFIX =
+    'https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/images/';
+
+// Module-scoped so future features (positional markers, scale bar, ROI tools)
+// can reach the live viewer instance — see the extension point below.
+let mosaicViewer = null;
+let pixelSizeUm = null;                 // µm per pixel, read from the TIFF resolution tag
+// Origin (reference point) all distances are measured FROM, in full-res image px.
+// Defaults to the mosaic corner (0,0) and is shown there on open; Shift-click
+// moves it. Distances are origin-relative so they're portable across instruments.
+let originPixel = { x: 0, y: 0 };
+let originEl = null;                     // origin crosshair overlay element
+const markers = [];                      // [{ x, y, el }] in full-res image px
+
+const stageEl   = document.getElementById('mosaic-stage');
+const loadingEl = document.getElementById('mosaic-loading');
+const errorEl   = document.getElementById('mosaic-error');
+
+function sizeStage() {
+    // Fill from the stage's top edge to the bottom of the viewport (small
+    // gutter) — no hardcoded navbar/breadcrumb offset, recomputed on resize.
+    const top = stageEl.getBoundingClientRect().top;
+    stageEl.style.height = Math.max(320, window.innerHeight - top - 16) + 'px';
+}
+
+function showError(msg) {
+    loadingEl.classList.add('d-none');
+    errorEl.classList.remove('d-none');
+    document.getElementById('mosaic-error-msg').textContent = msg;
+}
+
+// Resolve the OME-TIFF URL the browser will Range-read directly.
+async function resolveUrl() {
+    if (FILE_URL) return FILE_URL;
+    const r = await fetch(BASE_URL + '/file-url');
+    if (!r.ok) throw new Error('Could not resolve mosaic file URL (HTTP ' + r.status + ')');
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    return j.url;
+}
+
+async function initViewer() {
+    // The UMD build normally auto-attaches GeoTIFFTileSource to the global
+    // OpenSeadragon; fall back to the explicit enabler if it didn't.
+    if (!OpenSeadragon.GeoTIFFTileSource && window.enableGeoTIFFTileSource) {
+        window.enableGeoTIFFTileSource(OpenSeadragon);
+    }
+
+    let url;
+    try {
+        url = await resolveUrl();
+    } catch (err) {
+        showError(err.message);
+        return;
+    }
+
+    let tileSources;
+    try {
+        // geotiff.js (bundled) reads the tiled, pyramidal TIFF over HTTP Range
+        // and GeoTIFFTileSource builds an OSD tile source per image. An options
+        // object is REQUIRED (the lib dereferences opts.GeoTIFFOptions
+        // internally). We use 'auto' layout: geotiff.js cannot traverse SubIFD
+        // pyramids, so the stitcher emits an IFD pyramid (overviews as
+        // reduced-resolution top-level pages), which 'auto' detects.
+        tileSources = await OpenSeadragon.GeoTIFFTileSource.getAllTileSources(url, {
+            hints: { layout: { pyramid: 'auto' } },
+        });
+        console.log('[mosaic] tile sources:', tileSources.length);
+        tileSources.forEach((ts, i) =>
+            console.log(`[mosaic]  #${i}: ${ts.width}×${ts.height}, ` +
+                        `levels ${ts.minLevel}–${ts.maxLevel}`));
+        pixelSizeUm = await readPixelSizeUm(tileSources[0], url);
+        console.log('[mosaic] pixel size (µm/px):', pixelSizeUm);
+    } catch (err) {
+        showError('Failed to read OME-TIFF pyramid: ' + err.message);
+        console.error(err);
+        return;
+    }
+
+    mosaicViewer = OpenSeadragon({
+        element: document.getElementById('osd-viewer'),
+        prefixUrl: OSD_IMAGE_PREFIX,
+        tileSources: tileSources.length === 1 ? tileSources[0] : tileSources,
+        sequenceMode: tileSources.length > 1,
+        showNavigator: true,
+        navigatorPosition: 'TOP_RIGHT',
+        crossOriginPolicy: 'Anonymous',
+        // Single-click stays free for future marker placement; double-click zooms.
+        gestureSettingsMouse: { clickToZoom: false },
+    });
+
+    mosaicViewer.addHandler('open', () => {
+        loadingEl.classList.add('d-none');
+        setupHoverReadout();
+        setupInteractions();
+    });
+    mosaicViewer.addHandler('open-failed', (e) =>
+        showError('Viewer could not open the image: ' + (e.message || 'unknown error')));
+
+    // GeoTIFFTileSource reports a tile as failed on any decode error OR abort and
+    // never retries, which leaves blank tiles. Log why, then retry a few times so
+    // transient aborts (from panning) recover instead of staying blank.
+    mosaicViewer.addHandler('tile-load-failed', (e) => {
+        const t = e.tile || {};
+        t.__retries = (t.__retries || 0) + 1;
+        console.warn(`[mosaic] tile failed (try ${t.__retries}) `
+            + `level=${t.level} x=${t.x} y=${t.y}: ${e.message || 'unknown'}`);
+        if (t.__retries <= 3) {
+            setTimeout(() => {
+                t.loading = false; t.loaded = false;
+                mosaicViewer.forceRedraw();
+            }, 300 * t.__retries);
+        }
+    });
+
+    // ── Extension point ─────────────────────────────────────────────────────
+    // setupHoverReadout (hover coords) and setupInteractions (click to set origin
+    // / drop markers) are wired above. Future scale bar / ROI tools reuse the same
+    // cursor -> image-pixel conversion and attach overlays to `mosaicViewer` here.
+    // NOT yet built: persistence of origin+markers (pending Crucible-team API),
+    // marker drag-to-move / delete, and a marker list panel.
+}
+
+// Normalize a TIFF XResolution/ResolutionUnit pair to µm/pixel.
+// XResolution = pixels per ResolutionUnit; unit 3=cm, 2=inch (1=none → unusable).
+function pxSizeUmFromFileDirectory(fd) {
+    if (!fd) return null;
+    let xres = fd.XResolution;
+    const unit = fd.ResolutionUnit;
+    if (xres == null || unit == null) return null;
+    if (Array.isArray(xres) || ArrayBuffer.isView(xres)) {   // RATIONAL [num,den]
+        xres = xres.length >= 2 ? xres[0] / xres[1] : xres[0];
+    }
+    const mmPerUnit = unit === 3 ? 10 : unit === 2 ? 25.4 : null;
+    if (!xres || !mmPerUnit) return null;
+    return (mmPerUnit / xres) * 1000;                        // µm per pixel
+}
+
+// Read µm/pixel from the TIFF resolution tags the stitcher writes. The tag lives
+// on the FULL-RES (base) level ONLY (overviews carry unit=none), and
+// geotiff-tilesource's GeoTIFFImages array is ordered smallest-first, so we must
+// pick the LARGEST image (the base) — not index [0]. Falls back to re-reading the
+// base IFD (getImage(0)) via the bundled geotiff.js. Works for local + cloud with
+// no server-side metadata plumbing. Returns null (mm disabled) if no usable tag.
+async function readPixelSizeUm(ts, url) {
+    const imgs = (ts && ts.GeoTIFFImages) || [];
+    if (imgs.length) {
+        let base = imgs[0];
+        for (const im of imgs) {
+            const w  = im.getWidth  ? im.getWidth()  : 0;
+            const bw = base.getWidth ? base.getWidth() : 0;
+            if (w > bw) base = im;
+        }
+        const px = pxSizeUmFromFileDirectory(base.fileDirectory);
+        if (px != null) return px;
+    }
+    if (window.GeoTIFF && window.GeoTIFF.fromUrl) {   // fallback: base IFD = getImage(0)
+        try {
+            const tiff = await window.GeoTIFF.fromUrl(url);
+            const px = pxSizeUmFromFileDirectory((await tiff.getImage(0)).fileDirectory);
+            if (px != null) return px;
+        } catch (e) {
+            console.warn('[mosaic] geotiff.js resolution read failed:', e);
+        }
+    }
+    console.warn('[mosaic] no usable resolution tag; mm readout disabled.');
+    return null;
+}
+
+const fmtMm = (um) => (um / 1000).toFixed(3);   // mm with µm precision
+
+// Live hover readout: pixel + physical (mm from the reference point) coordinates.
+// Uses the same cursor -> image-pixel conversion future markers will use.
+function setupHoverReadout() {
+    const item = mosaicViewer.world.getItemAt(0);
+    if (!item) return;
+    const size = item.getContentSize();          // full-res pixels {x:W, y:H}
+
+    const box   = document.getElementById('mosaic-readout');
+    const roPx  = document.getElementById('ro-px');
+    const roMm  = document.getElementById('ro-mm');
+    document.getElementById('ro-mm-row').style.display = pixelSizeUm ? '' : 'none';
+
+    new OpenSeadragon.MouseTracker({
+        element: mosaicViewer.element,
+        moveHandler: (event) => {
+            setHoveredMarker(markerHitTest(event.position));   // highlight / delete target
+            const vp = mosaicViewer.viewport.pointFromPixel(event.position);
+            const p  = item.viewportToImageCoordinates(vp);
+            const x = Math.round(p.x), y = Math.round(p.y);
+            if (x < 0 || y < 0 || x >= size.x || y >= size.y) {   // off the image
+                box.classList.add('d-none');
+                return;
+            }
+            box.classList.remove('d-none');
+            roPx.textContent = `${x}, ${y}`;
+            if (pixelSizeUm) {
+                roMm.textContent = `${fmtMm((x - originPixel.x) * pixelSizeUm)}, `
+                                 + `${fmtMm((y - originPixel.y) * pixelSizeUm)}`;
+            }
+        },
+        leaveHandler: () => { box.classList.add('d-none'); setHoveredMarker(null); },
+    }).setTracking(true);
+}
+
+// ── Origin + markers ─────────────────────────────────────────────────────────
+// Click drops numbered markers; Shift-click (re)positions the origin, which
+// starts at the mosaic corner. Markers store full-res image px, so moving the
+// origin doesn't move them — it only changes their reported distance (the
+// portable, cross-instrument quantity). Hover a marker (on the canvas or in the
+// side panel) and press Delete to remove it.
+
+let hoveredMarker = null;   // marker under the cursor (canvas or panel) = delete target
+
+function imgToViewport(x, y) {
+    const item = mosaicViewer.world.getItemAt(0);
+    return item.imageToViewportCoordinates(new OpenSeadragon.Point(x, y));
+}
+
+// mm-from-origin for a point (falls back to px if the file has no pixel size).
+function coordText(x, y) {
+    if (!pixelSizeUm) return `${x}, ${y} px`;
+    return `${fmtMm((x - originPixel.x) * pixelSizeUm)}, `
+         + `${fmtMm((y - originPixel.y) * pixelSizeUm)} mm`;
+}
+
+function setOrigin(x, y) {
+    originPixel = { x, y };
+    const loc = imgToViewport(x, y);
+    if (!originEl) {
+        originEl = document.createElement('div');
+        originEl.className = 'mosaic-origin';
+        originEl.innerHTML =
+            '<svg viewBox="0 0 24 24" width="24" height="24">'
+          + '<line x1="12" y1="1" x2="12" y2="23"/>'
+          + '<line x1="1" y1="12" x2="23" y2="12"/>'
+          + '<circle cx="12" cy="12" r="4"/></svg>';
+        mosaicViewer.addOverlay({ element: originEl, location: loc,
+            placement: OpenSeadragon.Placement.CENTER, checkResize: false });
+    } else {
+        mosaicViewer.updateOverlay(originEl, loc, OpenSeadragon.Placement.CENTER);
+    }
+    originEl.title = `Origin: ${x}, ${y} px`;
+    renderMarkerPanel();   // marker distances are relative to the origin
+}
+
+// Nearest marker within a screen-pixel radius of a point on the viewer element,
+// or null. Used for both hover and click so neither depends on overlay DOM events.
+const MARKER_HIT_PX = 16;
+function markerHitTest(webPoint) {
+    let hit = null, best = MARKER_HIT_PX;
+    for (const m of markers) {
+        const p = mosaicViewer.viewport.pixelFromPoint(imgToViewport(m.x, m.y), true);
+        const d = Math.hypot(p.x - webPoint.x, p.y - webPoint.y);
+        if (d <= best) { best = d; hit = m; }
+    }
+    return hit;
+}
+
+// Single source of truth for which marker is highlighted / is the delete target.
+// Highlights both the canvas glyph and the panel row.
+function setHoveredMarker(m) {
+    if (hoveredMarker === m) return;
+    if (hoveredMarker) {
+        hoveredMarker.el.classList.remove('hi');
+        if (hoveredMarker.row) hoveredMarker.row.classList.remove('active');
+    }
+    hoveredMarker = m;
+    if (m) {
+        m.el.classList.add('hi');
+        if (m.row) m.row.classList.add('active');
+    }
+}
+
+function panToMarker(m) {
+    mosaicViewer.viewport.panTo(imgToViewport(m.x, m.y));
+}
+
+// Expand/collapse a marker's submenu (works from the panel or the canvas).
+function setExpanded(m, expand) {
+    m.expanded = expand;
+    if (m.body) m.body.style.display = expand ? '' : 'none';
+    if (m.chev) m.chev.classList.toggle('open', expand);
+    if (expand && m.row) m.row.scrollIntoView({ block: 'nearest' });
+}
+
+// Center the marker in the viewer and open its panel submenu.
+function selectMarker(m) {
+    panToMarker(m);
+    setExpanded(m, true);
+}
+
+function addMarker(x, y) {
+    const el = document.createElement('div');
+    el.className = 'mosaic-marker';
+    const m = { x, y, el, row: null, body: null, chev: null,
+                name: null, description: '', expanded: false };
+    // No DOM mouse listeners on the glyph: OSD overlays don't reliably receive
+    // them. Hover + click are resolved by markerHitTest on the container.
+    mosaicViewer.addOverlay({ element: el, location: imgToViewport(x, y),
+        placement: OpenSeadragon.Placement.CENTER, checkResize: false });
+    markers.push(m);
+    renderMarkerPanel();   // (re)numbers glyphs + rebuilds the list
+    return m;
+}
+
+function removeMarker(m) {
+    const i = markers.indexOf(m);
+    if (i < 0) return;
+    mosaicViewer.removeOverlay(m.el);
+    markers.splice(i, 1);
+    if (hoveredMarker === m) hoveredMarker = null;
+    renderMarkerPanel();   // renumbers the remaining markers
+}
+
+function markerName(m) {
+    return m.name || `Marker ${markers.indexOf(m) + 1}`;
+}
+
+// Single source of truth for marker numbering/labels + the side-panel list.
+// Each marker is an expandable item: header (chip · name · chevron) + a submenu
+// body (position + description). Expansion state (m.expanded) survives re-renders.
+function renderMarkerPanel() {
+    const list = document.getElementById('marker-list');
+    document.getElementById('marker-count').textContent = markers.length;
+    list.innerHTML = '';
+    if (!markers.length) {
+        list.innerHTML = '<div class="text-muted text-center py-3" '
+            + 'style="font-size:var(--fs-sm);">No markers yet.<br>Click the image to add one.</div>';
+        return;
+    }
+    markers.forEach((m, idx) => {
+        const n = idx + 1;
+        m.el.textContent = n;                       // renumber the canvas glyph
+        m.el.title = `${markerName(m)}: ${coordText(m.x, m.y)}`;
+
+        const item = document.createElement('div');
+        item.className = 'marker-item';
+
+        // ── header: chip · editable name · chevron ──
+        const row = document.createElement('div');
+        row.className = 'marker-row d-flex align-items-center gap-2 px-2 py-1';
+        row.style.cursor = 'pointer';
+
+        const chip = document.createElement('span');
+        chip.className = 'mosaic-marker-chip';
+        chip.textContent = n;
+
+        const name = document.createElement('span');
+        name.className = 'marker-name flex-grow-1 text-truncate';
+        name.style.fontSize = 'var(--fs-sm)';
+        name.textContent = markerName(m);
+        name.title = 'Double-click to rename';
+
+        const chev = document.createElement('i');
+        chev.className = 'bi bi-chevron-right marker-chevron text-muted'
+            + (m.expanded ? ' open' : '');
+        chev.style.fontSize = 'var(--fs-xs)';
+
+        row.append(chip, name, chev);
+
+        // ── body (submenu): position + description ──
+        const body = document.createElement('div');
+        body.className = 'marker-body';
+        body.style.display = m.expanded ? '' : 'none';
+        body.innerHTML =
+            '<div class="text-muted" style="font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:.07em;">Position</div>'
+          + `<div class="mfid mb-2" style="font-size:var(--fs-xs);">${coordText(m.x, m.y)}<br>${m.x}, ${m.y} px</div>`
+          + '<div class="text-muted" style="font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:.07em;">Description</div>';
+        const desc = document.createElement('textarea');
+        desc.className = 'form-control form-control-sm mt-1';
+        desc.rows = 2;
+        desc.style.fontSize = 'var(--fs-sm)';
+        desc.placeholder = 'Add a description…';
+        desc.value = m.description || '';
+        desc.addEventListener('input', () => { m.description = desc.value; });
+        desc.addEventListener('click', (e) => e.stopPropagation());   // don't toggle
+        body.appendChild(desc);
+
+        // ── interactions ──
+        row.addEventListener('mouseenter', () => setHoveredMarker(m));
+        row.addEventListener('mouseleave', () => setHoveredMarker(null));
+        // Clicking anywhere on the header toggles the submenu.
+        row.addEventListener('click', () => {
+            setExpanded(m, !m.expanded);
+            if (m.expanded) panToMarker(m);          // focus the marker on select
+        });
+
+        // rename: double-click the name → inline-editable. Let a normal click on
+        // the name bubble up to toggle the row; only swallow clicks while editing
+        // (so the caret can be placed without collapsing the row).
+        name.addEventListener('click', (e) => { if (name.isContentEditable) e.stopPropagation(); });
+        name.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            name.contentEditable = 'true';
+            name.focus();
+            const sel = window.getSelection(), range = document.createRange();
+            range.selectNodeContents(name); sel.removeAllRanges(); sel.addRange(range);
+        });
+        name.addEventListener('keydown', (e) => {
+            e.stopPropagation();                     // don't trigger the Delete shortcut
+            if (e.key === 'Enter') { e.preventDefault(); name.blur(); }
+            else if (e.key === 'Escape') { name.textContent = markerName(m); name.blur(); }
+        });
+        name.addEventListener('blur', () => {
+            name.contentEditable = 'false';
+            const v = name.textContent.trim();
+            // Store a custom name only if it differs from the auto default.
+            m.name = (v && v !== `Marker ${markers.indexOf(m) + 1}`) ? v : null;
+            name.textContent = markerName(m);
+            m.el.title = `${markerName(m)}: ${coordText(m.x, m.y)}`;
+        });
+
+        item.append(row, body);
+        m.row = row; m.body = body; m.chev = chev;
+        list.appendChild(item);
+    });
+}
+
+function setupInteractions() {
+    setOrigin(0, 0);                              // show the origin at the corner + init panel
+
+    mosaicViewer.addHandler('canvas-click', (event) => {
+        if (!event.quick) return;                 // ignore the click that ends a pan
+        const item = mosaicViewer.world.getItemAt(0);
+        if (!item) return;
+
+        // Click on (or near) an existing marker → select it, never add a new one.
+        const hit = markerHitTest(event.position);
+        if (hit && !event.shift) { selectMarker(hit); return; }
+
+        const p = item.viewportToImageCoordinates(
+            mosaicViewer.viewport.pointFromPixel(event.position));
+        const x = Math.round(p.x), y = Math.round(p.y);
+        const size = item.getContentSize();
+        if (x < 0 || y < 0 || x >= size.x || y >= size.y) return;   // outside image
+
+        if (event.shift) {                        // move the origin
+            setOrigin(x, y);
+            cgToast('Origin moved', 'bi-crosshair');
+        } else {                                   // empty spot → drop a marker
+            const m = addMarker(x, y);
+            cgToast(`Marker ${markers.indexOf(m) + 1} added`, 'bi-geo-alt-fill');
+        }
+    });
+
+    // Hover a marker (canvas glyph or panel row) + Delete key → remove it.
+    // Ignored while editing text (renaming a marker or typing a description).
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Delete' || !hoveredMarker) return;
+        const ae = document.activeElement;
+        if (ae && (ae.isContentEditable || ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return;
+        event.preventDefault();
+        removeMarker(hoveredMarker);
+        cgToast('Marker removed', 'bi-trash');
+    });
+}
+
+sizeStage();
+window.addEventListener('resize', sizeStage);
+initViewer();
+</script>
+{% endblock %}
