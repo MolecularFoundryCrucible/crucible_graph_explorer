@@ -334,6 +334,16 @@ def create_blueprint(auth):
             return jsonify({'error': str(exc)}), 500
         return jsonify({'ok': True, 'result': result})
 
+    @bp.route("/<project_id>/api/datasets/<dsid>/request-mosaic-stitch", methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def api_dataset_request_mosaic_stitch(project_id, dsid):
+        try:
+            result = get_user_client().datasets.request_mosaic_stitch(dsid)
+        except Exception as exc:
+            logger.warning("mosaic stitch request failed for %s: %s", dsid, exc)
+            return jsonify({'error': str(exc)}), 500
+        return jsonify({'ok': True, 'result': result})
+
     @bp.route("/<project_id>/api/datasets/<dsid>/request-carrier-segmentation", methods=['POST'])
     @auth.oidc_auth('orcid')
     def api_dataset_request_carrier_segmentation(project_id, dsid):

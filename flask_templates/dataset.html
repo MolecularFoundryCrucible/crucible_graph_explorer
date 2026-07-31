@@ -60,6 +60,9 @@
 {% if ds['data_type'] == 'automated_RGA_TEY_batch_run' %}
   {% set _ = sidebar_actions.append({'label': 'Request RGA analysis', 'onclick': 'cgRequestRgaAnalysis()', 'icon': 'bi-graph-up'}) %}
 {% endif %}
+{% if ds['data_type'] == 'simple_tiled_image' %}
+  {% set _ = sidebar_actions.append({'label': 'Request mosaic stitch', 'onclick': 'cgRequestMosaicStitch()', 'icon': 'bi-grid-3x3'}) %}
+{% endif %}
 {{ resource_sidebar(project_id, 'dataset', 'bi-database', ds['dataset_name'], resource_id=ds['unique_id'], actions=sidebar_actions) }}
 {% endblock %}
 
@@ -562,6 +565,10 @@
 
     function cgRequestRgaAnalysis() {
         cgRequestProcessing('request-rga-analysis', 'RGA analysis', 'bi-graph-up');
+    }
+
+    function cgRequestMosaicStitch() {
+        cgRequestProcessing('request-mosaic-stitch', 'mosaic stitch', 'bi-grid-3x3');
     }
 </script>
 <input type="file" id="_dsUploadInput" multiple style="display:none;">
