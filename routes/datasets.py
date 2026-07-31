@@ -338,7 +338,8 @@ def create_blueprint(auth):
     @auth.oidc_auth('orcid')
     def api_dataset_request_mosaic_stitch(project_id, dsid):
         try:
-            result = get_user_client().datasets.request_mosaic_stitch(dsid)
+            # nano-crucible 2.1.2 lacks datasets.request_mosaic_stitch; call the endpoint directly
+            result = get_user_client()._request('post', f"/datasets/{dsid}/mosaic_stitch")
         except Exception as exc:
             logger.warning("mosaic stitch request failed for %s: %s", dsid, exc)
             return jsonify({'error': str(exc)}), 500
