@@ -26,13 +26,10 @@ dependencies = [
     "pydantic-ai>=1.103.0",
     "vertexai>=1.43.0",
     "plotly>=6.8.0",
-    "nano-crucible",
+    "nano-crucible>=3.1.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
 ]
-
-[tool.uv.sources]
-nano-crucible = { git = "https://github.com/MolecularFoundryCrucible/nano-crucible", rev = "dev" }

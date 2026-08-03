@@ -82,9 +82,9 @@ def _run_job(job_id, tmpdir, project_id, dataset_name, app):
                 time.sleep(0.5)
                 batch_id = existing_id or f'dry-run-batch-{uuid.uuid4().hex[:8]}'
             else:
-                client.get_or_add_instrument('ALS-BL12012', 'ALS-Building6',
-                                             instrument_owner='esbarnard@lbl.gov')
-                batch_result = client.datasets.create_from_files(
+                client.instruments.get_or_create('ALS-BL12012', 'ALS-Building6',
+                                                 instrument_owner='esbarnard@lbl.gov')
+                batch_result = client.datasets.create(
                     Dataset(
                         unique_id=existing_id,
                         dataset_name=dataset_name,
@@ -123,7 +123,7 @@ def _run_job(job_id, tmpdir, project_id, dataset_name, app):
                     time.sleep(0.1)
                     sds_id = f'dry-run-{uuid.uuid4().hex[:8]}'
                 else:
-                    sds_result = client.datasets.create_from_files(
+                    sds_result = client.datasets.create(
                         Dataset(
                             dataset_name=f'RGATEY_{dataset_name}_{spot}_{sample_name}',
                             instrument_name='ALS-BL12012',

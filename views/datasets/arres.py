@@ -50,7 +50,7 @@ def create_blueprint(auth, helpers):
             abort(403)
 
         client = get_user_client()
-        associated_files = client.datasets.get_associated_files(dsid)
+        associated_files = client.datasets.list_files(dsid)
         h5_file = _find_h5_file(associated_files)
         if not h5_file:
             return jsonify({'error': 'No .h5 file found for this dataset.'}), 404

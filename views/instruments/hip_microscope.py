@@ -86,7 +86,7 @@ def _run_job(job_id, tmpfile_path, project_id, dataset_name, measurement, sample
                 time.sleep(1.0)
                 dataset_id = f'dry-run-{uuid.uuid4().hex[:8]}'
             else:
-                result = client.datasets.create_from_files(
+                result = client.datasets.create(
                     Dataset(
                         dataset_name=dataset_name,
                         instrument_name='hip_microscope',
@@ -94,7 +94,7 @@ def _run_job(job_id, tmpfile_path, project_id, dataset_name, measurement, sample
                         project_id=project_id,
                     ),
                     files_to_upload=[tmpfile_path],
-                    wait_for_ingestion_response=True,
+                    wait_for_ingestion_response=False,
                     ingestor=None,  # use default ingestor based on file type
                 )
                 dataset_id = result['created_record']['unique_id']
@@ -158,7 +158,7 @@ def _run_session_job(job_id, tmpdir, project_id, dataset_name, sample_id, app, c
                 time.sleep(0.5)
                 session_id = f'dry-run-session-{uuid.uuid4().hex[:8]}'
             else:
-                result = client.datasets.create_from_files(
+                result = client.datasets.create(
                     Dataset(
                         dataset_name=dataset_name,
                         instrument_name='hip_microscope',
@@ -194,7 +194,7 @@ def _run_session_job(job_id, tmpdir, project_id, dataset_name, sample_id, app, c
                     time.sleep(0.1)
                     child_id = f'dry-run-{uuid.uuid4().hex[:8]}'
                 else:
-                    child_result = client.datasets.create_from_files(
+                    child_result = client.datasets.create(
                         Dataset(
                             dataset_name=h5_name,
                             instrument_name='hip_microscope',
