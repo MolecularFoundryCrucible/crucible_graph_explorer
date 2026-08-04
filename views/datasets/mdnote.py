@@ -23,7 +23,7 @@ def create_blueprint(auth, helpers):
             abort(403)
 
         ds = get_user_client().datasets.get(dsid)
-        associated_files = get_user_client().datasets.get_associated_files(dsid)
+        associated_files = get_user_client().datasets.list_files(dsid)
 
         markdown_html = None
         error = None

@@ -26,7 +26,8 @@ dependencies = [
     "pydantic-ai>=1.103.0",
     "vertexai>=1.43.0",
     "plotly>=6.8.0",
-    "nano-crucible",
+    "nano-crucible>=3.1.0",
+    "mcp-crucible"
 ]
 
 [dependency-groups]
@@ -35,4 +36,5 @@ dev = [
 ]
 
 [tool.uv.sources]
-nano-crucible = { git = "https://github.com/MolecularFoundryCrucible/nano-crucible", rev = "dev" }
+mcp-crucible = { git = "https://github.com/foundry-mcp/mcp-crucible.git", branch = "main" }
+

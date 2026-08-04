@@ -81,7 +81,7 @@ def create_blueprint(auth):
             f_ds       = ex.submit(client.datasets.get, dsid, include_metadata=True)
             f_samples  = ex.submit(client.samples.list, dataset_id=dsid)
             f_thumbs   = ex.submit(client.datasets.get_thumbnails, dsid)
-            f_files    = ex.submit(client.datasets.get_associated_files, dsid)
+            f_files    = ex.submit(client.datasets.list_files, dsid)
             f_children = ex.submit(client.datasets.list_children, dsid)
             f_parents  = ex.submit(client.datasets.list_parents, dsid)
             f_ingreqs  = ex.submit(client.datasets.get_ingestion_requests, dsid=dsid)
@@ -214,7 +214,7 @@ def create_blueprint(auth):
 
         if request.method == 'POST':
             md_content = request.json.get('content', '')
-            associated_files = client.datasets.get_associated_files(dsid)
+            associated_files = client.datasets.list_files(dsid)
             md_filename = 'note.md'
             for file in associated_files:
                 if file['filename'].endswith('.md'):
@@ -233,7 +233,7 @@ def create_blueprint(auth):
                 os.rmdir(tmp_dir)
             return jsonify({'status': 'ok'})
 
-        associated_files = client.datasets.get_associated_files(dsid)
+        associated_files = client.datasets.list_files(dsid)
         md_content = ''
         for file in associated_files:
             if file['filename'].endswith('.md'):
@@ -282,7 +282,7 @@ def create_blueprint(auth):
         if ingestion_class and ingestion_class not in INGESTION_CLASSES:
             return jsonify({'error': f'Unknown ingestion class: {ingestion_class}'}), 400
 
-        associated_files = client.datasets.get_associated_files(dsid)
+        associated_files = client.datasets.list_files(dsid)
         by_id = {f['mfid']: f for f in associated_files}
         if requested_ids:
             targets = [by_id[fid] for fid in requested_ids if fid in by_id]
