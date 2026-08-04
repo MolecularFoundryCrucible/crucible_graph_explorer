@@ -206,6 +206,55 @@
     }
     /* Overview control shown while a high-mag mosaic is active. */
     #mosaic-overview-btn { position: absolute; z-index: 25; top: .5rem; left: .5rem; }
+    /* Reset control shown while any detail region carries a manual nudge. */
+    #mosaic-reset-btn { position: absolute; z-index: 25; bottom: .5rem; right: .5rem; }
+
+    /* ── Linked datasets (marker submenu) ── */
+    .marker-links { display: flex; flex-direction: column; gap: .15rem; margin-top: .15rem; }
+    .marker-link-row { line-height: 1.2; }
+    .marker-link-row .bi { flex-shrink: 0; color: var(--cg-accent-mid); font-size: var(--fs-sm); }
+    .marker-link-name { font-size: var(--fs-xs); color: var(--bs-body-color); }
+    a.marker-link-name { color: var(--cg-accent-mid); text-decoration: none; }
+    a.marker-link-name:hover { text-decoration: underline; }
+    .marker-link-del { flex-shrink: 0; opacity: .6; }
+    .marker-link-del:hover { opacity: 1; }
+    /* Link-count badge in the panel row header. */
+    .marker-link-badge {
+        flex-shrink: 0; display: inline-flex; align-items: center; gap: .1rem;
+        font-size: var(--fs-2xs); color: var(--cg-accent-mid);
+        background: var(--cg-hover-bg); border-radius: .8rem; padding: 0 .4rem;
+    }
+
+    /* ── Link picker modal ── */
+    .cg-link-picker-backdrop {
+        position: fixed; inset: 0; z-index: 1080;
+        background: rgba(0, 0, 0, 0.4);
+        display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .cg-link-picker {
+        background: var(--bs-body-bg); color: var(--bs-body-color);
+        border: 1px solid var(--bs-border-color); border-radius: .5rem;
+        box-shadow: var(--cg-shadow-md); padding: 1rem;
+        width: 32rem; max-width: 100%; max-height: 80vh;
+        display: flex; flex-direction: column;
+    }
+    .cg-link-picker-list { overflow-y: auto; flex: 1 1 auto; min-height: 4rem; }
+    .cg-link-group-hdr {
+        font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: .07em;
+        color: var(--bs-secondary-color); margin: .5rem 0 .2rem;
+        display: flex; align-items: center; gap: .35rem;
+    }
+    .cg-link-pick-row {
+        display: flex; align-items: center; gap: .5rem; width: 100%;
+        background: transparent; border: 0; border-radius: .3rem; text-align: left;
+        padding: .35rem .5rem; color: var(--bs-body-color); cursor: pointer;
+    }
+    .cg-link-pick-row:hover:not(:disabled) { background: var(--cg-hover-bg); }
+    .cg-link-pick-row:disabled { opacity: .55; cursor: default; }
+    .cg-link-pick-row .bi { flex-shrink: 0; color: var(--cg-accent-mid); }
+    .cg-link-pick-name { flex: 1 1 auto; font-size: var(--fs-sm); }
+    .cg-link-pick-meas { flex-shrink: 0; font-size: var(--fs-2xs); color: var(--bs-secondary-color); }
+    .cg-link-pick-added { flex-shrink: 0; font-size: var(--fs-2xs); color: var(--bs-success); }
 </style>
 
 <script>
@@ -590,7 +639,7 @@ function addMarker(x, y) {
     const el = document.createElement('div');
     el.className = 'mosaic-marker';
     const m = { id: uuid(), type: 'point', x, y, el, row: null, body: null, chev: null,
-                name: null, description: '', expanded: false };
+                name: null, description: '', links: [], expanded: false };
     // No DOM mouse listeners on the glyph: OSD overlays don't reliably receive
     // them. Hover + click are resolved by markerHitTest on the container.
     mosaicViewer.addOverlay({ element: el, location: imgToViewport(x, y),
@@ -614,7 +663,7 @@ function addArea(x, y, w, h) {
     mosaicViewer.addOverlay({ element: el,
         location: item.imageToViewportRectangle(imgRect(x, y, w, h)) });
     const a = { id: uuid(), type: 'area', x, y, w, h, el, row: null, body: null, chev: null,
-                name: null, description: '', expanded: false };
+                name: null, description: '', links: [], expanded: false };
     markers.push(a);
     renderMarkerPanel();
     return a;
@@ -739,7 +788,17 @@ function renderMarkerPanel() {
             + (m.expanded ? ' open' : '');
         chev.style.fontSize = 'var(--fs-xs)';
 
-        row.append(chip, name, chev);
+        // Link-count badge (only when this marker references datasets).
+        const nLinks = (m.links || []).length;
+        if (nLinks) {
+            const badge = document.createElement('span');
+            badge.className = 'marker-link-badge';
+            badge.innerHTML = '<i class="bi bi-link-45deg"></i>' + nLinks;
+            badge.title = nLinks + ' linked dataset' + (nLinks === 1 ? '' : 's');
+            row.append(chip, name, badge, chev);
+        } else {
+            row.append(chip, name, chev);
+        }
 
         // ── body (submenu): type-specific metadata + description ──
         const body = document.createElement('div');
@@ -755,6 +814,9 @@ function renderMarkerPanel() {
         desc.addEventListener('input', () => { m.description = desc.value; markAnnotationsDirty(); });
         desc.addEventListener('click', (e) => e.stopPropagation());   // don't toggle
         body.appendChild(desc);
+
+        // ── linked datasets (cross-microscope references) ──
+        body.appendChild(buildLinksSection(m));
 
         // ── interactions ──
         row.addEventListener('mouseenter', () => setHoveredMarker(m));
@@ -812,6 +874,235 @@ function metaHTML(m) {
         return out;
     }
     return secLabel('Position') + secVal(`${coordText(m.x, m.y)}<br>${m.x}, ${dispY(m.y)} px`);
+}
+
+// ── Linked datasets (cross-microscope references on a marker/area) ─────────────
+// A marker can reference other Crucible datasets of the same physical sample —
+// e.g. an SEM/Raman/PL scan taken on a DIFFERENT microscope. Links persist in the
+// annotation blob (per marker); the picker lists this sample's datasets so the
+// common "another instrument imaged this spot" case needs no ID hunting.
+
+function escHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Measurement → Bootstrap icon (best-effort; database is the catch-all).
+function measIcon(meas) {
+    if (meas === 'stitched_mosaic') return 'bi-grid-3x3';
+    if (/spec|raman|pl\b/i.test(meas || '')) return 'bi-graph-up';
+    if (/image|camera|photo|sem|tem|optical/i.test(meas || '')) return 'bi-image';
+    return 'bi-database';
+}
+function linkTitle(link) {
+    return [link.label || link.dataset_id, link.measurement, link.instrument]
+        .filter(Boolean).join(' · ');
+}
+
+// The "Linked datasets" block appended to a marker's submenu body.
+function buildLinksSection(m) {
+    const wrap = document.createElement('div');
+    wrap.className = 'mt-2';
+    wrap.innerHTML = secLabel('Linked datasets');
+    const list = document.createElement('div');
+    list.className = 'marker-links';
+    renderLinkRows(m, list);
+    wrap.appendChild(list);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm btn-outline-secondary mt-1';
+    btn.style.fontSize = 'var(--fs-xs)';
+    btn.innerHTML = '<i class="bi bi-link-45deg"></i> Link dataset…';
+    btn.addEventListener('click', (e) => { e.stopPropagation(); openLinkPicker(m); });
+    wrap.appendChild(btn);
+    return wrap;
+}
+
+function renderLinkRows(m, list) {
+    list.innerHTML = '';
+    if (!m.links || !m.links.length) {
+        list.innerHTML = '<div class="text-muted" style="font-size:var(--fs-xs);">None yet.</div>';
+        return;
+    }
+    for (const link of m.links) {
+        const row = document.createElement('div');
+        row.className = 'marker-link-row d-flex align-items-center gap-2';
+
+        const icon = document.createElement('i');
+        icon.className = 'bi ' + measIcon(link.measurement);
+
+        // Anchor to the dataset page (which itself surfaces that dataset's custom
+        // viewers) when we know it; otherwise a plain label.
+        const info = document.createElement(link.page_url ? 'a' : 'span');
+        info.className = 'flex-grow-1 text-truncate marker-link-name';
+        if (link.page_url) {
+            info.href = link.page_url; info.target = '_blank'; info.rel = 'noopener';
+        }
+        info.textContent = link.label || link.dataset_id;
+        info.title = linkTitle(link);
+        info.addEventListener('click', (e) => e.stopPropagation());
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn btn-sm btn-link text-danger p-0 lh-1 marker-link-del';
+        del.innerHTML = '<i class="bi bi-x-lg"></i>';
+        del.title = 'Remove link';
+        del.addEventListener('click', (e) => { e.stopPropagation(); removeLink(m, link); });
+
+        row.append(icon, info, del);
+        list.appendChild(row);
+    }
+}
+
+function attachLink(m, d) {
+    const link = normalizeLink(d);
+    if (!link.dataset_id) return;
+    m.links = m.links || [];
+    if (m.links.some((l) => l.dataset_id === link.dataset_id)) {
+        cgToast('Already linked', 'bi-info-circle');
+        return;
+    }
+    link.added = new Date().toISOString();
+    m.links.push(link);
+    markAnnotationsDirty();
+    m.expanded = true;          // keep the submenu open so the new link is visible
+    renderMarkerPanel();
+    cgToast('Dataset linked', 'bi-link-45deg');
+}
+
+function removeLink(m, link) {
+    m.links = (m.links || []).filter((l) => l !== link);
+    markAnnotationsDirty();
+    renderMarkerPanel();
+}
+
+// ── Link picker (sample-first, with a paste fallback) ─────────────────────────
+const sampleDatasetsUrl = (dsid) =>
+    ANNOT_BASE + encodeURIComponent(dsid) + '/sample-datasets';
+const datasetInfoUrl = (dsid, target) =>
+    ANNOT_BASE + encodeURIComponent(dsid) + '/dataset-info/' + encodeURIComponent(target);
+
+let linkPickerEl = null;
+function linkPickerEsc(e) { if (e.key === 'Escape') closeLinkPicker(); }
+function closeLinkPicker() {
+    if (linkPickerEl) { linkPickerEl.remove(); linkPickerEl = null; }
+    document.removeEventListener('keydown', linkPickerEsc);
+}
+
+async function openLinkPicker(m) {
+    closeLinkPicker();
+    const back = document.createElement('div');
+    back.className = 'cg-link-picker-backdrop';
+    back.innerHTML =
+        '<div class="cg-link-picker" role="dialog" aria-label="Link a dataset">'
+      +   '<div class="d-flex align-items-center mb-2">'
+      +     '<div class="flex-grow-1" style="font-weight:600;">Link a dataset to '
+      +       escHtml(markerName(m)) + '</div>'
+      +     '<button type="button" class="btn-close cg-link-close" aria-label="Close"></button>'
+      +   '</div>'
+      +   '<div class="text-muted mb-2" style="font-size:var(--fs-xs);">'
+      +     'Datasets on this sample — including scans from other microscopes.</div>'
+      +   '<div class="cg-link-picker-list"><div class="text-muted py-3 text-center" '
+      +     'style="font-size:var(--fs-sm);">Loading…</div></div>'
+      +   '<div class="mt-2 pt-2" style="border-top:1px solid var(--bs-border-color);">'
+      +     '<div class="text-muted mb-1" style="font-size:var(--fs-2xs); '
+      +       'text-transform:uppercase; letter-spacing:.07em;">Or paste a dataset ID / URL</div>'
+      +     '<div class="d-flex gap-2">'
+      +       '<input type="text" class="form-control form-control-sm cg-link-paste" '
+      +         'placeholder="dataset id or link…" style="font-size:var(--fs-sm);">'
+      +       '<button type="button" class="btn btn-sm btn-outline-primary cg-link-paste-btn">Add</button>'
+      +     '</div>'
+      +   '</div>'
+      + '</div>';
+    linkPickerEl = back;
+    document.body.appendChild(back);
+    document.addEventListener('keydown', linkPickerEsc);
+    back.addEventListener('mousedown', (e) => { if (e.target === back) closeLinkPicker(); });
+    back.querySelector('.cg-link-close').addEventListener('click', closeLinkPicker);
+
+    const pasteInput = back.querySelector('.cg-link-paste');
+    back.querySelector('.cg-link-paste-btn')
+        .addEventListener('click', () => addPastedLink(m, pasteInput.value));
+    pasteInput.addEventListener('keydown', (e) => {
+        e.stopPropagation();                                   // don't trigger shortcuts
+        if (e.key === 'Enter') { e.preventDefault(); addPastedLink(m, pasteInput.value); }
+    });
+
+    const listEl = back.querySelector('.cg-link-picker-list');
+    let data = [];
+    try {
+        const r = await fetch(sampleDatasetsUrl(activeDsid));
+        const j = await r.json();
+        if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+        data = j.datasets || [];
+    } catch (e) {
+        listEl.innerHTML = '<div class="text-danger py-2" style="font-size:var(--fs-sm);">'
+            + 'Could not load sample datasets: ' + escHtml(e.message) + '</div>';
+        return;
+    }
+    if (linkPickerEl === back) renderPickerList(m, listEl, data);
+}
+
+// Group the sample's datasets by instrument so "the other microscopes" read at a
+// glance; already-linked datasets show as disabled.
+function renderPickerList(m, listEl, data) {
+    if (!data.length) {
+        listEl.innerHTML = '<div class="text-muted py-3 text-center" '
+            + 'style="font-size:var(--fs-sm);">No other datasets on this sample.</div>';
+        return;
+    }
+    const linked = new Set((m.links || []).map((l) => l.dataset_id));
+    const groups = {};
+    for (const d of data) {
+        const key = d.instrument || 'Unknown instrument';
+        (groups[key] = groups[key] || []).push(d);
+    }
+    listEl.innerHTML = '';
+    Object.keys(groups).sort().forEach((inst) => {
+        const g = document.createElement('div');
+        g.className = 'cg-link-group';
+        g.innerHTML = '<div class="cg-link-group-hdr">'
+            + '<i class="bi bi-pc-display-horizontal"></i> ' + escHtml(inst) + '</div>';
+        for (const d of groups[inst]) {
+            const already = linked.has(d.dsid);
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'cg-link-pick-row';
+            row.disabled = already;
+            row.innerHTML =
+                '<i class="bi ' + measIcon(d.measurement) + '"></i>'
+              + '<span class="cg-link-pick-name text-truncate">'
+              +   escHtml(d.dataset_name || d.dsid) + '</span>'
+              + '<span class="cg-link-pick-meas">' + escHtml(d.measurement || '') + '</span>'
+              + (already ? '<span class="cg-link-pick-added"><i class="bi bi-check-lg"></i> linked</span>' : '');
+            if (!already) row.addEventListener('click', () => { attachLink(m, d); closeLinkPicker(); });
+            g.appendChild(row);
+        }
+        listEl.appendChild(g);
+    });
+}
+
+// Paste fallback: accept a bare dataset id or a dataset-page URL, resolve display
+// fields via /dataset-info, and attach (falling back to id-only on a miss).
+async function addPastedLink(m, raw) {
+    let s = (raw || '').trim();
+    if (!s) return;
+    try { if (s.includes('://')) s = new URL(s).pathname; } catch (e) { /* not a URL */ }
+    if (s.includes('/')) s = s.split('/').filter(Boolean).pop() || '';
+    s = s.split('?')[0].split('#')[0];
+    if (!s) return;
+    let d = { dsid: s, dataset_name: s };
+    try {
+        const r = await fetch(datasetInfoUrl(activeDsid, s));
+        const j = await r.json();
+        if (r.ok && j.dataset) d = j.dataset;
+        else cgToast('Linked by ID (details unavailable)', 'bi-exclamation-triangle', 3000);
+    } catch (e) {
+        cgToast('Linked by ID (details unavailable)', 'bi-exclamation-triangle', 3000);
+    }
+    attachLink(m, d);
+    closeLinkPicker();
 }
 
 // ── Multi-magnification detail regions ────────────────────────────────────────
@@ -908,6 +1199,7 @@ function renderDetailRegions(dsid) {
             rect.w >= imageWidthPx && rect.h >= imageHeightPx) continue;    // an overview
         addDetailRegion(m, rect);
     }
+    updateResetButton();
 }
 
 function addDetailRegion(mosaic, rect) {
@@ -1035,6 +1327,42 @@ function updateOverviewButton() {
     }
 }
 
+// Discard every manual nudge for the active map and redraw its detail regions from
+// the auto-computed (geometry-only) positions. Zeroing the IN-MEMORY overridesCache
+// is the important part: clearing localStorage alone doesn't stick, because the
+// pagehide flush re-serializes the in-memory nudges back into the annotation blob on
+// reload. flushAnnotationsLocal() then rewrites the blob NOW with the cleared set.
+function resetDetailRegions() {
+    const ov = overridesFor(activeDsid);
+    if (!ov || !Object.keys(ov).length) {
+        cgToast('Regions already at auto-placement', 'bi-arrow-counterclockwise');
+        return;
+    }
+    overridesCache[activeDsid] = {};                     // zero in-memory nudges
+    try { localStorage.removeItem(overridesKey(activeDsid)); } catch (e) { /* ignore */ }
+    renderDetailRegions(activeDsid);                     // redraw from geometry only
+    markAnnotationsDirty();                              // fold cleared set into blob + server tier
+    flushAnnotationsLocal();                             // rewrite localStorage now so reload can't restore
+    cgToast('Detail regions reset to auto-placement', 'bi-arrow-counterclockwise');
+}
+
+// Show the reset control only when the active map has at least one nudged region.
+function updateResetButton() {
+    let btn = document.getElementById('mosaic-reset-btn');
+    const hasNudges = Object.keys(overridesFor(activeDsid) || {}).length > 0;
+    if (!detailRegions.length || !hasNudges) { if (btn) btn.remove(); return; }
+    if (!btn) {
+        btn = document.createElement('button');
+        btn.id = 'mosaic-reset-btn';
+        btn.type = 'button';
+        btn.className = 'btn btn-sm btn-dark shadow-sm';
+        btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Reset regions';
+        btn.title = 'Move all detail regions back to their auto-computed positions';
+        btn.addEventListener('click', resetDetailRegions);
+        document.getElementById('mosaic-viewport').appendChild(btn);
+    }
+}
+
 // ── Annotation persistence (origin + markers) ─────────────────────────────────
 // Two tiers: (1) autosave to localStorage on every edit (always on, per-browser),
 // and (2) an explicit Save to a per-user Crucible child dataset (durable/shared —
@@ -1067,18 +1395,42 @@ function uuid() {
     });
 }
 
+// A stored dataset link = a cross-microscope reference on a marker/area. Only the
+// fields below persist; `dataset_id` is the source of truth and the rest are
+// cached display fields (refreshed whenever the picker resolves the dataset) so
+// the panel renders instantly and offline. Tolerates picker-shaped records
+// ({dsid, dataset_name}) and already-stored ones.
+function normalizeLink(l) {
+    return {
+        dataset_id: l.dataset_id || l.dsid || '',
+        project_id: l.project_id || null,
+        label: l.label || l.dataset_name || l.dataset_id || l.dsid || '',
+        measurement: l.measurement || null,
+        instrument: l.instrument || null,
+        page_url: l.page_url || null,
+        added: l.added || null,
+    };
+}
+function serializeLinks(links) {
+    return (links || []).map(normalizeLink).filter((l) => l.dataset_id);
+}
+
 // Snapshot the current mosaic's annotations as the portable blob (image px).
 function serializeAnnotations() {
     return {
         schema: 'cg-mosaic-annotations',
-        version: 1,
+        // v2 adds per-annotation `links` (cross-microscope dataset references).
+        // v1 blobs load unchanged (links default to []).
+        version: 2,
         dataset_id: activeDsid,
         origin: { x: originPixel.x, y: originPixel.y },
         annotations: markers.map((m) => m.type === 'area'
             ? { id: m.id, type: 'area', x: m.x, y: m.y, w: m.w, h: m.h,
-                name: m.name || '', description: m.description || '' }
+                name: m.name || '', description: m.description || '',
+                links: serializeLinks(m.links) }
             : { id: m.id, type: 'point', x: m.x, y: m.y,
-                name: m.name || '', description: m.description || '' }),
+                name: m.name || '', description: m.description || '',
+                links: serializeLinks(m.links) }),
         // Fold in the detail-region nudges for this map so corrections travel with
         // the blob too (Part E). The legacy per-map key is still read as a fallback.
         detail_overrides: overridesFor(activeDsid),
@@ -1110,6 +1462,7 @@ function applyAnnotations(blob) {
                 if (a.id) m.id = a.id;
                 m.name = a.name || null;
                 m.description = a.description || '';
+                m.links = Array.isArray(a.links) ? a.links.map(normalizeLink) : [];
             }
             // Merge any nudges carried in the blob into this map's override cache
             // (Part E) so re-projected detail regions pick them up. The blob's
@@ -1455,6 +1808,7 @@ function setupInteractions() {
                 { dx: Math.round(d.x - base.x), dy: Math.round(d.y - base.y) });
             cgToast(`${d.magnification ? d.magnification + '×' : 'Region'} position saved`,
                     'bi-check2');
+            updateResetButton();                 // first nudge reveals the reset control
             regionDrag = null;
         }
     });

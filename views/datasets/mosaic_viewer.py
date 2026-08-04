@@ -20,7 +20,7 @@ import json
 import os
 
 from flask import (Blueprint, abort, jsonify, render_template, request,
-                   send_from_directory, session)
+                   send_from_directory, session, url_for)
 from flask_pyoidc.user_session import UserSession
 
 from utils.auth import get_user_client
@@ -124,6 +124,41 @@ def _find_mosaic_file(associated_files):
     plain = [f for f in tifs
              if not f['filename'].lower().endswith(('.ome.tif', '.ome.tiff'))]
     return (plain or tifs)[0]
+
+
+# ── Cross-microscope dataset links (marker/area annotations) ───────────────────
+# A marker or area can link to OTHER Crucible datasets — e.g. an SEM, Raman, or
+# PL scan of the same physical sample taken on a different instrument. The link
+# picker (sample-datasets route) lists every dataset on this mosaic's Crucible
+# sample(s); the stored link keeps only the dataset id (source of truth) plus
+# cached display fields so the marker panel renders instantly and offline.
+
+def _dataset_link_payload(ds, sample_name=None):
+    """Shape a dataset record for the link picker / a stored link's display.
+
+    Includes a page_url to the standard dataset page (which itself surfaces that
+    dataset's own custom viewers, so a linked mosaic gets its Mosaic Viewer link
+    for free). page_url is None when the project isn't known.
+    """
+    dsid = ds.get('unique_id')
+    proj = ds.get('project_id')
+    payload = {
+        'dsid': dsid,
+        'project_id': proj,
+        'dataset_name': ds.get('dataset_name'),
+        'measurement': ds.get('measurement'),
+        'instrument': ds.get('instrument_name'),
+        'timestamp': ds.get('timestamp'),
+        'sample_name': sample_name,
+        'page_url': None,
+    }
+    if dsid and proj:
+        try:
+            payload['page_url'] = url_for(
+                'datasets.dataset', project_id=proj, dsid=dsid)
+        except Exception:
+            pass
+    return payload
 
 
 # ── Offline test harness (test_data/) ─────────────────────────────────────────
@@ -279,6 +314,64 @@ def create_blueprint(auth, helpers):
                 })
         return jsonify({'siblings': out})
 
+    @bp.route('/<project_id>/<dsid>/sample-datasets')
+    @auth.oidc_auth('orcid')
+    def sample_datasets(project_id, dsid):
+        """Every OTHER dataset on this mosaic's sample(s) — the link-picker source.
+
+        Broadened form of `siblings`: all measurements and instruments (not just
+        stitched_mosaic), so a marker can link to datasets from other microscopes
+        that imaged the same physical sample. Excludes the mosaic itself and the
+        internal per-user annotation children.
+        """
+        if not is_user_in_project(project_id):
+            abort(403)
+        client = get_user_client()
+        try:
+            samples = client.samples.list(dataset_id=dsid)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 502
+
+        seen = {dsid}          # never offer the currently-open mosaic itself
+        out = []
+        for sample in samples or []:
+            sid = sample.get('unique_id')
+            if not sid:
+                continue
+            sname = sample.get('sample_name')
+            try:
+                members = client.datasets.list(sample_id=sid)
+            except Exception:
+                continue
+            for ds in members or []:
+                other = ds.get('unique_id')
+                if not other or other in seen:
+                    continue
+                if ds.get('measurement') == ANNOT_MEASUREMENT:
+                    continue   # internal annotation child, not a real dataset
+                seen.add(other)
+                out.append(_dataset_link_payload(ds, sample_name=sname))
+        return jsonify({'datasets': out})
+
+    @bp.route('/<project_id>/<dsid>/dataset-info/<target_dsid>')
+    @auth.oidc_auth('orcid')
+    def dataset_info(project_id, dsid, target_dsid):
+        """Resolve a pasted dataset id → display fields (the picker's paste path).
+
+        Membership is checked against the CURRENT project; the pasted target may
+        live in another project the user can still read, so a failed get() is
+        surfaced as 404 rather than 403.
+        """
+        if not is_user_in_project(project_id):
+            abort(403)
+        try:
+            ds = get_user_client().datasets.get(target_dsid)
+        except Exception:
+            return jsonify({'error': 'Dataset not found or not accessible.'}), 404
+        if not isinstance(ds, dict) or not ds.get('unique_id'):
+            return jsonify({'error': 'Dataset not found.'}), 404
+        return jsonify({'dataset': _dataset_link_payload(ds)})
+
     # ── annotation persistence (per-user child dataset) ───────────────────────
     @bp.route('/<project_id>/<dsid>/annotations')
     @auth.oidc_auth('orcid')
@@ -364,6 +457,34 @@ def create_blueprint(auth, helpers):
     @auth.oidc_auth('orcid')
     def local_siblings(filename):
         return jsonify({'siblings': _local_siblings(filename)})
+
+    @bp.route('/local/<string:filename>/sample-datasets')
+    @auth.oidc_auth('orcid')
+    def local_sample_datasets(filename):
+        # Offline picker: every other local TIFF stands in for a sample dataset.
+        out = []
+        for f in _local_tifs():
+            if f == filename:
+                continue
+            m = _local_meta(f)
+            out.append({
+                'dsid': f, 'project_id': None, 'dataset_name': f,
+                'measurement': 'stitched_mosaic',
+                'instrument': m.get('coord_frame') or 'local',
+                'timestamp': None, 'sample_name': 'local', 'page_url': None,
+            })
+        return jsonify({'datasets': out})
+
+    @bp.route('/local/<string:filename>/dataset-info/<path:target>')
+    @auth.oidc_auth('orcid')
+    def local_dataset_info(filename, target):
+        if not os.path.isfile(os.path.join(_TEST_DATA_DIR, target)):
+            return jsonify({'error': f'No such local file: {target}'}), 404
+        return jsonify({'dataset': {
+            'dsid': target, 'project_id': None, 'dataset_name': target,
+            'measurement': 'stitched_mosaic', 'instrument': 'local',
+            'timestamp': None, 'sample_name': 'local', 'page_url': None,
+        }})
 
     @bp.route('/local/<string:filename>/file-url')
     @auth.oidc_auth('orcid')
