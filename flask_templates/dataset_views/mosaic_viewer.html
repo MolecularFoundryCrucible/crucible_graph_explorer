@@ -62,7 +62,7 @@
                     font-size:var(--fs-xs); line-height:1.4;">
             <div><span class="text-muted d-inline-block" style="width:2.2rem;">px</span><span id="ro-px" class="mfid"></span></div>
             <div id="ro-mm-row"><span class="text-muted d-inline-block" style="width:2.2rem;">mm</span><span id="ro-mm" class="mfid"></span></div>
-            <div class="text-muted" style="font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:.07em; margin-top:.15rem;">from <span id="ro-ref">origin</span></div>
+            <div class="text-muted" style="font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:.07em; margin-top:.15rem;"><span id="ro-ref">origin</span></div>
         </div>
 
         <!-- Right-click context menu (tools); items built in JS from MENU_ITEMS -->
@@ -77,6 +77,17 @@
                 <i class="bi bi-geo-alt-fill me-1"></i>Markers</span>
             <span id="marker-count" class="badge border text-muted"
                   style="background:var(--bs-tertiary-bg); font-size:var(--fs-xs);">0</span>
+        </div>
+        <!-- Coordinate-frame selector: reports marker/hover positions in the chosen
+             microscope's stage frame (this scope, or another via a fiducial marker).
+             Revealed by JS once the viewer opens. -->
+        <div id="frame-selectbar" class="d-flex align-items-center gap-2 px-2 py-1 border-bottom d-none">
+            <label for="frame-select" class="text-muted flex-shrink-0 mb-0"
+                   style="font-size:var(--fs-xs);">
+                <i class="bi bi-compass me-1"></i>Frame</label>
+            <select id="frame-select" class="form-select form-select-sm py-0"
+                    style="font-size:var(--fs-xs);"
+                    title="Report coordinates in this microscope's stage frame"></select>
         </div>
         <!-- Save bar: revealed by JS when a durable tier is available (Crucible
              child dataset on a dataset route; a dev sidecar on /local). -->
@@ -133,6 +144,11 @@
     }
     /* Highlighted (hovered from canvas or the side panel). */
     .mosaic-marker.hi { transform: scale(1.4); z-index: 20; }
+    /* Fiducial marker: a coordinate-frame anchor, not a feature. Teal + rounded
+       square so it reads as distinct from the round red feature markers. */
+    .mosaic-marker.mosaic-fiducial {
+        background: var(--cg-accent-mid); border-radius: 3px;
+    }
 
     /* Side-panel rows */
     .marker-item { border-bottom: 1px solid var(--bs-border-color); }
@@ -142,6 +158,9 @@
         background: var(--bs-danger); color: #fff;   /* match the red point markers */
         font-size: var(--fs-2xs); font-weight: 600;
         display: inline-flex; align-items: center; justify-content: center;
+    }
+    .mosaic-marker-chip.fiducial {
+        background: var(--cg-accent-mid); border-radius: .25rem;   /* match the canvas fiducial glyph */
     }
     .marker-name[contenteditable="true"] {
         white-space: normal; cursor: text; outline: none;
@@ -206,8 +225,10 @@
     }
     /* Overview control shown while a high-mag mosaic is active. */
     #mosaic-overview-btn { position: absolute; z-index: 25; top: .5rem; left: .5rem; }
-    /* Reset control shown while any detail region carries a manual nudge. */
-    #mosaic-reset-btn { position: absolute; z-index: 25; bottom: .5rem; right: .5rem; }
+    /* Reset controls, stacked bottom-right; each button appears only when its
+       state is non-default (a nudged region / a user-moved origin). */
+    #mosaic-reset-stack { position: absolute; z-index: 25; bottom: .5rem; right: .5rem;
+        display: flex; flex-direction: column; gap: .35rem; align-items: flex-end; }
 
     /* ── Linked datasets (marker submenu) ── */
     .marker-links { display: flex; flex-direction: column; gap: .15rem; margin-top: .15rem; }
@@ -287,6 +308,10 @@ let pixelSizeUm = null;                 // µm per pixel, read from the TIFF res
 // Defaults to the mosaic corner (0,0) and is shown there on open; Shift-click
 // moves it. Distances are origin-relative so they're portable across instruments.
 let originPixel = { x: 0, y: 0 };
+// True only when the user deliberately moved the origin (right-click "Set origin
+// here"). The geometry-derived default (true stage 0,0) leaves this false, so it is
+// never persisted as a user choice and is always re-derived on the next open.
+let originUserSet = false;
 let originEl = null;                     // origin crosshair overlay element
 const markers = [];                      // [{ x, y, el }] in full-res image px
 let imageHeightPx = 0;                    // full-res image height, for the Y-up display flip
@@ -392,8 +417,14 @@ async function initViewer() {
         imageHeightPx = size.y;
         imageWidthPx  = size.x;
         if (!uiWired) { setupHoverReadout(); setupInteractions(); uiWired = true; }
-        setOrigin(0, 0);            // (re)add the origin overlay + refresh the panel
+        // Default the origin crosshair to the map's TRUE stage (0,0) so the
+        // current-frame readout reads absolute stage mm out of the box. May land
+        // off the visible image (correct + intended). A saved blob's origin still
+        // wins: loadAnnotationsForCurrent() runs after and calls setOrigin again.
+        applyDefaultOrigin();       // marks true stage 0,0 (or corner w/o geometry)
+        activeFrameId = 'current';  // a swap doesn't inherit the prior map's frame
         loadAnnotationsForCurrent();   // rehydrate this mosaic's saved annotations
+        rebuildFrameSelect();       // fiducials come from the freshly-loaded markers
         if (!mosaicsLoaded) { loadDetailRegions(); mosaicsLoaded = true; }
         else { renderDetailRegions(activeDsid); }   // after activation, no refetch
         if (pendingFit) {           // returning to overview: frame the region we left
@@ -508,10 +539,15 @@ function setupHoverReadout() {
             }
             box.classList.remove('d-none');
             roPx.textContent = `${x}, ${dispY(y)}`;
-            if (pixelSizeUm) {
-                roMm.textContent = `${fmtMm((x - originPixel.x) * pixelSizeUm)}, `
-                                 + `${fmtMm((originPixel.y - y) * pixelSizeUm)}`;
-            }
+            // Physical readout in the active coordinate frame (absolute stage mm
+            // for the current scope, or another scope's mm via its fiducial). The
+            // scale may come from geometry even when the TIFF tag is missing, so
+            // toggle the mm row on coordInFrame's result, not pixelSizeUm alone.
+            const frame = frameById(activeFrameId);
+            const c = coordInFrame(x, y, frame);
+            document.getElementById('ro-mm-row').style.display = c ? '' : 'none';
+            if (c) roMm.textContent = `${c.x.toFixed(3)}, ${c.y.toFixed(3)}`;
+            document.getElementById('ro-ref').textContent = frame.label;
         },
         leaveHandler: () => { box.classList.add('d-none'); setHoveredMarker(null); },
     }).setTracking(true);
@@ -539,13 +575,94 @@ function coordText(x, y) {
          + `${fmtMm((originPixel.y - y) * pixelSizeUm)} mm`;
 }
 
+// ── Coordinate frames ─────────────────────────────────────────────────────────
+// A frame reports a marker/hover position in some microscope's stage coordinates.
+// The "current" frame comes from the displayed map's own geometry; each fiducial
+// marker contributes another frame (another scope's anchor: a reference pixel, its
+// stage coord on THAT scope, and per-axis sign flips). Physical distance is
+// instrument-independent, so the map's own mm/px converts pixels to mm in every
+// frame — no need for the other scope's scale. See dev/PLAN_coordinate_frames.md.
+
+let activeFrameId = 'current';   // which frame drives hover + primary marker readout
+
+// Label for the map's own microscope, from coord_frame ("instrument/session").
+function currentScopeLabel() {
+    const g = geomFor(activeDsid);
+    const cf = g && g.coord_frame;
+    const inst = cf ? String(cf).split('/')[0] : null;
+    return inst ? `This microscope (${inst})` : 'This microscope';
+}
+
+// All frames available on the displayed map: the current scope + one per fiducial.
+function framesAvailable() {
+    const frames = [{ id: 'current', kind: 'current', label: currentScopeLabel() }];
+    for (const m of markers) {
+        if (m.type === 'point' && m.fiducial) {
+            frames.push({ id: m.id, kind: 'fiducial', marker: m,
+                          label: m.fiducial.instrument || markerName(m) });
+        }
+    }
+    return frames;
+}
+function frameById(id) {
+    return framesAvailable().find(f => f.id === id) || framesAvailable()[0];
+}
+
+// Image pixel (px,py) -> {x,y} in mm in the given frame, or null if unresolvable.
+// Convention: +X = image right, +Y = image up (matches the existing y-up display).
+function coordInFrame(px, py, frame) {
+    const g = geomFor(activeDsid);
+    const s = (g && g.mm_per_px) || (pixelSizeUm ? pixelSizeUm / 1000 : null);
+    if (!s) return null;                        // no physical scale known
+    if (frame && frame.kind === 'fiducial') {
+        const f = frame.marker.fiducial;
+        const dX = (px - frame.marker.x) * s;   // physical mm, image-right
+        const dY = (frame.marker.y - py) * s;   // physical mm, image-up
+        return { x: f.stage.x + f.flipX * dX,
+                 y: f.stage.y + f.flipY * dY };
+    }
+    // kind === 'current': the current microscope's stage frame, measured from the
+    // origin crosshair using the map's scale/orientation. The default origin sits at
+    // true stage (0,0), so out of the box this equals absolute stage mm; moving the
+    // origin re-zeroes the readout to the chosen reference point.
+    const up = !g || g.y_axis_up !== false;
+    return { x: (px - originPixel.x) * s,
+             y: up ? (originPixel.y - py) * s : (py - originPixel.y) * s };
+}
+
+function fmtFrameCoord(px, py, frame) {
+    const c = coordInFrame(px, py, frame);
+    return c ? `${fmtMm(c.x * 1000)}, ${fmtMm(c.y * 1000)} mm` : `${px}, ${dispY(py)} px`;
+}
+
+// (Re)populate the frame dropdown from framesAvailable(). Call on open and whenever
+// a fiducial is added/removed/edited. Resets activeFrameId to 'current' if the
+// frame it named is gone (its fiducial was deleted or we swapped maps).
+function rebuildFrameSelect() {
+    const sel = document.getElementById('frame-select');
+    if (!sel) return;
+    const frames = framesAvailable();
+    if (!frames.some(f => f.id === activeFrameId)) activeFrameId = 'current';
+    sel.innerHTML = '';
+    for (const f of frames) {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.label;
+        if (f.id === activeFrameId) opt.selected = true;
+        sel.appendChild(opt);
+    }
+    const bar = document.getElementById('frame-selectbar');
+    if (bar) bar.classList.remove('d-none');
+}
+
 // Submenu formatting helpers.
 const fmtArea = (mm2) => mm2 >= 0.01 ? `${mm2.toFixed(4)} mm²` : `${(mm2 * 1e6).toFixed(0)} µm²`;
 const secLabel = (t) => `<div class="text-muted" style="font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:.07em;">${t}</div>`;
 const secVal   = (html) => `<div class="mfid mb-2" style="font-size:var(--fs-xs);">${html}</div>`;
 
-function setOrigin(x, y) {
+function setOrigin(x, y, userSet = false) {
     originPixel = { x, y };
+    originUserSet = !!userSet;
     const loc = imgToViewport(x, y);
     if (!originEl) {
         originEl = document.createElement('div');
@@ -562,6 +679,7 @@ function setOrigin(x, y) {
     }
     originEl.title = `Origin: ${x}, ${y} px`;
     renderMarkerPanel();   // marker distances are relative to the origin
+    updateOriginResetButton();   // show "Reset origin" only once it's been moved
 }
 
 // Nearest marker within a screen-pixel radius of a point on the viewer element,
@@ -639,7 +757,7 @@ function addMarker(x, y) {
     const el = document.createElement('div');
     el.className = 'mosaic-marker';
     const m = { id: uuid(), type: 'point', x, y, el, row: null, body: null, chev: null,
-                name: null, description: '', links: [], expanded: false };
+                name: null, description: '', links: [], fiducial: null, expanded: false };
     // No DOM mouse listeners on the glyph: OSD overlays don't reliably receive
     // them. Hover + click are resolved by markerHitTest on the container.
     mosaicViewer.addOverlay({ element: el, location: imgToViewport(x, y),
@@ -724,10 +842,17 @@ function cancelAreaDraw() {
 function removeMarker(m) {
     const i = markers.indexOf(m);
     if (i < 0) return;
+    // Guard: deleting a fiducial removes another scope's coordinate frame.
+    if (m.fiducial) {
+        const inst = m.fiducial.instrument || markerName(m);
+        if (!confirm(`This marker defines ${inst}'s coordinate frame — remove anyway?`)) return;
+    }
     mosaicViewer.removeOverlay(m.el);
     markers.splice(i, 1);
     if (hoveredMarker === m) hoveredMarker = null;
+    if (activeFrameId === m.id) activeFrameId = 'current';   // its frame is gone
     renderMarkerPanel();   // renumbers the remaining markers
+    rebuildFrameSelect();  // drop the deleted fiducial's frame from the dropdown
     markAnnotationsDirty();
 }
 
@@ -762,6 +887,7 @@ function renderMarkerPanel() {
             if (lbl) lbl.textContent = n;
         } else {
             m.el.textContent = n;
+            m.el.classList.toggle('mosaic-fiducial', !!m.fiducial);   // distinct glyph
         }
         m.el.title = markerName(m);
 
@@ -774,7 +900,8 @@ function renderMarkerPanel() {
         row.style.cursor = 'pointer';
 
         const chip = document.createElement('span');
-        chip.className = 'mosaic-marker-chip' + (m.type === 'area' ? ' area' : '');
+        chip.className = 'mosaic-marker-chip' + (m.type === 'area' ? ' area' : '')
+            + (m.fiducial ? ' fiducial' : '');
         chip.textContent = n;
 
         const name = document.createElement('span');
@@ -788,16 +915,25 @@ function renderMarkerPanel() {
             + (m.expanded ? ' open' : '');
         chev.style.fontSize = 'var(--fs-xs)';
 
-        // Link-count badge (only when this marker references datasets).
-        const nLinks = (m.links || []).length;
-        if (nLinks) {
+        // Role badge: a fiducial shows a compass (its role is mutually exclusive
+        // with links); otherwise a link-count badge when it references datasets.
+        if (m.fiducial) {
             const badge = document.createElement('span');
             badge.className = 'marker-link-badge';
-            badge.innerHTML = '<i class="bi bi-link-45deg"></i>' + nLinks;
-            badge.title = nLinks + ' linked dataset' + (nLinks === 1 ? '' : 's');
+            badge.innerHTML = '<i class="bi bi-compass"></i>';
+            badge.title = 'Fiducial: ' + (m.fiducial.instrument || 'coordinate frame');
             row.append(chip, name, badge, chev);
         } else {
-            row.append(chip, name, chev);
+            const nLinks = (m.links || []).length;
+            if (nLinks) {
+                const badge = document.createElement('span');
+                badge.className = 'marker-link-badge';
+                badge.innerHTML = '<i class="bi bi-link-45deg"></i>' + nLinks;
+                badge.title = nLinks + ' linked dataset' + (nLinks === 1 ? '' : 's');
+                row.append(chip, name, badge, chev);
+            } else {
+                row.append(chip, name, chev);
+            }
         }
 
         // ── body (submenu): type-specific metadata + description ──
@@ -815,8 +951,16 @@ function renderMarkerPanel() {
         desc.addEventListener('click', (e) => e.stopPropagation());   // don't toggle
         body.appendChild(desc);
 
-        // ── linked datasets (cross-microscope references) ──
-        body.appendChild(buildLinksSection(m));
+        // ── role-specific section (mutually exclusive on point markers) ──
+        // A fiducial point defines another scope's coordinate frame and shows the
+        // frame config (no links). A feature marker (or any area) shows linked
+        // datasets, plus — for points — a "make this a fiducial" affordance.
+        if (m.type === 'point' && m.fiducial) {
+            body.appendChild(buildFiducialSection(m));
+        } else {
+            body.appendChild(buildLinksSection(m));
+            if (m.type === 'point') body.appendChild(buildPromoteFiducialButton(m));
+        }
 
         // ── interactions ──
         row.addEventListener('mouseenter', () => setHoveredMarker(m));
@@ -861,9 +1005,16 @@ function renderMarkerPanel() {
 
 // Type-specific metadata block shown in an item's submenu.
 function metaHTML(m) {
+    const frames = framesAvailable();
+    const active = frameById(activeFrameId);
     if (m.type === 'area') {
         const cx = Math.round(m.x + m.w / 2), cy = Math.round(m.y + m.h / 2);
-        let out = secLabel('Center') + secVal(`${coordText(cx, cy)}<br>${cx}, ${dispY(cy)} px`);
+        let out = secLabel('Center')
+                + secVal(`${fmtFrameCoord(cx, cy, active)}<br>${cx}, ${dispY(cy)} px`);
+        if (frames.length > 1) {
+            out += secLabel('Center · all frames') + secVal(
+                frames.map(f => `${escHtml(f.label)}: ${fmtFrameCoord(cx, cy, f)}`).join('<br>'));
+        }
         if (pixelSizeUm) {
             const wmm = m.w * pixelSizeUm / 1000, hmm = m.h * pixelSizeUm / 1000;
             out += secLabel('Size') + secVal(`${wmm.toFixed(3)} × ${hmm.toFixed(3)} mm<br>${m.w} × ${m.h} px`)
@@ -873,7 +1024,13 @@ function metaHTML(m) {
         }
         return out;
     }
-    return secLabel('Position') + secVal(`${coordText(m.x, m.y)}<br>${m.x}, ${dispY(m.y)} px`);
+    let out = secLabel('Position')
+            + secVal(`${fmtFrameCoord(m.x, m.y, active)}<br>${m.x}, ${dispY(m.y)} px`);
+    if (frames.length > 1) {
+        out += secLabel('All frames') + secVal(
+            frames.map(f => `${escHtml(f.label)}: ${fmtFrameCoord(m.x, m.y, f)}`).join('<br>'));
+    }
+    return out;
 }
 
 // ── Linked datasets (cross-microscope references on a marker/area) ─────────────
@@ -917,6 +1074,133 @@ function buildLinksSection(m) {
     btn.addEventListener('click', (e) => { e.stopPropagation(); openLinkPicker(m); });
     wrap.appendChild(btn);
     return wrap;
+}
+
+// ── Fiducial role (coordinate-frame anchor on a point marker) ─────────────────
+// A fiducial is "another microscope's anchor": this point's stage coordinate as
+// read off THAT scope, plus per-axis sign flips. It contributes a coordinate frame
+// (framesAvailable) so any marker can be reported in that scope's stage system.
+// Roles are mutually exclusive with dataset links (see renderMarkerPanel).
+
+// The "Make this a fiducial…" affordance shown on a plain/feature point marker.
+function buildPromoteFiducialButton(m) {
+    const wrap = document.createElement('div');
+    wrap.className = 'mt-2';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm btn-outline-secondary';
+    btn.style.fontSize = 'var(--fs-xs)';
+    btn.innerHTML = '<i class="bi bi-compass"></i> Make this a fiducial…';
+    btn.title = "Define another microscope's coordinate frame from this point";
+    btn.addEventListener('click', (e) => { e.stopPropagation(); promoteFiducial(m); });
+    wrap.appendChild(btn);
+    return wrap;
+}
+
+// The "Coordinate frame" config block shown on a fiducial point marker.
+function buildFiducialSection(m) {
+    const f = m.fiducial;
+    const wrap = document.createElement('div');
+    wrap.className = 'mt-2';
+    wrap.innerHTML = secLabel('Coordinate frame');
+
+    const stop = (e) => e.stopPropagation();   // keep row-toggle + shortcuts out
+
+    // Instrument name (the other microscope). Free text is fine for v1.
+    const inst = document.createElement('input');
+    inst.type = 'text';
+    inst.className = 'form-control form-control-sm mb-1 cg-fiducial-inst';
+    inst.style.fontSize = 'var(--fs-sm)';
+    inst.placeholder = 'Microscope name (e.g. SEM-1)';
+    inst.value = f.instrument || '';
+    inst.addEventListener('click', stop);
+    inst.addEventListener('keydown', stop);
+    inst.addEventListener('change', () => {
+        f.instrument = inst.value.trim();
+        markAnnotationsDirty(); renderMarkerPanel(); rebuildFrameSelect();
+    });
+    wrap.appendChild(inst);
+
+    // Stage X / Y (mm) as read off that scope's stage readout for this feature.
+    const mkNum = (val, ph, set) => {
+        const i = document.createElement('input');
+        i.type = 'number'; i.step = 'any';
+        i.className = 'form-control form-control-sm';
+        i.style.fontSize = 'var(--fs-sm)';
+        i.placeholder = ph;
+        i.value = (val == null ? '' : val);
+        i.addEventListener('click', stop);
+        i.addEventListener('keydown', stop);
+        i.addEventListener('change', () => {
+            set(parseFloat(i.value) || 0);
+            markAnnotationsDirty(); renderMarkerPanel();
+        });
+        return i;
+    };
+    const xy = document.createElement('div');
+    xy.className = 'd-flex gap-1 mb-1';
+    xy.append(mkNum(f.stage.x, 'stage X (mm)', (v) => f.stage.x = v),
+              mkNum(f.stage.y, 'stage Y (mm)', (v) => f.stage.y = v));
+    wrap.appendChild(xy);
+
+    // Per-axis inversion (checked = -1). A standardized mount usually needs none.
+    const mkFlip = (label, cur, set) => {
+        const lb = document.createElement('label');
+        lb.className = 'form-check-label d-flex align-items-center gap-1';
+        lb.style.fontSize = 'var(--fs-xs)';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'form-check-input mt-0';
+        cb.checked = cur === -1;
+        cb.addEventListener('click', stop);
+        cb.addEventListener('change', () => {
+            set(cb.checked ? -1 : 1);
+            markAnnotationsDirty(); renderMarkerPanel();
+        });
+        lb.addEventListener('click', stop);
+        lb.append(cb, document.createTextNode(label));
+        return lb;
+    };
+    const flips = document.createElement('div');
+    flips.className = 'd-flex gap-3 mb-1';
+    flips.append(mkFlip('X inverted', f.flipX, (v) => f.flipX = v),
+                 mkFlip('Y inverted', f.flipY, (v) => f.flipY = v));
+    wrap.appendChild(flips);
+
+    // Demote back to a plain/feature marker.
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'btn btn-sm btn-outline-danger mt-1';
+    rm.style.fontSize = 'var(--fs-xs)';
+    rm.innerHTML = '<i class="bi bi-x-circle"></i> Remove fiducial role';
+    rm.addEventListener('click', (e) => { e.stopPropagation(); demoteFiducial(m); });
+    wrap.appendChild(rm);
+    return wrap;
+}
+
+// Plain/feature point → fiducial. Seeds a default frame and opens the config.
+function promoteFiducial(m) {
+    if (m.type !== 'point') return;
+    m.fiducial = { instrument: '', stage: { x: 0, y: 0 }, flipX: 1, flipY: 1 };
+    m.expanded = true;
+    markAnnotationsDirty();
+    renderMarkerPanel();
+    rebuildFrameSelect();
+    cgToast('Marker is now a fiducial — set its frame', 'bi-compass');
+    setTimeout(() => {   // focus the instrument field of the freshly-rendered body
+        const inp = m.body && m.body.querySelector('.cg-fiducial-inst');
+        if (inp) inp.focus();
+    }, 0);
+}
+
+// Fiducial → plain/feature marker (restores the links section on re-render).
+function demoteFiducial(m) {
+    m.fiducial = null;
+    if (activeFrameId === m.id) activeFrameId = 'current';   // it backed the active frame
+    markAnnotationsDirty();
+    renderMarkerPanel();
+    rebuildFrameSelect();
+    cgToast('Fiducial role removed', 'bi-x-circle');
 }
 
 function renderLinkRows(m, list) {
@@ -1346,6 +1630,17 @@ function resetDetailRegions() {
     cgToast('Detail regions reset to auto-placement', 'bi-arrow-counterclockwise');
 }
 
+// The bottom-right stack that holds the (conditionally-shown) reset buttons.
+function resetStack() {
+    let s = document.getElementById('mosaic-reset-stack');
+    if (!s) {
+        s = document.createElement('div');
+        s.id = 'mosaic-reset-stack';
+        document.getElementById('mosaic-viewport').appendChild(s);
+    }
+    return s;
+}
+
 // Show the reset control only when the active map has at least one nudged region.
 function updateResetButton() {
     let btn = document.getElementById('mosaic-reset-btn');
@@ -1359,7 +1654,53 @@ function updateResetButton() {
         btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Reset regions';
         btn.title = 'Move all detail regions back to their auto-computed positions';
         btn.addEventListener('click', resetDetailRegions);
-        document.getElementById('mosaic-viewport').appendChild(btn);
+        resetStack().appendChild(btn);
+    }
+}
+
+// Place the origin crosshair at the map's default: the pixel that is true stage
+// (0,0) per the geometry, or the mosaic corner (0,0) when no geometry is present.
+// Leaves originUserSet false so the default is never mistaken for a user choice.
+function applyDefaultOrigin() {
+    const gg = geomFor(activeDsid);
+    if (gg && gg.stage_origin_mm && gg.mm_per_px) {
+        const s = gg.mm_per_px, up = gg.y_axis_up !== false;
+        const px0 = (0 - gg.stage_origin_mm.x) / s;
+        const py0 = up ? (gg.stage_origin_mm.y) / s : (-gg.stage_origin_mm.y) / s;
+        setOrigin(Math.round(px0), Math.round(py0));   // marks true stage 0,0
+    } else {
+        setOrigin(0, 0);        // legacy fallback (no geometry): mosaic corner
+    }
+}
+
+// Move the origin crosshair back to the geometry default and stop persisting the
+// user's placement. Mirrors resetDetailRegions(): flush now so a reload can't
+// restore the old origin from the annotation blob.
+function resetOrigin() {
+    if (!originUserSet) {
+        cgToast('Origin already at default', 'bi-arrow-counterclockwise');
+        return;
+    }
+    applyDefaultOrigin();       // re-derive default; clears originUserSet
+    markAnnotationsDirty();     // fold the cleared origin into blob + server tier
+    flushAnnotationsLocal();    // rewrite localStorage now so reload can't restore
+    cgToast('Origin reset to default', 'bi-arrow-counterclockwise');
+}
+
+// Show the "Reset origin" control only once the user has moved the origin off its
+// geometry default.
+function updateOriginResetButton() {
+    let btn = document.getElementById('mosaic-origin-reset-btn');
+    if (!originUserSet) { if (btn) btn.remove(); return; }
+    if (!btn) {
+        btn = document.createElement('button');
+        btn.id = 'mosaic-origin-reset-btn';
+        btn.type = 'button';
+        btn.className = 'btn btn-sm btn-dark shadow-sm';
+        btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Reset origin';
+        btn.title = 'Move the origin crosshair back to its default (true stage 0,0)';
+        btn.addEventListener('click', resetOrigin);
+        resetStack().appendChild(btn);
     }
 }
 
@@ -1420,17 +1761,24 @@ function serializeAnnotations() {
     return {
         schema: 'cg-mosaic-annotations',
         // v2 adds per-annotation `links` (cross-microscope dataset references).
-        // v1 blobs load unchanged (links default to []).
-        version: 2,
+        // v3 adds per-point `fiducial` (a coordinate-frame anchor for another
+        // microscope). v1/v2 blobs load unchanged (links default to [], fiducial
+        // to null).
+        version: 3,
         dataset_id: activeDsid,
         origin: { x: originPixel.x, y: originPixel.y },
+        // Only a deliberately-placed origin is restored on load; without this flag a
+        // stale autosaved default would clobber the geometry-derived default origin.
+        origin_user_set: originUserSet,
         annotations: markers.map((m) => m.type === 'area'
             ? { id: m.id, type: 'area', x: m.x, y: m.y, w: m.w, h: m.h,
                 name: m.name || '', description: m.description || '',
                 links: serializeLinks(m.links) }
             : { id: m.id, type: 'point', x: m.x, y: m.y,
                 name: m.name || '', description: m.description || '',
-                links: serializeLinks(m.links) }),
+                // `links` kept for compatibility even on fiducials (it'll be []).
+                links: serializeLinks(m.links),
+                fiducial: m.fiducial || null }),
         // Fold in the detail-region nudges for this map so corrections travel with
         // the blob too (Part E). The legacy per-map key is still read as a fallback.
         detail_overrides: overridesFor(activeDsid),
@@ -1454,7 +1802,11 @@ function applyAnnotations(blob) {
     try {
         clearAnnotations();
         if (blob) {
-            if (blob.origin) setOrigin(blob.origin.x, blob.origin.y);
+            // Restore the origin only if the user deliberately placed it; otherwise
+            // leave the geometry default the open handler already set. Legacy blobs
+            // lack origin_user_set, so their auto-captured origin is ignored.
+            if (blob.origin && blob.origin_user_set)
+                setOrigin(blob.origin.x, blob.origin.y, true);
             for (const a of (blob.annotations || [])) {
                 const m = (a.type === 'area')
                     ? addArea(a.x, a.y, a.w, a.h)
@@ -1463,6 +1815,8 @@ function applyAnnotations(blob) {
                 m.name = a.name || null;
                 m.description = a.description || '';
                 m.links = Array.isArray(a.links) ? a.links.map(normalizeLink) : [];
+                // v3: coordinate-frame anchor (only meaningful on points).
+                m.fiducial = (a.type !== 'area' && a.fiducial) ? a.fiducial : null;
             }
             // Merge any nudges carried in the blob into this map's override cache
             // (Part E) so re-projected detail regions pick them up. The blob's
@@ -1476,6 +1830,7 @@ function applyAnnotations(blob) {
             }
         }
         renderMarkerPanel();
+        rebuildFrameSelect();   // loaded markers may include fiducials → new frames
     } finally {
         applyingAnnotations = false;
     }
@@ -1661,6 +2016,7 @@ const MENU_ITEMS = [
     { action: 'set-origin', label: 'Set origin here', icon: 'bi-crosshair' },
     { action: 'add-marker', label: 'Add marker',      icon: 'bi-geo-alt' },
     { action: 'add-area', label: 'Add area',       icon: 'bi-bounding-box' },
+    { action: 'add-fiducial', label: 'Add fiducial here', icon: 'bi-compass' },
 ];
 let menuImgPoint = { x: 0, y: 0 };   // image px where the menu was opened
 
@@ -1699,11 +2055,16 @@ function handleMenuAction(action) {
     if (action === 'add-marker') {
         enterToolMode('marker');
     } else if (action === 'set-origin') {
-        setOrigin(menuImgPoint.x, menuImgPoint.y);
+        setOrigin(menuImgPoint.x, menuImgPoint.y, true);
         markAnnotationsDirty();
         cgToast('Origin set', 'bi-crosshair');
     } else if (action === 'add-area'){
         enterToolMode('area')
+    } else if (action === 'add-fiducial') {
+        // Convenience: drop a point at the clicked spot and open its fiducial form.
+        const m = addMarker(menuImgPoint.x, menuImgPoint.y);
+        markAnnotationsDirty();
+        promoteFiducial(m);
     }
 }
 
@@ -1722,6 +2083,13 @@ function exitToolMode() {
 
 function setupInteractions() {
     buildContextMenu();   // origin is (re)placed by the open handler, not here
+
+    // Coordinate-frame selector → drive hover readout (next mousemove) + panel.
+    const frameSel = document.getElementById('frame-select');
+    if (frameSel) frameSel.addEventListener('change', () => {
+        activeFrameId = frameSel.value;
+        renderMarkerPanel();
+    });
 
     // Right-click → context menu at the cursor (carrying the image point clicked).
     mosaicViewer.element.addEventListener('contextmenu', (e) => {

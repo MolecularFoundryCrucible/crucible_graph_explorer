@@ -422,6 +422,9 @@ def create_blueprint(auth, helpers):
         return jsonify({'annotation_dsid': child_id,
                         'updated': blob.get('updated')})
 
+
+
+
     # ── local dev routes: test the viewer against a file in test_data/ ─────────
     @bp.route('/localfile/<path:filename>')
     @auth.oidc_auth('orcid')
