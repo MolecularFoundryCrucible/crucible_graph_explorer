@@ -1,0 +1,2221 @@
+{% extends "base.html" %}
+{% block title %}{{ ds['dataset_name'] }} — Mosaic Viewer{% endblock %}
+
+{% block breadcrumb %}
+    {% if project_id %}
+    <li class="breadcrumb-item"><a href="{{ base }}/{{ project_id }}/"><b>Project</b> {{ project_id }}</a></li>
+    <li class="breadcrumb-item"><a href="{{ base }}/{{ project_id }}/datasets/{{ ds['unique_id'] }}"><b>Dataset</b> {{ ds['dataset_name'] }}</a></li>
+    {% else %}
+    <li class="breadcrumb-item"><b>Local</b> {{ ds['dataset_name'] }}</li>
+    {% endif %}
+    <li class="breadcrumb-item active" aria-current="page">Mosaic Viewer</li>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+    <h1 class="fs-4 fw-semibold mb-0" style="overflow-wrap:break-word;">{{ ds['dataset_name'] }}</h1>
+    {% if project_id %}
+    <a href="{{ base }}/{{ project_id }}/datasets/{{ ds['unique_id'] }}"
+       class="btn btn-sm btn-outline-secondary flex-shrink-0">
+        <i class="bi bi-database me-1"></i>Dataset
+    </a>
+    {% endif %}
+</div>
+
+<div class="text-muted mb-2" style="font-size:var(--fs-sm);">
+    <i class="bi bi-info-circle me-1"></i><span class="fw-medium">Right-click</span>
+    the mosaic for tools (add a marker, set the origin, …).
+</div>
+
+<!-- Viewer surface. Its height is computed in JS from the viewport so it fills
+     the space below the navbar/breadcrumb without a hardcoded pixel offset. -->
+<div id="mosaic-stage" class="d-flex border rounded" style="overflow:hidden;">
+
+    <!-- Viewer column (image + overlays) -->
+    <div id="mosaic-viewport" class="position-relative flex-grow-1"
+         style="background:var(--bs-tertiary-bg); overflow:hidden;">
+
+        <div id="osd-viewer" style="width:100%; height:100%;"></div>
+
+        <!-- Loading state (removed once OpenSeadragon fires 'open') -->
+        <div id="mosaic-loading"
+             class="position-absolute top-50 start-50 translate-middle text-center text-muted">
+            <div class="spinner-border mb-2" role="status" aria-hidden="true"></div>
+            <div style="font-size:var(--fs-sm);">Loading mosaic…</div>
+        </div>
+
+        <!-- Error state -->
+        <div id="mosaic-error"
+             class="position-absolute top-50 start-50 translate-middle text-center text-danger d-none"
+             style="max-width:36rem;">
+            <i class="bi bi-exclamation-triangle fs-2 d-block mb-2"></i>
+            <div id="mosaic-error-msg" style="font-size:var(--fs-sm); word-break:break-word;"></div>
+        </div>
+
+        <!-- Live hover readout: pixel + physical distance from the reference point.
+             pointer-events:none so it never intercepts pan/zoom. -->
+        <div id="mosaic-readout" class="position-absolute d-none"
+             style="left:.5rem; bottom:.5rem; z-index:10; pointer-events:none;
+                    background:var(--bs-body-bg); border:1px solid var(--bs-border-color);
+                    border-radius:.375rem; padding:.4rem .55rem; box-shadow:var(--cg-shadow-sm);
+                    font-size:var(--fs-xs); line-height:1.4;">
+            <div><span class="text-muted d-inline-block" style="width:2.2rem;">px</span><span id="ro-px" class="mfid"></span></div>
+            <div id="ro-mm-row"><span class="text-muted d-inline-block" style="width:2.2rem;">mm</span><span id="ro-mm" class="mfid"></span></div>
+            <div class="text-muted" style="font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:.07em; margin-top:.15rem;"><span id="ro-ref">origin</span></div>
+        </div>
+
+        <!-- Right-click context menu (tools); items built in JS from MENU_ITEMS -->
+        <div id="mosaic-menu" class="mosaic-menu d-none"></div>
+    </div>
+
+    <!-- Marker side panel -->
+    <div id="marker-panel" class="d-flex flex-column flex-shrink-0"
+         style="width:15rem; border-left:1px solid var(--bs-border-color); background:var(--bs-body-bg);">
+        <div class="d-flex align-items-center justify-content-between px-2 py-2 border-bottom">
+            <span style="font-size:var(--fs-sm); font-weight:600;">
+                <i class="bi bi-geo-alt-fill me-1"></i>Markers</span>
+            <span id="marker-count" class="badge border text-muted"
+                  style="background:var(--bs-tertiary-bg); font-size:var(--fs-xs);">0</span>
+        </div>
+        <!-- Coordinate-frame selector: reports marker/hover positions in the chosen
+             microscope's stage frame (this scope, or another via a fiducial marker).
+             Revealed by JS once the viewer opens. -->
+        <div id="frame-selectbar" class="d-flex align-items-center gap-2 px-2 py-1 border-bottom d-none">
+            <label for="frame-select" class="text-muted flex-shrink-0 mb-0"
+                   style="font-size:var(--fs-xs);">
+                <i class="bi bi-compass me-1"></i>Frame</label>
+            <select id="frame-select" class="form-select form-select-sm py-0"
+                    style="font-size:var(--fs-xs);"
+                    title="Report coordinates in this microscope's stage frame"></select>
+        </div>
+        <!-- Save bar: revealed by JS when a durable tier is available (Crucible
+             child dataset on a dataset route; a dev sidecar on /local). -->
+        <div id="annot-savebar" class="d-flex align-items-center gap-2 px-2 py-1 border-bottom d-none">
+            <button id="annot-save-btn" type="button"
+                    class="btn btn-sm btn-outline-primary py-0 flex-shrink-0"
+                    style="font-size:var(--fs-xs);">
+                <i class="bi bi-cloud-arrow-up me-1"></i>Save
+            </button>
+            <span id="annot-save-status" class="text-muted text-truncate"
+                  style="font-size:var(--fs-xs);"></span>
+        </div>
+        <div id="marker-list" class="flex-grow-1 p-1" style="overflow-y:auto;"></div>
+        <div class="text-muted px-2 py-1 border-top"
+             style="font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:.07em;">
+            Hover a marker + Delete to remove
+        </div>
+    </div>
+</div>
+
+<!-- Third-party viewer libs. geotiff-tilesource bundles geotiff.js and extends
+     the global OpenSeadragon with GeoTIFFTileSource; it must load after OSD.
+     geotiff.js cannot read SubIFD pyramids in ANY version (confirmed by the
+     maintainer in issue #35), which is why the stitcher emits an IFD pyramid
+     (overviews as reduced-resolution top-level pages) instead. Pin >= 2.3.2:
+     PR #38 (shipped in 2.3.2) fixed IFD-pyramid detection so large (>~32k px)
+     files don't silently fall back to the base level only (issue #37). OSD 6+
+     is required by its RawTiffPlugin. -->
+<script src="https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/openseadragon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/geotiff-tilesource@2.3.2/dist/geotiff-tilesource.min.js"></script>
+
+<style>
+    /* Origin crosshair overlay. White drop-shadow keeps it legible over any
+       imagery; non-interactive so it never intercepts clicks. */
+    .mosaic-origin { color: var(--bs-danger); pointer-events: none;
+        filter: drop-shadow(0 0 1.5px rgba(255,255,255,0.9)); }
+    .mosaic-origin svg line   { stroke: currentColor; stroke-width: 2; }
+    .mosaic-origin svg circle { stroke: currentColor; stroke-width: 2; fill: none; }
+    /* Numbered marker dot. White ring/text for contrast over arbitrary imagery
+       (intentionally not a theme token — must read on any pixel). */
+    .mosaic-marker {
+        /* Non-interactive: hover + click are resolved by a screen-space hit test
+           on the container, because OSD overlays don't reliably get DOM mouse
+           events (and a DOM handler can't veto OSD's canvas-click anyway). */
+        pointer-events: none;
+        width: 20px; height: 20px; border-radius: 50%;
+        /* Red: the common blue samples wash out the teal accent (--cg-accent-mid).
+           White ring + number keep it legible over any imagery. */
+        background: var(--bs-danger); border: 2px solid #fff;
+        box-shadow: var(--cg-shadow-sm); color: #fff;
+        font-size: var(--fs-2xs); font-weight: 600; line-height: 1;
+        display: flex; align-items: center; justify-content: center;
+        transition: transform .1s ease;
+    }
+    /* Highlighted (hovered from canvas or the side panel). */
+    .mosaic-marker.hi { transform: scale(1.4); z-index: 20; }
+    /* Fiducial marker: a coordinate-frame anchor, not a feature. Teal + rounded
+       square so it reads as distinct from the round red feature markers. */
+    .mosaic-marker.mosaic-fiducial {
+        background: var(--cg-accent-mid); border-radius: 3px;
+    }
+
+    /* Side-panel rows */
+    .marker-item { border-bottom: 1px solid var(--bs-border-color); }
+    .marker-row:hover, .marker-row.active { background: var(--cg-hover-bg); }
+    .mosaic-marker-chip {
+        flex-shrink: 0; width: 1.25rem; height: 1.25rem; border-radius: 50%;
+        background: var(--bs-danger); color: #fff;   /* match the red point markers */
+        font-size: var(--fs-2xs); font-weight: 600;
+        display: inline-flex; align-items: center; justify-content: center;
+    }
+    .mosaic-marker-chip.fiducial {
+        background: var(--cg-accent-mid); border-radius: .25rem;   /* match the canvas fiducial glyph */
+    }
+    .marker-name[contenteditable="true"] {
+        white-space: normal; cursor: text; outline: none;
+        background: var(--bs-body-bg); border-radius: .2rem; padding: 0 .2rem;
+        box-shadow: 0 0 0 1px var(--cg-accent-mid);
+    }
+    .marker-body { padding: .35rem .6rem .6rem 2.4rem; }   /* indent under the chip */
+    .marker-chevron { transition: transform .12s ease; }
+    .marker-chevron.open { transform: rotate(90deg); }
+
+    /* Right-click context menu */
+    .mosaic-menu {
+        position: absolute; z-index: 30; min-width: 11rem;
+        background: var(--bs-body-bg); border: 1px solid var(--bs-border-color);
+        border-radius: .4rem; box-shadow: var(--cg-shadow-md); padding: .25rem;
+    }
+    .mosaic-menu-item {
+        display: flex; align-items: center; gap: .5rem; width: 100%;
+        background: transparent; border: 0; text-align: left;
+        padding: .35rem .55rem; border-radius: .3rem;
+        font-size: var(--fs-sm); color: var(--bs-body-color); cursor: pointer;
+    }
+    .mosaic-menu-item:hover { background: var(--cg-hover-bg); }
+
+    /* Area (rectangle) annotation. Fill/border are data-viz colors that must
+       read over any imagery (intentionally not theme tokens for the fill). */
+    .mosaic-area {
+        pointer-events: none; box-sizing: border-box;
+        /* Red to match the point markers (stands out over blue samples). Fill is a
+           hardcoded red rgba tint — like the border it must read over any imagery. */
+        border: 2px solid var(--bs-danger);
+        background: rgba(220, 53, 69, 0.14);
+    }
+    .mosaic-area.hi { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--bs-danger); }
+    .mosaic-area.drawing { border-style: dashed; }
+    .mosaic-area-label {
+        position: absolute; top: 0; left: 0;
+        background: var(--bs-danger); color: #fff;
+        font-size: var(--fs-2xs); font-weight: 600; line-height: 1.3;
+        padding: 0 4px; border-radius: 0 0 .25rem 0;
+    }
+    .mosaic-marker-chip.area { border-radius: .25rem; }   /* square-ish chip for areas */
+
+    /* Tool armed (marker or area): crosshair cursor over the image. */
+    #mosaic-viewport.tool-active, #mosaic-viewport.tool-active canvas { cursor: crosshair !important; }
+
+    /* Detail region: a higher-mag mosaic's footprint on this map. Dashed +
+       amber so it reads as derived/read-only and distinct from area annotations.
+       Click activates it (handled by a hit test); hover highlights. */
+    .mosaic-detail {
+        pointer-events: none; box-sizing: border-box;
+        border: 2px dashed var(--bs-warning);
+        background: rgba(255, 193, 7, 0.08);
+    }
+    .mosaic-detail.hi { background: rgba(255, 193, 7, 0.18);
+        box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--bs-warning); }
+    .mosaic-detail-label {
+        position: absolute; top: 0; left: 0; display: inline-flex; gap: .25rem;
+        align-items: center; background: var(--bs-warning); color: #000;
+        font-size: var(--fs-2xs); font-weight: 700; line-height: 1.3;
+        padding: 0 5px; border-radius: 0 0 .25rem 0; white-space: nowrap;
+    }
+    /* Overview control shown while a high-mag mosaic is active. */
+    #mosaic-overview-btn { position: absolute; z-index: 25; top: .5rem; left: .5rem; }
+    /* Reset controls, stacked bottom-right; each button appears only when its
+       state is non-default (a nudged region / a user-moved origin). */
+    #mosaic-reset-stack { position: absolute; z-index: 25; bottom: .5rem; right: .5rem;
+        display: flex; flex-direction: column; gap: .35rem; align-items: flex-end; }
+
+    /* ── Linked datasets (marker submenu) ── */
+    .marker-links { display: flex; flex-direction: column; gap: .15rem; margin-top: .15rem; }
+    .marker-link-row { line-height: 1.2; }
+    .marker-link-row .bi { flex-shrink: 0; color: var(--cg-accent-mid); font-size: var(--fs-sm); }
+    .marker-link-name { font-size: var(--fs-xs); color: var(--bs-body-color); }
+    a.marker-link-name { color: var(--cg-accent-mid); text-decoration: none; }
+    a.marker-link-name:hover { text-decoration: underline; }
+    .marker-link-del { flex-shrink: 0; opacity: .6; }
+    .marker-link-del:hover { opacity: 1; }
+    /* Link-count badge in the panel row header. */
+    .marker-link-badge {
+        flex-shrink: 0; display: inline-flex; align-items: center; gap: .1rem;
+        font-size: var(--fs-2xs); color: var(--cg-accent-mid);
+        background: var(--cg-hover-bg); border-radius: .8rem; padding: 0 .4rem;
+    }
+
+    /* ── Link picker modal ── */
+    .cg-link-picker-backdrop {
+        position: fixed; inset: 0; z-index: 1080;
+        background: rgba(0, 0, 0, 0.4);
+        display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .cg-link-picker {
+        background: var(--bs-body-bg); color: var(--bs-body-color);
+        border: 1px solid var(--bs-border-color); border-radius: .5rem;
+        box-shadow: var(--cg-shadow-md); padding: 1rem;
+        width: 32rem; max-width: 100%; max-height: 80vh;
+        display: flex; flex-direction: column;
+    }
+    .cg-link-picker-list { overflow-y: auto; flex: 1 1 auto; min-height: 4rem; }
+    .cg-link-group-hdr {
+        font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: .07em;
+        color: var(--bs-secondary-color); margin: .5rem 0 .2rem;
+        display: flex; align-items: center; gap: .35rem;
+    }
+    .cg-link-pick-row {
+        display: flex; align-items: center; gap: .5rem; width: 100%;
+        background: transparent; border: 0; border-radius: .3rem; text-align: left;
+        padding: .35rem .5rem; color: var(--bs-body-color); cursor: pointer;
+    }
+    .cg-link-pick-row:hover:not(:disabled) { background: var(--cg-hover-bg); }
+    .cg-link-pick-row:disabled { opacity: .55; cursor: default; }
+    .cg-link-pick-row .bi { flex-shrink: 0; color: var(--cg-accent-mid); }
+    .cg-link-pick-name { flex: 1 1 auto; font-size: var(--fs-sm); }
+    .cg-link-pick-meas { flex-shrink: 0; font-size: var(--fs-2xs); color: var(--bs-secondary-color); }
+    .cg-link-pick-added { flex-shrink: 0; font-size: var(--fs-2xs); color: var(--bs-success); }
+</style>
+
+<script>
+// FILE_URL is set for the same-origin local dev route; null for a dataset view
+// (then we fetch a fresh signed GCS URL from /file-url). Both already carry the
+// deployment prefix (built server-side with request.script_root).
+const FILE_URL = {{ file_url | tojson }};
+const BASE_URL = {{ base_url | tojson }};
+// This mosaic's own pixel<->stage geometry (scientific_metadata). {} for the
+// local dev path or a mosaic stitched before geometry metadata existed. Anchors
+// the detail-region projection (siblings' stage bbox → this map's pixels).
+const BASE_GEOMETRY = {{ geometry | tojson }};
+const CURRENT_DSID  = {{ ds['unique_id'] | tojson }};
+// ORCID of the logged-in user (stamped as the annotation blob's author) and
+// whether a durable "server" tier is available. On a dataset route that tier is
+// the Crucible child dataset; on the /local dev route it's a test_data sidecar
+// (dev-only). IS_LOCAL distinguishes them for labeling.
+const VIEWER_ORCID  = {{ viewer_orcid | tojson }};
+const HAS_SERVER    = {{ has_server | tojson }};
+const IS_LOCAL      = {{ (project_id is none) | tojson }};
+
+const OSD_IMAGE_PREFIX =
+    'https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/images/';
+
+// Module-scoped so future features (positional markers, scale bar, ROI tools)
+// can reach the live viewer instance — see the extension point below.
+let mosaicViewer = null;
+let pixelSizeUm = null;                 // µm per pixel, read from the TIFF resolution tag
+// Origin (reference point) all distances are measured FROM, in full-res image px.
+// Defaults to the mosaic corner (0,0) and is shown there on open; Shift-click
+// moves it. Distances are origin-relative so they're portable across instruments.
+let originPixel = { x: 0, y: 0 };
+// True only when the user deliberately moved the origin (right-click "Set origin
+// here"). The geometry-derived default (true stage 0,0) leaves this false, so it is
+// never persisted as a user choice and is always re-derived on the next open.
+let originUserSet = false;
+let originEl = null;                     // origin crosshair overlay element
+const markers = [];                      // [{ x, y, el }] in full-res image px
+let imageHeightPx = 0;                    // full-res image height, for the Y-up display flip
+let imageWidthPx  = 0;                    // full-res image width, for bounds checks
+let toolMode = null;                      // null (default) | 'marker' (future: 'area', …)
+
+// ── Multi-magnification detail regions ────────────────────────────────────────
+// Higher-mag mosaics of the same sample, drawn as read-only boxes on this (lower-
+// mag) map. NOT user annotations: kept out of `markers`, recomputed on load, never
+// persisted as annotations. `allMosaics` is the sample's full mosaic set (this one
+// + siblings) with geometry, so activation can re-derive regions for any member.
+const detailRegions = [];                // [{ ...mosaic, x,y,w,h, el }] in base image px
+let allMosaics = [];                     // [{ dsid, magnification, stage_bbox_mm, stage_origin_mm, mm_per_px, y_axis_up, dataset_name }]
+let activeDsid = CURRENT_DSID;           // which mosaic is currently displayed
+const navStack = [];                     // drill-down history: [{ dsid, region }] for the Overview button
+let pendingFit = null;                   // region rect to fitBounds after the next open (return-to-overview)
+let hoveredDetail = null;                // detail region under the cursor (click = activate)
+let uiWired = false;                     // one-time listener wiring guard (open fires again on activate)
+let mosaicsLoaded = false;               // sample mosaic set fetched once
+
+const stageEl   = document.getElementById('mosaic-stage');
+const loadingEl = document.getElementById('mosaic-loading');
+const errorEl   = document.getElementById('mosaic-error');
+
+function sizeStage() {
+    // Fill from the stage's top edge to the bottom of the viewport (small
+    // gutter) — no hardcoded navbar/breadcrumb offset, recomputed on resize.
+    const top = stageEl.getBoundingClientRect().top;
+    stageEl.style.height = Math.max(320, window.innerHeight - top - 16) + 'px';
+}
+
+function showError(msg) {
+    loadingEl.classList.add('d-none');
+    errorEl.classList.remove('d-none');
+    document.getElementById('mosaic-error-msg').textContent = msg;
+}
+
+// Resolve the OME-TIFF URL the browser will Range-read directly.
+async function resolveUrl() {
+    if (FILE_URL) return FILE_URL;
+    const r = await fetch(BASE_URL + '/file-url');
+    if (!r.ok) throw new Error('Could not resolve mosaic file URL (HTTP ' + r.status + ')');
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    return j.url;
+}
+
+async function initViewer() {
+    // The UMD build normally auto-attaches GeoTIFFTileSource to the global
+    // OpenSeadragon; fall back to the explicit enabler if it didn't.
+    if (!OpenSeadragon.GeoTIFFTileSource && window.enableGeoTIFFTileSource) {
+        window.enableGeoTIFFTileSource(OpenSeadragon);
+    }
+
+    let url;
+    try {
+        url = await resolveUrl();
+    } catch (err) {
+        showError(err.message);
+        return;
+    }
+
+    let tileSources;
+    try {
+        // geotiff.js (bundled) reads the tiled, pyramidal TIFF over HTTP Range
+        // and GeoTIFFTileSource builds an OSD tile source per image. An options
+        // object is REQUIRED (the lib dereferences opts.GeoTIFFOptions
+        // internally). We use 'auto' layout: geotiff.js cannot traverse SubIFD
+        // pyramids, so the stitcher emits an IFD pyramid (overviews as
+        // reduced-resolution top-level pages), which 'auto' detects.
+        tileSources = await OpenSeadragon.GeoTIFFTileSource.getAllTileSources(url, {
+            hints: { layout: { pyramid: 'auto' } },
+        });
+        console.log('[mosaic] tile sources:', tileSources.length);
+        tileSources.forEach((ts, i) =>
+            console.log(`[mosaic]  #${i}: ${ts.width}×${ts.height}, ` +
+                        `levels ${ts.minLevel}–${ts.maxLevel}`));
+        pixelSizeUm = await readPixelSizeUm(tileSources[0], url);
+        console.log('[mosaic] pixel size (µm/px):', pixelSizeUm);
+    } catch (err) {
+        showError('Failed to read OME-TIFF pyramid: ' + err.message);
+        console.error(err);
+        return;
+    }
+
+    mosaicViewer = OpenSeadragon({
+        element: document.getElementById('osd-viewer'),
+        prefixUrl: OSD_IMAGE_PREFIX,
+        tileSources: tileSources.length === 1 ? tileSources[0] : tileSources,
+        sequenceMode: tileSources.length > 1,
+        showNavigator: true,
+        navigatorPosition: 'TOP_RIGHT',
+        crossOriginPolicy: 'Anonymous',
+        // Single-click stays free for future marker placement; double-click zooms.
+        gestureSettingsMouse: { clickToZoom: false },
+    });
+
+    // Fires on the initial open AND again after each activation (tile-source swap).
+    // Listeners are wired once; per-image overlay state is (re)built every open.
+    mosaicViewer.addHandler('open', () => {
+        loadingEl.classList.add('d-none');
+        const size = mosaicViewer.world.getItemAt(0).getContentSize();
+        imageHeightPx = size.y;
+        imageWidthPx  = size.x;
+        if (!uiWired) { setupHoverReadout(); setupInteractions(); uiWired = true; }
+        // Default the origin crosshair to the map's TRUE stage (0,0) so the
+        // current-frame readout reads absolute stage mm out of the box. May land
+        // off the visible image (correct + intended). A saved blob's origin still
+        // wins: loadAnnotationsForCurrent() runs after and calls setOrigin again.
+        applyDefaultOrigin();       // marks true stage 0,0 (or corner w/o geometry)
+        activeFrameId = 'current';  // a swap doesn't inherit the prior map's frame
+        loadAnnotationsForCurrent();   // rehydrate this mosaic's saved annotations
+        rebuildFrameSelect();       // fiducials come from the freshly-loaded markers
+        if (!mosaicsLoaded) { loadDetailRegions(); mosaicsLoaded = true; }
+        else { renderDetailRegions(activeDsid); }   // after activation, no refetch
+        if (pendingFit) {           // returning to overview: frame the region we left
+            const item = mosaicViewer.world.getItemAt(0);
+            mosaicViewer.viewport.fitBounds(item.imageToViewportRectangle(
+                imgRect(pendingFit.x, pendingFit.y, pendingFit.w, pendingFit.h)), true);
+            pendingFit = null;
+        }
+    });
+    mosaicViewer.addHandler('open-failed', (e) =>
+        showError('Viewer could not open the image: ' + (e.message || 'unknown error')));
+
+    // GeoTIFFTileSource reports a tile as failed on any decode error OR abort and
+    // never retries, which leaves blank tiles. Log why, then retry a few times so
+    // transient aborts (from panning) recover instead of staying blank.
+    mosaicViewer.addHandler('tile-load-failed', (e) => {
+        const t = e.tile || {};
+        t.__retries = (t.__retries || 0) + 1;
+        console.warn(`[mosaic] tile failed (try ${t.__retries}) `
+            + `level=${t.level} x=${t.x} y=${t.y}: ${e.message || 'unknown'}`);
+        if (t.__retries <= 3) {
+            setTimeout(() => {
+                t.loading = false; t.loaded = false;
+                mosaicViewer.forceRedraw();
+            }, 300 * t.__retries);
+        }
+    });
+
+    // ── Extension point ─────────────────────────────────────────────────────
+    // setupHoverReadout (hover coords) and setupInteractions (click to set origin
+    // / drop markers) are wired above. Future scale bar / ROI tools reuse the same
+    // cursor -> image-pixel conversion and attach overlays to `mosaicViewer` here.
+    // NOT yet built: persistence of origin+markers (pending Crucible-team API),
+    // marker drag-to-move / delete, and a marker list panel.
+}
+
+// Normalize a TIFF XResolution/ResolutionUnit pair to µm/pixel.
+// XResolution = pixels per ResolutionUnit; unit 3=cm, 2=inch (1=none → unusable).
+function pxSizeUmFromFileDirectory(fd) {
+    if (!fd) return null;
+    let xres = fd.XResolution;
+    const unit = fd.ResolutionUnit;
+    if (xres == null || unit == null) return null;
+    if (Array.isArray(xres) || ArrayBuffer.isView(xres)) {   // RATIONAL [num,den]
+        xres = xres.length >= 2 ? xres[0] / xres[1] : xres[0];
+    }
+    const mmPerUnit = unit === 3 ? 10 : unit === 2 ? 25.4 : null;
+    if (!xres || !mmPerUnit) return null;
+    return (mmPerUnit / xres) * 1000;                        // µm per pixel
+}
+
+// Read µm/pixel from the TIFF resolution tags the stitcher writes. The tag lives
+// on the FULL-RES (base) level ONLY (overviews carry unit=none), and
+// geotiff-tilesource's GeoTIFFImages array is ordered smallest-first, so we must
+// pick the LARGEST image (the base) — not index [0]. Falls back to re-reading the
+// base IFD (getImage(0)) via the bundled geotiff.js. Works for local + cloud with
+// no server-side metadata plumbing. Returns null (mm disabled) if no usable tag.
+async function readPixelSizeUm(ts, url) {
+    const imgs = (ts && ts.GeoTIFFImages) || [];
+    if (imgs.length) {
+        let base = imgs[0];
+        for (const im of imgs) {
+            const w  = im.getWidth  ? im.getWidth()  : 0;
+            const bw = base.getWidth ? base.getWidth() : 0;
+            if (w > bw) base = im;
+        }
+        const px = pxSizeUmFromFileDirectory(base.fileDirectory);
+        if (px != null) return px;
+    }
+    if (window.GeoTIFF && window.GeoTIFF.fromUrl) {   // fallback: base IFD = getImage(0)
+        try {
+            const tiff = await window.GeoTIFF.fromUrl(url);
+            const px = pxSizeUmFromFileDirectory((await tiff.getImage(0)).fileDirectory);
+            if (px != null) return px;
+        } catch (e) {
+            console.warn('[mosaic] geotiff.js resolution read failed:', e);
+        }
+    }
+    console.warn('[mosaic] no usable resolution tag; mm readout disabled.');
+    return null;
+}
+
+const fmtMm = (um) => (um / 1000).toFixed(3);   // mm with µm precision
+// Microscope convention: Y increases UPWARD. Image rows increase downward, so
+// flip Y for display. Absolute px are then measured from the bottom edge.
+const dispY = (y) => (imageHeightPx - 1) - y;
+
+// Live hover readout: pixel + physical (mm from the reference point) coordinates.
+// Uses the same cursor -> image-pixel conversion future markers will use.
+function setupHoverReadout() {
+    const item = mosaicViewer.world.getItemAt(0);
+    if (!item) return;
+    const size = item.getContentSize();          // full-res pixels {x:W, y:H}
+
+    const box   = document.getElementById('mosaic-readout');
+    const roPx  = document.getElementById('ro-px');
+    const roMm  = document.getElementById('ro-mm');
+    document.getElementById('ro-mm-row').style.display = pixelSizeUm ? '' : 'none';
+
+    new OpenSeadragon.MouseTracker({
+        element: mosaicViewer.element,
+        moveHandler: (event) => {
+            const mk = markerHitTest(event.position);
+            setHoveredMarker(mk);                              // highlight / delete target
+            setHoveredDetail(mk ? null : detailRegionHitTest(event.position));  // click = activate
+            const vp = mosaicViewer.viewport.pointFromPixel(event.position);
+            const p  = item.viewportToImageCoordinates(vp);
+            const x = Math.round(p.x), y = Math.round(p.y);
+            if (x < 0 || y < 0 || x >= size.x || y >= size.y) {   // off the image
+                box.classList.add('d-none');
+                return;
+            }
+            box.classList.remove('d-none');
+            roPx.textContent = `${x}, ${dispY(y)}`;
+            // Physical readout in the active coordinate frame (absolute stage mm
+            // for the current scope, or another scope's mm via its fiducial). The
+            // scale may come from geometry even when the TIFF tag is missing, so
+            // toggle the mm row on coordInFrame's result, not pixelSizeUm alone.
+            const frame = frameById(activeFrameId);
+            const c = coordInFrame(x, y, frame);
+            document.getElementById('ro-mm-row').style.display = c ? '' : 'none';
+            if (c) roMm.textContent = `${c.x.toFixed(3)}, ${c.y.toFixed(3)}`;
+            document.getElementById('ro-ref').textContent = frame.label;
+        },
+        leaveHandler: () => { box.classList.add('d-none'); setHoveredMarker(null); },
+    }).setTracking(true);
+}
+
+// ── Origin + markers ─────────────────────────────────────────────────────────
+// Click drops numbered markers; Shift-click (re)positions the origin, which
+// starts at the mosaic corner. Markers store full-res image px, so moving the
+// origin doesn't move them — it only changes their reported distance (the
+// portable, cross-instrument quantity). Hover a marker (on the canvas or in the
+// side panel) and press Delete to remove it.
+
+let hoveredMarker = null;   // marker under the cursor (canvas or panel) = delete target
+
+function imgToViewport(x, y) {
+    const item = mosaicViewer.world.getItemAt(0);
+    return item.imageToViewportCoordinates(new OpenSeadragon.Point(x, y));
+}
+
+// mm-from-origin for a point, Y-up (falls back to px if no pixel size). The Y
+// term is (originPixel.y - y) so moving upward in the image increases Y.
+function coordText(x, y) {
+    if (!pixelSizeUm) return `${x}, ${dispY(y)} px`;
+    return `${fmtMm((x - originPixel.x) * pixelSizeUm)}, `
+         + `${fmtMm((originPixel.y - y) * pixelSizeUm)} mm`;
+}
+
+// ── Coordinate frames ─────────────────────────────────────────────────────────
+// A frame reports a marker/hover position in some microscope's stage coordinates.
+// The "current" frame comes from the displayed map's own geometry; each fiducial
+// marker contributes another frame (another scope's anchor: a reference pixel, its
+// stage coord on THAT scope, and per-axis sign flips). Physical distance is
+// instrument-independent, so the map's own mm/px converts pixels to mm in every
+// frame — no need for the other scope's scale. See dev/PLAN_coordinate_frames.md.
+
+let activeFrameId = 'current';   // which frame drives hover + primary marker readout
+
+// Label for the map's own microscope, from coord_frame ("instrument/session").
+function currentScopeLabel() {
+    const g = geomFor(activeDsid);
+    const cf = g && g.coord_frame;
+    const inst = cf ? String(cf).split('/')[0] : null;
+    return inst ? `This microscope (${inst})` : 'This microscope';
+}
+
+// All frames available on the displayed map: the current scope + one per fiducial.
+function framesAvailable() {
+    const frames = [{ id: 'current', kind: 'current', label: currentScopeLabel() }];
+    for (const m of markers) {
+        if (m.type === 'point' && m.fiducial) {
+            frames.push({ id: m.id, kind: 'fiducial', marker: m,
+                          label: m.fiducial.instrument || markerName(m) });
+        }
+    }
+    return frames;
+}
+function frameById(id) {
+    return framesAvailable().find(f => f.id === id) || framesAvailable()[0];
+}
+
+// Image pixel (px,py) -> {x,y} in mm in the given frame, or null if unresolvable.
+// Convention: +X = image right, +Y = image up (matches the existing y-up display).
+function coordInFrame(px, py, frame) {
+    const g = geomFor(activeDsid);
+    const s = (g && g.mm_per_px) || (pixelSizeUm ? pixelSizeUm / 1000 : null);
+    if (!s) return null;                        // no physical scale known
+    if (frame && frame.kind === 'fiducial') {
+        const f = frame.marker.fiducial;
+        const dX = (px - frame.marker.x) * s;   // physical mm, image-right
+        const dY = (frame.marker.y - py) * s;   // physical mm, image-up
+        return { x: f.stage.x + f.flipX * dX,
+                 y: f.stage.y + f.flipY * dY };
+    }
+    // kind === 'current': the current microscope's stage frame, measured from the
+    // origin crosshair using the map's scale/orientation. The default origin sits at
+    // true stage (0,0), so out of the box this equals absolute stage mm; moving the
+    // origin re-zeroes the readout to the chosen reference point.
+    const up = !g || g.y_axis_up !== false;
+    return { x: (px - originPixel.x) * s,
+             y: up ? (originPixel.y - py) * s : (py - originPixel.y) * s };
+}
+
+function fmtFrameCoord(px, py, frame) {
+    const c = coordInFrame(px, py, frame);
+    return c ? `${fmtMm(c.x * 1000)}, ${fmtMm(c.y * 1000)} mm` : `${px}, ${dispY(py)} px`;
+}
+
+// (Re)populate the frame dropdown from framesAvailable(). Call on open and whenever
+// a fiducial is added/removed/edited. Resets activeFrameId to 'current' if the
+// frame it named is gone (its fiducial was deleted or we swapped maps).
+function rebuildFrameSelect() {
+    const sel = document.getElementById('frame-select');
+    if (!sel) return;
+    const frames = framesAvailable();
+    if (!frames.some(f => f.id === activeFrameId)) activeFrameId = 'current';
+    sel.innerHTML = '';
+    for (const f of frames) {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.label;
+        if (f.id === activeFrameId) opt.selected = true;
+        sel.appendChild(opt);
+    }
+    const bar = document.getElementById('frame-selectbar');
+    if (bar) bar.classList.remove('d-none');
+}
+
+// Submenu formatting helpers.
+const fmtArea = (mm2) => mm2 >= 0.01 ? `${mm2.toFixed(4)} mm²` : `${(mm2 * 1e6).toFixed(0)} µm²`;
+const secLabel = (t) => `<div class="text-muted" style="font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:.07em;">${t}</div>`;
+const secVal   = (html) => `<div class="mfid mb-2" style="font-size:var(--fs-xs);">${html}</div>`;
+
+function setOrigin(x, y, userSet = false) {
+    originPixel = { x, y };
+    originUserSet = !!userSet;
+    const loc = imgToViewport(x, y);
+    if (!originEl) {
+        originEl = document.createElement('div');
+        originEl.className = 'mosaic-origin';
+        originEl.innerHTML =
+            '<svg viewBox="0 0 24 24" width="24" height="24">'
+          + '<line x1="12" y1="1" x2="12" y2="23"/>'
+          + '<line x1="1" y1="12" x2="23" y2="12"/>'
+          + '<circle cx="12" cy="12" r="4"/></svg>';
+        mosaicViewer.addOverlay({ element: originEl, location: loc,
+            placement: OpenSeadragon.Placement.CENTER, checkResize: false });
+    } else {
+        mosaicViewer.updateOverlay(originEl, loc, OpenSeadragon.Placement.CENTER);
+    }
+    originEl.title = `Origin: ${x}, ${y} px`;
+    renderMarkerPanel();   // marker distances are relative to the origin
+    updateOriginResetButton();   // show "Reset origin" only once it's been moved
+}
+
+// Nearest marker within a screen-pixel radius of a point on the viewer element,
+// or null. Used for both hover and click so neither depends on overlay DOM events.
+const MARKER_HIT_PX = 16;
+const AREA_EDGE_PX = 6;
+function markerHitTest(webPoint) {
+    // Points first (small targets), nearest within radius — so points inside an
+    // area stay reachable.
+    let hit = null, best = MARKER_HIT_PX;
+    for (const m of markers) {
+        if (m.type === 'area') continue;
+        const p = mosaicViewer.viewport.pixelFromPoint(imgToViewport(m.x, m.y), true);
+        const d = Math.hypot(p.x - webPoint.x, p.y - webPoint.y);
+        if (d <= best) { best = d; hit = m; }
+    }
+    if (hit) return hit;
+    // Then areas: hit only near the border band (so the fill isn't a hover trap).
+    const t = AREA_EDGE_PX;
+    for (const m of markers) {
+        if (m.type !== 'area') continue;
+        const tl = mosaicViewer.viewport.pixelFromPoint(imgToViewport(m.x, m.y), true);
+        const br = mosaicViewer.viewport.pixelFromPoint(imgToViewport(m.x + m.w, m.y + m.h), true);
+        const x0 = Math.min(tl.x, br.x), x1 = Math.max(tl.x, br.x);
+        const y0 = Math.min(tl.y, br.y), y1 = Math.max(tl.y, br.y);
+        const inOuter = webPoint.x >= x0 - t && webPoint.x <= x1 + t &&
+                        webPoint.y >= y0 - t && webPoint.y <= y1 + t;
+        const inInner = webPoint.x >= x0 + t && webPoint.x <= x1 - t &&
+                        webPoint.y >= y0 + t && webPoint.y <= y1 - t;
+        if (inOuter && !inInner) return m;
+    }
+    return null;
+}
+
+// Single source of truth for which marker is highlighted / is the delete target.
+// Highlights both the canvas glyph and the panel row.
+function setHoveredMarker(m) {
+    if (hoveredMarker === m) return;
+    if (hoveredMarker) {
+        hoveredMarker.el.classList.remove('hi');
+        if (hoveredMarker.row) hoveredMarker.row.classList.remove('active');
+    }
+    hoveredMarker = m;
+    if (m) {
+        m.el.classList.add('hi');
+        if (m.row) m.row.classList.add('active');
+    }
+}
+
+function panToMarker(m) {
+    if (m.type === 'area') {
+        const item = mosaicViewer.world.getItemAt(0);
+        mosaicViewer.viewport.fitBounds(
+            item.imageToViewportRectangle(new OpenSeadragon.Rect(m.x, m.y, m.w, m.h)), false);
+    } else {
+        mosaicViewer.viewport.panTo(imgToViewport(m.x, m.y));
+    }
+}
+
+// Expand/collapse a marker's submenu (works from the panel or the canvas).
+function setExpanded(m, expand) {
+    m.expanded = expand;
+    if (m.body) m.body.style.display = expand ? '' : 'none';
+    if (m.chev) m.chev.classList.toggle('open', expand);
+    if (expand && m.row) m.row.scrollIntoView({ block: 'nearest' });
+}
+
+// Center the marker in the viewer and open its panel submenu.
+function selectMarker(m) {
+    panToMarker(m);
+    setExpanded(m, true);
+}
+
+function addMarker(x, y) {
+    const el = document.createElement('div');
+    el.className = 'mosaic-marker';
+    const m = { id: uuid(), type: 'point', x, y, el, row: null, body: null, chev: null,
+                name: null, description: '', links: [], fiducial: null, expanded: false };
+    // No DOM mouse listeners on the glyph: OSD overlays don't reliably receive
+    // them. Hover + click are resolved by markerHitTest on the container.
+    mosaicViewer.addOverlay({ element: el, location: imgToViewport(x, y),
+        placement: OpenSeadragon.Placement.CENTER, checkResize: false });
+    markers.push(m);
+    renderMarkerPanel();   // (re)numbers glyphs + rebuilds the list
+    return m;
+}
+
+// ── Area (rectangle) annotations ──────────────────────────────────────────────
+// Stored as an image-px rect {x, y (top-left), w, h}. Drawn by click-drag while
+// the 'area' tool is armed. Shares the markers array + panel with point markers.
+
+function imgRect(x, y, w, h) { return new OpenSeadragon.Rect(x, y, w, h); }
+
+function addArea(x, y, w, h) {
+    const el = document.createElement('div');
+    el.className = 'mosaic-area';
+    el.innerHTML = '<span class="mosaic-area-label"></span>';
+    const item = mosaicViewer.world.getItemAt(0);
+    mosaicViewer.addOverlay({ element: el,
+        location: item.imageToViewportRectangle(imgRect(x, y, w, h)) });
+    const a = { id: uuid(), type: 'area', x, y, w, h, el, row: null, body: null, chev: null,
+                name: null, description: '', links: [], expanded: false };
+    markers.push(a);
+    renderMarkerPanel();
+    return a;
+}
+
+// Live area-drawing state while dragging (preview overlay).
+let areaDraw = null;
+// Live detail-region move state while shift-dragging (manual nudge).
+let regionDrag = null;   // { region, startImg, orig:{x,y} }
+
+function eventImg(event) {
+    const item = mosaicViewer.world.getItemAt(0);
+    const p = item.viewportToImageCoordinates(
+        mosaicViewer.viewport.pointFromPixel(event.position));
+    const size = item.getContentSize();
+    return { x: Math.max(0, Math.min(size.x - 1, Math.round(p.x))),
+             y: Math.max(0, Math.min(size.y - 1, Math.round(p.y))) };
+}
+
+function rectFromPoints(a, b) {
+    return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y),
+             w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
+}
+
+function beginAreaDraw(startImg) {
+    const el = document.createElement('div');
+    el.className = 'mosaic-area drawing';
+    const item = mosaicViewer.world.getItemAt(0);
+    mosaicViewer.addOverlay({ element: el,
+        location: item.imageToViewportRectangle(imgRect(startImg.x, startImg.y, 0, 0)) });
+    areaDraw = { start: startImg, el };
+}
+
+function updateAreaDraw(curImg) {
+    if (!areaDraw) return;
+    const r = rectFromPoints(areaDraw.start, curImg);
+    const item = mosaicViewer.world.getItemAt(0);
+    mosaicViewer.updateOverlay(areaDraw.el, item.imageToViewportRectangle(imgRect(r.x, r.y, r.w, r.h)));
+}
+
+function finishAreaDraw(curImg) {
+    if (!areaDraw) return;
+    const r = rectFromPoints(areaDraw.start, curImg);
+    mosaicViewer.removeOverlay(areaDraw.el);
+    areaDraw = null;
+    if (r.w >= 4 && r.h >= 4) {                    // ignore tiny drags
+        const a = addArea(r.x, r.y, r.w, r.h);
+        markAnnotationsDirty();
+        cgToast(`${markerName(a)} added`, 'bi-bounding-box');
+    }
+    exitToolMode();
+}
+
+function cancelAreaDraw() {
+    if (areaDraw) { mosaicViewer.removeOverlay(areaDraw.el); areaDraw = null; }
+}
+
+function removeMarker(m) {
+    const i = markers.indexOf(m);
+    if (i < 0) return;
+    // Guard: deleting a fiducial removes another scope's coordinate frame.
+    if (m.fiducial) {
+        const inst = m.fiducial.instrument || markerName(m);
+        if (!confirm(`This marker defines ${inst}'s coordinate frame — remove anyway?`)) return;
+    }
+    mosaicViewer.removeOverlay(m.el);
+    markers.splice(i, 1);
+    if (hoveredMarker === m) hoveredMarker = null;
+    if (activeFrameId === m.id) activeFrameId = 'current';   // its frame is gone
+    renderMarkerPanel();   // renumbers the remaining markers
+    rebuildFrameSelect();  // drop the deleted fiducial's frame from the dropdown
+    markAnnotationsDirty();
+}
+
+// Rank of an item among others of its own type (1-based) — used for numbering.
+function typeRank(m) {
+    let r = 0;
+    for (const x of markers) { if (x.type === m.type) { r++; if (x === m) return r; } }
+    return r;
+}
+function defaultName(m) {
+    return `${m.type === 'area' ? 'Area' : 'Marker'} ${typeRank(m)}`;
+}
+function markerName(m) { return m.name || defaultName(m); }
+
+// Single source of truth for marker numbering/labels + the side-panel list.
+// Each marker is an expandable item: header (chip · name · chevron) + a submenu
+// body (position + description). Expansion state (m.expanded) survives re-renders.
+function renderMarkerPanel() {
+    const list = document.getElementById('marker-list');
+    document.getElementById('marker-count').textContent = markers.length;
+    list.innerHTML = '';
+    if (!markers.length) {
+        list.innerHTML = '<div class="text-muted text-center py-3" '
+            + 'style="font-size:var(--fs-sm);">Nothing yet.<br>Right-click the image to add a marker or area.</div>';
+        return;
+    }
+    markers.forEach((m) => {
+        const n = typeRank(m);
+        // Renumber the on-canvas glyph (area label vs point dot text).
+        if (m.type === 'area') {
+            const lbl = m.el.querySelector('.mosaic-area-label');
+            if (lbl) lbl.textContent = n;
+        } else {
+            m.el.textContent = n;
+            m.el.classList.toggle('mosaic-fiducial', !!m.fiducial);   // distinct glyph
+        }
+        m.el.title = markerName(m);
+
+        const item = document.createElement('div');
+        item.className = 'marker-item';
+
+        // ── header: chip · editable name · chevron ──
+        const row = document.createElement('div');
+        row.className = 'marker-row d-flex align-items-center gap-2 px-2 py-1';
+        row.style.cursor = 'pointer';
+
+        const chip = document.createElement('span');
+        chip.className = 'mosaic-marker-chip' + (m.type === 'area' ? ' area' : '')
+            + (m.fiducial ? ' fiducial' : '');
+        chip.textContent = n;
+
+        const name = document.createElement('span');
+        name.className = 'marker-name flex-grow-1 text-truncate';
+        name.style.fontSize = 'var(--fs-sm)';
+        name.textContent = markerName(m);
+        name.title = 'Double-click to rename';
+
+        const chev = document.createElement('i');
+        chev.className = 'bi bi-chevron-right marker-chevron text-muted'
+            + (m.expanded ? ' open' : '');
+        chev.style.fontSize = 'var(--fs-xs)';
+
+        // Role badge: a fiducial shows a compass (its role is mutually exclusive
+        // with links); otherwise a link-count badge when it references datasets.
+        if (m.fiducial) {
+            const badge = document.createElement('span');
+            badge.className = 'marker-link-badge';
+            badge.innerHTML = '<i class="bi bi-compass"></i>';
+            badge.title = 'Fiducial: ' + (m.fiducial.instrument || 'coordinate frame');
+            row.append(chip, name, badge, chev);
+        } else {
+            const nLinks = (m.links || []).length;
+            if (nLinks) {
+                const badge = document.createElement('span');
+                badge.className = 'marker-link-badge';
+                badge.innerHTML = '<i class="bi bi-link-45deg"></i>' + nLinks;
+                badge.title = nLinks + ' linked dataset' + (nLinks === 1 ? '' : 's');
+                row.append(chip, name, badge, chev);
+            } else {
+                row.append(chip, name, chev);
+            }
+        }
+
+        // ── body (submenu): type-specific metadata + description ──
+        const body = document.createElement('div');
+        body.className = 'marker-body';
+        body.style.display = m.expanded ? '' : 'none';
+        body.innerHTML = metaHTML(m) + secLabel('Description');
+        const desc = document.createElement('textarea');
+        desc.className = 'form-control form-control-sm mt-1';
+        desc.rows = 2;
+        desc.style.fontSize = 'var(--fs-sm)';
+        desc.placeholder = 'Add a description…';
+        desc.value = m.description || '';
+        desc.addEventListener('input', () => { m.description = desc.value; markAnnotationsDirty(); });
+        desc.addEventListener('click', (e) => e.stopPropagation());   // don't toggle
+        body.appendChild(desc);
+
+        // ── role-specific section (mutually exclusive on point markers) ──
+        // A fiducial point defines another scope's coordinate frame and shows the
+        // frame config (no links). A feature marker (or any area) shows linked
+        // datasets, plus — for points — a "make this a fiducial" affordance.
+        if (m.type === 'point' && m.fiducial) {
+            body.appendChild(buildFiducialSection(m));
+        } else {
+            body.appendChild(buildLinksSection(m));
+            if (m.type === 'point') body.appendChild(buildPromoteFiducialButton(m));
+        }
+
+        // ── interactions ──
+        row.addEventListener('mouseenter', () => setHoveredMarker(m));
+        row.addEventListener('mouseleave', () => setHoveredMarker(null));
+        // Clicking anywhere on the header toggles the submenu.
+        row.addEventListener('click', () => {
+            setExpanded(m, !m.expanded);
+            if (m.expanded) panToMarker(m);          // focus the marker on select
+        });
+
+        // rename: double-click the name → inline-editable. Let a normal click on
+        // the name bubble up to toggle the row; only swallow clicks while editing
+        // (so the caret can be placed without collapsing the row).
+        name.addEventListener('click', (e) => { if (name.isContentEditable) e.stopPropagation(); });
+        name.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            name.contentEditable = 'true';
+            name.focus();
+            const sel = window.getSelection(), range = document.createRange();
+            range.selectNodeContents(name); sel.removeAllRanges(); sel.addRange(range);
+        });
+        name.addEventListener('keydown', (e) => {
+            e.stopPropagation();                     // don't trigger the Delete shortcut
+            if (e.key === 'Enter') { e.preventDefault(); name.blur(); }
+            else if (e.key === 'Escape') { name.textContent = markerName(m); name.blur(); }
+        });
+        name.addEventListener('blur', () => {
+            name.contentEditable = 'false';
+            const v = name.textContent.trim();
+            // Store a custom name only if it differs from the auto default.
+            m.name = (v && v !== defaultName(m)) ? v : null;
+            name.textContent = markerName(m);
+            m.el.title = markerName(m);
+            markAnnotationsDirty();
+        });
+
+        item.append(row, body);
+        m.row = row; m.body = body; m.chev = chev;
+        list.appendChild(item);
+    });
+}
+
+// Type-specific metadata block shown in an item's submenu.
+function metaHTML(m) {
+    const frames = framesAvailable();
+    const active = frameById(activeFrameId);
+    if (m.type === 'area') {
+        const cx = Math.round(m.x + m.w / 2), cy = Math.round(m.y + m.h / 2);
+        let out = secLabel('Center')
+                + secVal(`${fmtFrameCoord(cx, cy, active)}<br>${cx}, ${dispY(cy)} px`);
+        if (frames.length > 1) {
+            out += secLabel('Center · all frames') + secVal(
+                frames.map(f => `${escHtml(f.label)}: ${fmtFrameCoord(cx, cy, f)}`).join('<br>'));
+        }
+        if (pixelSizeUm) {
+            const wmm = m.w * pixelSizeUm / 1000, hmm = m.h * pixelSizeUm / 1000;
+            out += secLabel('Size') + secVal(`${wmm.toFixed(3)} × ${hmm.toFixed(3)} mm<br>${m.w} × ${m.h} px`)
+                 + secLabel('Area') + secVal(fmtArea(wmm * hmm));
+        } else {
+            out += secLabel('Size') + secVal(`${m.w} × ${m.h} px`);
+        }
+        return out;
+    }
+    let out = secLabel('Position')
+            + secVal(`${fmtFrameCoord(m.x, m.y, active)}<br>${m.x}, ${dispY(m.y)} px`);
+    if (frames.length > 1) {
+        out += secLabel('All frames') + secVal(
+            frames.map(f => `${escHtml(f.label)}: ${fmtFrameCoord(m.x, m.y, f)}`).join('<br>'));
+    }
+    return out;
+}
+
+// ── Linked datasets (cross-microscope references on a marker/area) ─────────────
+// A marker can reference other Crucible datasets of the same physical sample —
+// e.g. an SEM/Raman/PL scan taken on a DIFFERENT microscope. Links persist in the
+// annotation blob (per marker); the picker lists this sample's datasets so the
+// common "another instrument imaged this spot" case needs no ID hunting.
+
+function escHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Measurement → Bootstrap icon (best-effort; database is the catch-all).
+function measIcon(meas) {
+    if (meas === 'stitched_mosaic') return 'bi-grid-3x3';
+    if (/spec|raman|pl\b/i.test(meas || '')) return 'bi-graph-up';
+    if (/image|camera|photo|sem|tem|optical/i.test(meas || '')) return 'bi-image';
+    return 'bi-database';
+}
+function linkTitle(link) {
+    return [link.label || link.dataset_id, link.measurement, link.instrument]
+        .filter(Boolean).join(' · ');
+}
+
+// The "Linked datasets" block appended to a marker's submenu body.
+function buildLinksSection(m) {
+    const wrap = document.createElement('div');
+    wrap.className = 'mt-2';
+    wrap.innerHTML = secLabel('Linked datasets');
+    const list = document.createElement('div');
+    list.className = 'marker-links';
+    renderLinkRows(m, list);
+    wrap.appendChild(list);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm btn-outline-secondary mt-1';
+    btn.style.fontSize = 'var(--fs-xs)';
+    btn.innerHTML = '<i class="bi bi-link-45deg"></i> Link dataset…';
+    btn.addEventListener('click', (e) => { e.stopPropagation(); openLinkPicker(m); });
+    wrap.appendChild(btn);
+    return wrap;
+}
+
+// ── Fiducial role (coordinate-frame anchor on a point marker) ─────────────────
+// A fiducial is "another microscope's anchor": this point's stage coordinate as
+// read off THAT scope, plus per-axis sign flips. It contributes a coordinate frame
+// (framesAvailable) so any marker can be reported in that scope's stage system.
+// Roles are mutually exclusive with dataset links (see renderMarkerPanel).
+
+// The "Make this a fiducial…" affordance shown on a plain/feature point marker.
+function buildPromoteFiducialButton(m) {
+    const wrap = document.createElement('div');
+    wrap.className = 'mt-2';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm btn-outline-secondary';
+    btn.style.fontSize = 'var(--fs-xs)';
+    btn.innerHTML = '<i class="bi bi-compass"></i> Make this a fiducial…';
+    btn.title = "Define another microscope's coordinate frame from this point";
+    btn.addEventListener('click', (e) => { e.stopPropagation(); promoteFiducial(m); });
+    wrap.appendChild(btn);
+    return wrap;
+}
+
+// The "Coordinate frame" config block shown on a fiducial point marker.
+function buildFiducialSection(m) {
+    const f = m.fiducial;
+    const wrap = document.createElement('div');
+    wrap.className = 'mt-2';
+    wrap.innerHTML = secLabel('Coordinate frame');
+
+    const stop = (e) => e.stopPropagation();   // keep row-toggle + shortcuts out
+
+    // Instrument name (the other microscope). Free text is fine for v1.
+    const inst = document.createElement('input');
+    inst.type = 'text';
+    inst.className = 'form-control form-control-sm mb-1 cg-fiducial-inst';
+    inst.style.fontSize = 'var(--fs-sm)';
+    inst.placeholder = 'Microscope name (e.g. SEM-1)';
+    inst.value = f.instrument || '';
+    inst.addEventListener('click', stop);
+    inst.addEventListener('keydown', stop);
+    inst.addEventListener('change', () => {
+        f.instrument = inst.value.trim();
+        markAnnotationsDirty(); renderMarkerPanel(); rebuildFrameSelect();
+    });
+    wrap.appendChild(inst);
+
+    // Stage X / Y (mm) as read off that scope's stage readout for this feature.
+    const mkNum = (val, ph, set) => {
+        const i = document.createElement('input');
+        i.type = 'number'; i.step = 'any';
+        i.className = 'form-control form-control-sm';
+        i.style.fontSize = 'var(--fs-sm)';
+        i.placeholder = ph;
+        i.value = (val == null ? '' : val);
+        i.addEventListener('click', stop);
+        i.addEventListener('keydown', stop);
+        i.addEventListener('change', () => {
+            set(parseFloat(i.value) || 0);
+            markAnnotationsDirty(); renderMarkerPanel();
+        });
+        return i;
+    };
+    const xy = document.createElement('div');
+    xy.className = 'd-flex gap-1 mb-1';
+    xy.append(mkNum(f.stage.x, 'stage X (mm)', (v) => f.stage.x = v),
+              mkNum(f.stage.y, 'stage Y (mm)', (v) => f.stage.y = v));
+    wrap.appendChild(xy);
+
+    // Per-axis inversion (checked = -1). A standardized mount usually needs none.
+    const mkFlip = (label, cur, set) => {
+        const lb = document.createElement('label');
+        lb.className = 'form-check-label d-flex align-items-center gap-1';
+        lb.style.fontSize = 'var(--fs-xs)';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'form-check-input mt-0';
+        cb.checked = cur === -1;
+        cb.addEventListener('click', stop);
+        cb.addEventListener('change', () => {
+            set(cb.checked ? -1 : 1);
+            markAnnotationsDirty(); renderMarkerPanel();
+        });
+        lb.addEventListener('click', stop);
+        lb.append(cb, document.createTextNode(label));
+        return lb;
+    };
+    const flips = document.createElement('div');
+    flips.className = 'd-flex gap-3 mb-1';
+    flips.append(mkFlip('X inverted', f.flipX, (v) => f.flipX = v),
+                 mkFlip('Y inverted', f.flipY, (v) => f.flipY = v));
+    wrap.appendChild(flips);
+
+    // Demote back to a plain/feature marker.
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'btn btn-sm btn-outline-danger mt-1';
+    rm.style.fontSize = 'var(--fs-xs)';
+    rm.innerHTML = '<i class="bi bi-x-circle"></i> Remove fiducial role';
+    rm.addEventListener('click', (e) => { e.stopPropagation(); demoteFiducial(m); });
+    wrap.appendChild(rm);
+    return wrap;
+}
+
+// Plain/feature point → fiducial. Seeds a default frame and opens the config.
+function promoteFiducial(m) {
+    if (m.type !== 'point') return;
+    m.fiducial = { instrument: '', stage: { x: 0, y: 0 }, flipX: 1, flipY: 1 };
+    m.expanded = true;
+    markAnnotationsDirty();
+    renderMarkerPanel();
+    rebuildFrameSelect();
+    cgToast('Marker is now a fiducial — set its frame', 'bi-compass');
+    setTimeout(() => {   // focus the instrument field of the freshly-rendered body
+        const inp = m.body && m.body.querySelector('.cg-fiducial-inst');
+        if (inp) inp.focus();
+    }, 0);
+}
+
+// Fiducial → plain/feature marker (restores the links section on re-render).
+function demoteFiducial(m) {
+    m.fiducial = null;
+    if (activeFrameId === m.id) activeFrameId = 'current';   // it backed the active frame
+    markAnnotationsDirty();
+    renderMarkerPanel();
+    rebuildFrameSelect();
+    cgToast('Fiducial role removed', 'bi-x-circle');
+}
+
+function renderLinkRows(m, list) {
+    list.innerHTML = '';
+    if (!m.links || !m.links.length) {
+        list.innerHTML = '<div class="text-muted" style="font-size:var(--fs-xs);">None yet.</div>';
+        return;
+    }
+    for (const link of m.links) {
+        const row = document.createElement('div');
+        row.className = 'marker-link-row d-flex align-items-center gap-2';
+
+        const icon = document.createElement('i');
+        icon.className = 'bi ' + measIcon(link.measurement);
+
+        // Anchor to the dataset page (which itself surfaces that dataset's custom
+        // viewers) when we know it; otherwise a plain label.
+        const info = document.createElement(link.page_url ? 'a' : 'span');
+        info.className = 'flex-grow-1 text-truncate marker-link-name';
+        if (link.page_url) {
+            info.href = link.page_url; info.target = '_blank'; info.rel = 'noopener';
+        }
+        info.textContent = link.label || link.dataset_id;
+        info.title = linkTitle(link);
+        info.addEventListener('click', (e) => e.stopPropagation());
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn btn-sm btn-link text-danger p-0 lh-1 marker-link-del';
+        del.innerHTML = '<i class="bi bi-x-lg"></i>';
+        del.title = 'Remove link';
+        del.addEventListener('click', (e) => { e.stopPropagation(); removeLink(m, link); });
+
+        row.append(icon, info, del);
+        list.appendChild(row);
+    }
+}
+
+function attachLink(m, d) {
+    const link = normalizeLink(d);
+    if (!link.dataset_id) return;
+    m.links = m.links || [];
+    if (m.links.some((l) => l.dataset_id === link.dataset_id)) {
+        cgToast('Already linked', 'bi-info-circle');
+        return;
+    }
+    link.added = new Date().toISOString();
+    m.links.push(link);
+    markAnnotationsDirty();
+    m.expanded = true;          // keep the submenu open so the new link is visible
+    renderMarkerPanel();
+    cgToast('Dataset linked', 'bi-link-45deg');
+}
+
+function removeLink(m, link) {
+    m.links = (m.links || []).filter((l) => l !== link);
+    markAnnotationsDirty();
+    renderMarkerPanel();
+}
+
+// ── Link picker (sample-first, with a paste fallback) ─────────────────────────
+const sampleDatasetsUrl = (dsid) =>
+    ANNOT_BASE + encodeURIComponent(dsid) + '/sample-datasets';
+const datasetInfoUrl = (dsid, target) =>
+    ANNOT_BASE + encodeURIComponent(dsid) + '/dataset-info/' + encodeURIComponent(target);
+
+let linkPickerEl = null;
+function linkPickerEsc(e) { if (e.key === 'Escape') closeLinkPicker(); }
+function closeLinkPicker() {
+    if (linkPickerEl) { linkPickerEl.remove(); linkPickerEl = null; }
+    document.removeEventListener('keydown', linkPickerEsc);
+}
+
+async function openLinkPicker(m) {
+    closeLinkPicker();
+    const back = document.createElement('div');
+    back.className = 'cg-link-picker-backdrop';
+    back.innerHTML =
+        '<div class="cg-link-picker" role="dialog" aria-label="Link a dataset">'
+      +   '<div class="d-flex align-items-center mb-2">'
+      +     '<div class="flex-grow-1" style="font-weight:600;">Link a dataset to '
+      +       escHtml(markerName(m)) + '</div>'
+      +     '<button type="button" class="btn-close cg-link-close" aria-label="Close"></button>'
+      +   '</div>'
+      +   '<div class="text-muted mb-2" style="font-size:var(--fs-xs);">'
+      +     'Datasets on this sample — including scans from other microscopes.</div>'
+      +   '<div class="cg-link-picker-list"><div class="text-muted py-3 text-center" '
+      +     'style="font-size:var(--fs-sm);">Loading…</div></div>'
+      +   '<div class="mt-2 pt-2" style="border-top:1px solid var(--bs-border-color);">'
+      +     '<div class="text-muted mb-1" style="font-size:var(--fs-2xs); '
+      +       'text-transform:uppercase; letter-spacing:.07em;">Or paste a dataset ID / URL</div>'
+      +     '<div class="d-flex gap-2">'
+      +       '<input type="text" class="form-control form-control-sm cg-link-paste" '
+      +         'placeholder="dataset id or link…" style="font-size:var(--fs-sm);">'
+      +       '<button type="button" class="btn btn-sm btn-outline-primary cg-link-paste-btn">Add</button>'
+      +     '</div>'
+      +   '</div>'
+      + '</div>';
+    linkPickerEl = back;
+    document.body.appendChild(back);
+    document.addEventListener('keydown', linkPickerEsc);
+    back.addEventListener('mousedown', (e) => { if (e.target === back) closeLinkPicker(); });
+    back.querySelector('.cg-link-close').addEventListener('click', closeLinkPicker);
+
+    const pasteInput = back.querySelector('.cg-link-paste');
+    back.querySelector('.cg-link-paste-btn')
+        .addEventListener('click', () => addPastedLink(m, pasteInput.value));
+    pasteInput.addEventListener('keydown', (e) => {
+        e.stopPropagation();                                   // don't trigger shortcuts
+        if (e.key === 'Enter') { e.preventDefault(); addPastedLink(m, pasteInput.value); }
+    });
+
+    const listEl = back.querySelector('.cg-link-picker-list');
+    let data = [];
+    try {
+        const r = await fetch(sampleDatasetsUrl(activeDsid));
+        const j = await r.json();
+        if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+        data = j.datasets || [];
+    } catch (e) {
+        listEl.innerHTML = '<div class="text-danger py-2" style="font-size:var(--fs-sm);">'
+            + 'Could not load sample datasets: ' + escHtml(e.message) + '</div>';
+        return;
+    }
+    if (linkPickerEl === back) renderPickerList(m, listEl, data);
+}
+
+// Group the sample's datasets by instrument so "the other microscopes" read at a
+// glance; already-linked datasets show as disabled.
+function renderPickerList(m, listEl, data) {
+    if (!data.length) {
+        listEl.innerHTML = '<div class="text-muted py-3 text-center" '
+            + 'style="font-size:var(--fs-sm);">No other datasets on this sample.</div>';
+        return;
+    }
+    const linked = new Set((m.links || []).map((l) => l.dataset_id));
+    const groups = {};
+    for (const d of data) {
+        const key = d.instrument || 'Unknown instrument';
+        (groups[key] = groups[key] || []).push(d);
+    }
+    listEl.innerHTML = '';
+    Object.keys(groups).sort().forEach((inst) => {
+        const g = document.createElement('div');
+        g.className = 'cg-link-group';
+        g.innerHTML = '<div class="cg-link-group-hdr">'
+            + '<i class="bi bi-pc-display-horizontal"></i> ' + escHtml(inst) + '</div>';
+        for (const d of groups[inst]) {
+            const already = linked.has(d.dsid);
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'cg-link-pick-row';
+            row.disabled = already;
+            row.innerHTML =
+                '<i class="bi ' + measIcon(d.measurement) + '"></i>'
+              + '<span class="cg-link-pick-name text-truncate">'
+              +   escHtml(d.dataset_name || d.dsid) + '</span>'
+              + '<span class="cg-link-pick-meas">' + escHtml(d.measurement || '') + '</span>'
+              + (already ? '<span class="cg-link-pick-added"><i class="bi bi-check-lg"></i> linked</span>' : '');
+            if (!already) row.addEventListener('click', () => { attachLink(m, d); closeLinkPicker(); });
+            g.appendChild(row);
+        }
+        listEl.appendChild(g);
+    });
+}
+
+// Paste fallback: accept a bare dataset id or a dataset-page URL, resolve display
+// fields via /dataset-info, and attach (falling back to id-only on a miss).
+async function addPastedLink(m, raw) {
+    let s = (raw || '').trim();
+    if (!s) return;
+    try { if (s.includes('://')) s = new URL(s).pathname; } catch (e) { /* not a URL */ }
+    if (s.includes('/')) s = s.split('/').filter(Boolean).pop() || '';
+    s = s.split('?')[0].split('#')[0];
+    if (!s) return;
+    let d = { dsid: s, dataset_name: s };
+    try {
+        const r = await fetch(datasetInfoUrl(activeDsid, s));
+        const j = await r.json();
+        if (r.ok && j.dataset) d = j.dataset;
+        else cgToast('Linked by ID (details unavailable)', 'bi-exclamation-triangle', 3000);
+    } catch (e) {
+        cgToast('Linked by ID (details unavailable)', 'bi-exclamation-triangle', 3000);
+    }
+    attachLink(m, d);
+    closeLinkPicker();
+}
+
+// ── Multi-magnification detail regions ────────────────────────────────────────
+// Project a mosaic's stage bounding box (mm) into the CURRENT map's image pixels
+// using that map's own affine (stage_origin_mm at pixel (0,0), mm_per_px, Y-flip).
+function projectStageRectToBasePx(bbox, geom) {
+    if (!geom || !geom.stage_origin_mm || !geom.mm_per_px || !bbox) return null;
+    const o = geom.stage_origin_mm, s = geom.mm_per_px;
+    const up = geom.y_axis_up !== false;                 // default: Y increases upward
+    const xL = (bbox.x_min - o.x) / s, xR = (bbox.x_max - o.x) / s;
+    const yA = up ? (o.y - bbox.y_max) / s : (bbox.y_min - o.y) / s;
+    const yB = up ? (o.y - bbox.y_min) / s : (bbox.y_max - o.y) / s;
+    return { x: Math.min(xL, xR), y: Math.min(yA, yB),
+             w: Math.abs(xR - xL), h: Math.abs(yB - yA) };
+}
+
+// ── Manual nudge (per-region placement override) ──────────────────────────────
+// Auto-placement from stage coords is approximate (backlash / stitch drift). The
+// user can shift-drag a region to correct it; we store the delta from the
+// auto-projected position, keyed by (base mosaic, child mosaic), so re-projection
+// keeps the nudge. localStorage now; server-side scientific_metadata persistence
+// is the planned follow-up (pending the Crucible-team write API).
+let overridesCache = {};                 // baseDsid -> { childDsid: {dx,dy} }
+const overridesKey = (b) => 'cg_detail_overrides_' + b;
+
+function overridesFor(baseDsid) {
+    if (!baseDsid) return {};
+    if (!overridesCache[baseDsid]) {
+        let v = {};
+        try { v = JSON.parse(localStorage.getItem(overridesKey(baseDsid)) || '{}'); }
+        catch (e) { /* ignore corrupt/absent */ }
+        overridesCache[baseDsid] = v;
+    }
+    return overridesCache[baseDsid];
+}
+
+function saveOverride(baseDsid, childDsid, delta) {
+    const ov = overridesFor(baseDsid);
+    ov[childDsid] = delta;
+    try { localStorage.setItem(overridesKey(baseDsid), JSON.stringify(ov)); }
+    catch (e) { console.warn('[mosaic] could not persist override:', e); }
+    // Nudges are consolidated into the annotation blob (Part E), so a reposition
+    // is an unsaved change too — autosaves to localStorage, lights up Save.
+    if (baseDsid === activeDsid) markAnnotationsDirty();
+}
+
+// Apply the stored nudge (a translation) to an auto-projected region rect.
+function applyOverride(mosaic, rect) {
+    if (!rect) return rect;
+    const ov = overridesFor(activeDsid)[mosaic.dsid];
+    if (ov) return { x: rect.x + (ov.dx || 0), y: rect.y + (ov.dy || 0),
+                     w: rect.w, h: rect.h };
+    return rect;
+}
+
+// The geometry of whichever mosaic is currently displayed (base or activated).
+function geomFor(dsid) {
+    return allMosaics.find(m => m.dsid === dsid) || BASE_GEOMETRY;
+}
+
+// Fetch the sample's other mosaics once, build the working set (this map + sibs),
+// then draw the detail regions for the active map.
+async function loadDetailRegions() {
+    if (!BASE_GEOMETRY || !BASE_GEOMETRY.stage_origin_mm || !CURRENT_DSID) return;
+    let sibs = [];
+    try {
+        const r = await fetch(BASE_URL + '/siblings');
+        if (r.ok) sibs = (await r.json()).siblings || [];
+        else console.warn('[mosaic] siblings HTTP', r.status);
+    } catch (e) { console.warn('[mosaic] siblings fetch failed:', e); }
+    allMosaics = [{ dsid: CURRENT_DSID, ...BASE_GEOMETRY }, ...sibs];
+    console.log('[mosaic] sample mosaics:', allMosaics.length);
+    renderDetailRegions(activeDsid);
+}
+
+// Redraw the detail boxes for the mosaic identified by `dsid` (its higher-mag
+// siblings, projected through its affine).
+function renderDetailRegions(dsid) {
+    clearDetailRegions();
+    const geom = geomFor(dsid);
+    if (!geom || !geom.stage_origin_mm) return;
+    const curMag = geom.magnification;
+    for (const m of allMosaics) {
+        if (m.dsid === dsid || !m.stage_bbox_mm) continue;
+        // Only higher-mag mosaics become detail regions (a lower-mag one projects
+        // to a box larger than this map). If a mag is unknown, fall back to a
+        // bounds/size check below.
+        if (curMag && m.magnification && m.magnification <= curMag) continue;
+        const rect = applyOverride(m, projectStageRectToBasePx(m.stage_bbox_mm, geom));
+        if (!rect) continue;
+        if (rect.x + rect.w < 0 || rect.y + rect.h < 0 ||
+            rect.x > imageWidthPx || rect.y > imageHeightPx) continue;      // off-image
+        if (!curMag && !m.magnification &&
+            rect.w >= imageWidthPx && rect.h >= imageHeightPx) continue;    // an overview
+        addDetailRegion(m, rect);
+    }
+    updateResetButton();
+}
+
+function addDetailRegion(mosaic, rect) {
+    const el = document.createElement('div');
+    el.className = 'mosaic-detail';
+    const label = mosaic.magnification ? `${mosaic.magnification}×`
+                                       : (mosaic.dataset_name || 'detail');
+    el.innerHTML = `<span class="mosaic-detail-label"><i class="bi bi-zoom-in"></i>${label}</span>`;
+    el.title = `${label} · click to open · shift-drag to reposition`;
+    const item = mosaicViewer.world.getItemAt(0);
+    mosaicViewer.addOverlay({ element: el,
+        location: item.imageToViewportRectangle(imgRect(rect.x, rect.y, rect.w, rect.h)) });
+    const d = { ...mosaic, x: rect.x, y: rect.y, w: rect.w, h: rect.h, el };
+    detailRegions.push(d);
+    return d;
+}
+
+function clearDetailRegions() {
+    for (const d of detailRegions) mosaicViewer.removeOverlay(d.el);
+    detailRegions.length = 0;
+}
+
+// Topmost (smallest) detail region containing a point on the viewer element, or
+// null. Fill (not just border) is a valid target — clicking a box activates it.
+function detailRegionHitTest(webPoint) {
+    let hit = null, bestArea = Infinity;
+    for (const d of detailRegions) {
+        const tl = mosaicViewer.viewport.pixelFromPoint(imgToViewport(d.x, d.y), true);
+        const br = mosaicViewer.viewport.pixelFromPoint(imgToViewport(d.x + d.w, d.y + d.h), true);
+        const x0 = Math.min(tl.x, br.x), x1 = Math.max(tl.x, br.x);
+        const y0 = Math.min(tl.y, br.y), y1 = Math.max(tl.y, br.y);
+        if (webPoint.x >= x0 && webPoint.x <= x1 && webPoint.y >= y0 && webPoint.y <= y1) {
+            const area = (x1 - x0) * (y1 - y0);
+            if (area < bestArea) { bestArea = area; hit = d; }
+        }
+    }
+    return hit;
+}
+
+// Highlight the detail region under the cursor and show a pointer (click =
+// activate). Suppressed while a marker/area tool is armed.
+function setHoveredDetail(d) {
+    if (toolMode) d = null;
+    if (hoveredDetail === d) return;
+    if (hoveredDetail) hoveredDetail.el.classList.remove('hi');
+    hoveredDetail = d;
+    if (d) d.el.classList.add('hi');
+    mosaicViewer.element.style.cursor = d ? 'pointer' : '';
+}
+
+// ── Activation: swap the displayed mosaic in place ────────────────────────────
+// Clicking a detail region opens that higher-mag mosaic in the SAME OSD instance
+// (lazy — its pyramid loads only now). "Overview" walks back up. OSD clears
+// overlays on open(), so we tear ours down first and the open handler rebuilds
+// the origin + detail regions for whichever mosaic is now active. Recursive: the
+// activated mosaic shows ITS higher-mag children as new detail regions.
+
+async function urlForDsid(dsid) {
+    const path = (dsid === CURRENT_DSID) ? '/file-url'
+                                         : '/sibling-url/' + encodeURIComponent(dsid);
+    const r = await fetch(BASE_URL + path);
+    const j = await r.json();
+    if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+    return j.url;
+}
+
+async function loadTileSources(url) {
+    const ts = await OpenSeadragon.GeoTIFFTileSource.getAllTileSources(
+        url, { hints: { layout: { pyramid: 'auto' } } });
+    pixelSizeUm = await readPixelSizeUm(ts[0], url);
+    return ts.length === 1 ? ts[0] : ts;
+}
+
+function teardownOverlays() {
+    setHoveredMarker(null);
+    setHoveredDetail(null);
+    if (originEl) { mosaicViewer.removeOverlay(originEl); originEl = null; }
+    for (const m of markers) mosaicViewer.removeOverlay(m.el);
+    markers.length = 0;
+    clearDetailRegions();
+}
+
+async function swapTo(dsid, region) {
+    // Flush the outgoing mosaic's annotations (keyed by the current activeDsid)
+    // before teardown clears them and activeDsid changes. Server flush (if dirty)
+    // is best-effort via flushAnnotationsBeforeSwap().
+    flushAnnotationsBeforeSwap();
+    let ts;
+    try { ts = await loadTileSources(await urlForDsid(dsid)); }
+    catch (err) { cgToast('Could not open mosaic: ' + err.message, 'bi-exclamation-triangle'); return false; }
+    activeDsid = dsid;
+    pendingFit = region || null;         // frame this region after the reopen (return path)
+    loadingEl.classList.remove('d-none');
+    teardownOverlays();
+    mosaicViewer.open(ts);               // fires 'open' → rebuilds origin + regions
+    updateOverviewButton();
+    return true;
+}
+
+async function activateMosaic(d) {
+    cgToast(`Loading ${d.magnification ? d.magnification + '×' : 'mosaic'}…`, 'bi-zoom-in');
+    const from = { dsid: activeDsid, region: { x: d.x, y: d.y, w: d.w, h: d.h } };
+    if (await swapTo(d.dsid, null)) navStack.push(from);   // remember where we drilled from
+    else return;
+    updateOverviewButton();
+}
+
+async function deactivateMosaic() {
+    const prev = navStack.pop();
+    if (!prev) return;
+    if (!await swapTo(prev.dsid, prev.region)) navStack.push(prev);   // restore on failure
+}
+
+function updateOverviewButton() {
+    let btn = document.getElementById('mosaic-overview-btn');
+    if (!navStack.length) { if (btn) btn.remove(); return; }
+    if (!btn) {
+        btn = document.createElement('button');
+        btn.id = 'mosaic-overview-btn';
+        btn.type = 'button';
+        btn.className = 'btn btn-sm btn-dark shadow-sm';
+        btn.innerHTML = '<i class="bi bi-arrow-left me-1"></i>Overview';
+        btn.addEventListener('click', deactivateMosaic);
+        document.getElementById('mosaic-viewport').appendChild(btn);
+    }
+}
+
+// Discard every manual nudge for the active map and redraw its detail regions from
+// the auto-computed (geometry-only) positions. Zeroing the IN-MEMORY overridesCache
+// is the important part: clearing localStorage alone doesn't stick, because the
+// pagehide flush re-serializes the in-memory nudges back into the annotation blob on
+// reload. flushAnnotationsLocal() then rewrites the blob NOW with the cleared set.
+function resetDetailRegions() {
+    const ov = overridesFor(activeDsid);
+    if (!ov || !Object.keys(ov).length) {
+        cgToast('Regions already at auto-placement', 'bi-arrow-counterclockwise');
+        return;
+    }
+    overridesCache[activeDsid] = {};                     // zero in-memory nudges
+    try { localStorage.removeItem(overridesKey(activeDsid)); } catch (e) { /* ignore */ }
+    renderDetailRegions(activeDsid);                     // redraw from geometry only
+    markAnnotationsDirty();                              // fold cleared set into blob + server tier
+    flushAnnotationsLocal();                             // rewrite localStorage now so reload can't restore
+    cgToast('Detail regions reset to auto-placement', 'bi-arrow-counterclockwise');
+}
+
+// The bottom-right stack that holds the (conditionally-shown) reset buttons.
+function resetStack() {
+    let s = document.getElementById('mosaic-reset-stack');
+    if (!s) {
+        s = document.createElement('div');
+        s.id = 'mosaic-reset-stack';
+        document.getElementById('mosaic-viewport').appendChild(s);
+    }
+    return s;
+}
+
+// Show the reset control only when the active map has at least one nudged region.
+function updateResetButton() {
+    let btn = document.getElementById('mosaic-reset-btn');
+    const hasNudges = Object.keys(overridesFor(activeDsid) || {}).length > 0;
+    if (!detailRegions.length || !hasNudges) { if (btn) btn.remove(); return; }
+    if (!btn) {
+        btn = document.createElement('button');
+        btn.id = 'mosaic-reset-btn';
+        btn.type = 'button';
+        btn.className = 'btn btn-sm btn-dark shadow-sm';
+        btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Reset regions';
+        btn.title = 'Move all detail regions back to their auto-computed positions';
+        btn.addEventListener('click', resetDetailRegions);
+        resetStack().appendChild(btn);
+    }
+}
+
+// Place the origin crosshair at the map's default: the pixel that is true stage
+// (0,0) per the geometry, or the mosaic corner (0,0) when no geometry is present.
+// Leaves originUserSet false so the default is never mistaken for a user choice.
+function applyDefaultOrigin() {
+    const gg = geomFor(activeDsid);
+    if (gg && gg.stage_origin_mm && gg.mm_per_px) {
+        const s = gg.mm_per_px, up = gg.y_axis_up !== false;
+        const px0 = (0 - gg.stage_origin_mm.x) / s;
+        const py0 = up ? (gg.stage_origin_mm.y) / s : (-gg.stage_origin_mm.y) / s;
+        setOrigin(Math.round(px0), Math.round(py0));   // marks true stage 0,0
+    } else {
+        setOrigin(0, 0);        // legacy fallback (no geometry): mosaic corner
+    }
+}
+
+// Move the origin crosshair back to the geometry default and stop persisting the
+// user's placement. Mirrors resetDetailRegions(): flush now so a reload can't
+// restore the old origin from the annotation blob.
+function resetOrigin() {
+    if (!originUserSet) {
+        cgToast('Origin already at default', 'bi-arrow-counterclockwise');
+        return;
+    }
+    applyDefaultOrigin();       // re-derive default; clears originUserSet
+    markAnnotationsDirty();     // fold the cleared origin into blob + server tier
+    flushAnnotationsLocal();    // rewrite localStorage now so reload can't restore
+    cgToast('Origin reset to default', 'bi-arrow-counterclockwise');
+}
+
+// Show the "Reset origin" control only once the user has moved the origin off its
+// geometry default.
+function updateOriginResetButton() {
+    let btn = document.getElementById('mosaic-origin-reset-btn');
+    if (!originUserSet) { if (btn) btn.remove(); return; }
+    if (!btn) {
+        btn = document.createElement('button');
+        btn.id = 'mosaic-origin-reset-btn';
+        btn.type = 'button';
+        btn.className = 'btn btn-sm btn-dark shadow-sm';
+        btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Reset origin';
+        btn.title = 'Move the origin crosshair back to its default (true stage 0,0)';
+        btn.addEventListener('click', resetOrigin);
+        resetStack().appendChild(btn);
+    }
+}
+
+// ── Annotation persistence (origin + markers) ─────────────────────────────────
+// Two tiers: (1) autosave to localStorage on every edit (always on, per-browser),
+// and (2) an explicit Save to a per-user Crucible child dataset (durable/shared —
+// Parts B/C). Annotations are per-mosaic: they live in that mosaic's full-res
+// image pixels, so each displayed mosaic (base or an activated sibling) has its
+// own blob keyed by its dsid. Detail regions are DERIVED, never stored here.
+
+let annotDirty = false;          // unsaved edits vs the server tier
+let applyingAnnotations = false; // guard: rebuilding state must not mark dirty
+let annotSaveTimer = null;       // debounce handle for the localStorage autosave
+let serverAnnotBlob = null;      // last blob loaded from / saved to the server
+let annotationDsid = null;       // the per-user annotation child dataset id (once known)
+let saveState = 'idle';          // idle | dirty | saving | saved | error (UI only)
+let saveError = '';
+
+const annotKey = (dsid) => 'cg_mosaic_annot_' + dsid;
+// The active mosaic's own annotations route. BASE_URL ends with CURRENT_DSID on
+// both the dataset and /local routes, so strip it and address activeDsid (which
+// may be a sibling after activation) directly.
+const ANNOT_BASE = BASE_URL.slice(0, BASE_URL.length - CURRENT_DSID.length);
+const annotUrl = (dsid) => ANNOT_BASE + encodeURIComponent(dsid) + '/annotations';
+
+// crypto.randomUUID needs a secure context (present on https + 127.0.0.1); fall
+// back to a v4-ish string on the off chance it's missing.
+function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+
+// A stored dataset link = a cross-microscope reference on a marker/area. Only the
+// fields below persist; `dataset_id` is the source of truth and the rest are
+// cached display fields (refreshed whenever the picker resolves the dataset) so
+// the panel renders instantly and offline. Tolerates picker-shaped records
+// ({dsid, dataset_name}) and already-stored ones.
+function normalizeLink(l) {
+    return {
+        dataset_id: l.dataset_id || l.dsid || '',
+        project_id: l.project_id || null,
+        label: l.label || l.dataset_name || l.dataset_id || l.dsid || '',
+        measurement: l.measurement || null,
+        instrument: l.instrument || null,
+        page_url: l.page_url || null,
+        added: l.added || null,
+    };
+}
+function serializeLinks(links) {
+    return (links || []).map(normalizeLink).filter((l) => l.dataset_id);
+}
+
+// Snapshot the current mosaic's annotations as the portable blob (image px).
+function serializeAnnotations() {
+    return {
+        schema: 'cg-mosaic-annotations',
+        // v2 adds per-annotation `links` (cross-microscope dataset references).
+        // v3 adds per-point `fiducial` (a coordinate-frame anchor for another
+        // microscope). v1/v2 blobs load unchanged (links default to [], fiducial
+        // to null).
+        version: 3,
+        dataset_id: activeDsid,
+        origin: { x: originPixel.x, y: originPixel.y },
+        // Only a deliberately-placed origin is restored on load; without this flag a
+        // stale autosaved default would clobber the geometry-derived default origin.
+        origin_user_set: originUserSet,
+        annotations: markers.map((m) => m.type === 'area'
+            ? { id: m.id, type: 'area', x: m.x, y: m.y, w: m.w, h: m.h,
+                name: m.name || '', description: m.description || '',
+                links: serializeLinks(m.links) }
+            : { id: m.id, type: 'point', x: m.x, y: m.y,
+                name: m.name || '', description: m.description || '',
+                // `links` kept for compatibility even on fiducials (it'll be []).
+                links: serializeLinks(m.links),
+                fiducial: m.fiducial || null }),
+        // Fold in the detail-region nudges for this map so corrections travel with
+        // the blob too (Part E). The legacy per-map key is still read as a fallback.
+        detail_overrides: overridesFor(activeDsid),
+        updated: new Date().toISOString(),
+        author: VIEWER_ORCID || null,
+    };
+}
+
+// Remove all marker/area overlays + empty the array (leaves origin + detail
+// regions alone). Used before re-applying a blob.
+function clearAnnotations() {
+    setHoveredMarker(null);
+    for (const m of markers) mosaicViewer.removeOverlay(m.el);
+    markers.length = 0;
+}
+
+// Rebuild marker/origin state from a blob (null → just clear). Reuses the same
+// setOrigin/addMarker/addArea the UI uses; suppresses autosave while rebuilding.
+function applyAnnotations(blob) {
+    applyingAnnotations = true;
+    try {
+        clearAnnotations();
+        if (blob) {
+            // Restore the origin only if the user deliberately placed it; otherwise
+            // leave the geometry default the open handler already set. Legacy blobs
+            // lack origin_user_set, so their auto-captured origin is ignored.
+            if (blob.origin && blob.origin_user_set)
+                setOrigin(blob.origin.x, blob.origin.y, true);
+            for (const a of (blob.annotations || [])) {
+                const m = (a.type === 'area')
+                    ? addArea(a.x, a.y, a.w, a.h)
+                    : addMarker(a.x, a.y);
+                if (a.id) m.id = a.id;
+                m.name = a.name || null;
+                m.description = a.description || '';
+                m.links = Array.isArray(a.links) ? a.links.map(normalizeLink) : [];
+                // v3: coordinate-frame anchor (only meaningful on points).
+                m.fiducial = (a.type !== 'area' && a.fiducial) ? a.fiducial : null;
+            }
+            // Merge any nudges carried in the blob into this map's override cache
+            // (Part E) so re-projected detail regions pick them up. The blob's
+            // values win over the legacy per-map localStorage key.
+            if (blob.detail_overrides && activeDsid) {
+                overridesCache[activeDsid] = Object.assign(
+                    {}, overridesFor(activeDsid), blob.detail_overrides);
+                // Re-apply to already-drawn regions (this may run after they were
+                // rendered from the legacy key alone).
+                if (mosaicsLoaded && allMosaics.length) renderDetailRegions(activeDsid);
+            }
+        }
+        renderMarkerPanel();
+        rebuildFrameSelect();   // loaded markers may include fiducials → new frames
+    } finally {
+        applyingAnnotations = false;
+    }
+}
+
+// Write the current blob to localStorage immediately (the durable-ish always-on
+// tier). Debounced by markAnnotationsDirty; also called on flush points.
+function saveAnnotationsLocal() {
+    try {
+        localStorage.setItem(annotKey(activeDsid), JSON.stringify(serializeAnnotations()));
+    } catch (e) {
+        console.warn('[mosaic] localStorage annotation save failed:', e);
+    }
+}
+
+// Flush any pending debounced localStorage write right now (e.g. before a swap).
+function flushAnnotationsLocal() {
+    if (annotSaveTimer) { clearTimeout(annotSaveTimer); annotSaveTimer = null; }
+    saveAnnotationsLocal();
+}
+
+function loadAnnotationsLocal(dsid) {
+    try { return JSON.parse(localStorage.getItem(annotKey(dsid)) || 'null'); }
+    catch (e) { return null; }
+}
+
+// Called before switching to a sibling mosaic. Always flush localStorage; the
+// server tier adds a best-effort beacon in Part B (only when dirty + available).
+function flushAnnotationsBeforeSwap() {
+    flushAnnotationsLocal();
+    if (HAS_SERVER && annotDirty) beaconSaveAnnotations();
+}
+
+// Call after any user mutation (add/remove/rename/description/move origin). Marks
+// the server tier dirty and debounces the localStorage autosave (~500ms so typing
+// coalesces). No-op while applyAnnotations is rebuilding state.
+function markAnnotationsDirty() {
+    if (applyingAnnotations) return;
+    annotDirty = true;
+    setSaveState('dirty');
+    if (annotSaveTimer) clearTimeout(annotSaveTimer);
+    annotSaveTimer = setTimeout(() => { annotSaveTimer = null; saveAnnotationsLocal(); }, 500);
+}
+
+// Load annotations for the currently-displayed mosaic and reconcile the two tiers
+// (last-writer-wins by 'updated' timestamp, per Part C):
+//   • no server blob        → use localStorage (if any); mark dirty (never saved)
+//   • server newer or equal → use server; refresh the localStorage cache
+//   • localStorage newer    → use localStorage; mark dirty (unsaved local edits)
+// The localStorage cache is written VERBATIM (preserving timestamps) so the next
+// load compares correctly.
+async function loadAnnotationsForCurrent() {
+    const local = loadAnnotationsLocal(activeDsid);
+    if (!HAS_SERVER) {                       // localStorage-only tier
+        applyAnnotations(local);
+        annotDirty = false;
+        setSaveState('idle');
+        return;
+    }
+    const targetDsid = activeDsid;           // guard against a swap mid-fetch
+    let server = null, serverDsid = null;
+    try {
+        const r = await fetch(annotUrl(targetDsid));
+        if (r.ok) {
+            const j = await r.json();
+            server = j.annotations || null;
+            serverDsid = j.annotation_dsid || null;
+        } else {
+            console.warn('[mosaic] annotations GET HTTP', r.status);
+        }
+    } catch (e) {
+        console.warn('[mosaic] annotations GET failed:', e);
+    }
+    if (targetDsid !== activeDsid) return;   // user swapped away; abandon this load
+    annotationDsid = serverDsid;
+    serverAnnotBlob = server;
+
+    let chosen = server, dirty = false;
+    if (!server) {
+        chosen = local; dirty = !!local;                    // local exists, never uploaded
+    } else if (local) {
+        const ls = Date.parse(local.updated || '') || 0;
+        const ss = Date.parse(server.updated || '') || 0;
+        if (ls > ss) { chosen = local; dirty = true; }      // unsaved local edits win
+    }
+    applyAnnotations(chosen);
+    if (chosen) {                             // write-through cache, verbatim
+        try { localStorage.setItem(annotKey(activeDsid), JSON.stringify(chosen)); }
+        catch (e) { /* quota / disabled */ }
+    }
+    annotDirty = dirty;
+    setSaveState(dirty ? 'dirty' : (chosen ? 'saved' : 'idle'));
+}
+
+// Explicit Save to the durable tier (Save button + programmatic). Serializes once
+// so localStorage and the server hold an identical blob (same 'updated'), keeping
+// the next load's precedence check stable.
+async function saveAnnotationsServer() {
+    if (!HAS_SERVER) return;
+    const blob = serializeAnnotations();
+    if (annotSaveTimer) { clearTimeout(annotSaveTimer); annotSaveTimer = null; }
+    try { localStorage.setItem(annotKey(activeDsid), JSON.stringify(blob)); }
+    catch (e) { /* quota / disabled */ }
+    setSaveState('saving');
+    const targetDsid = activeDsid;
+    try {
+        const r = await fetch(annotUrl(targetDsid), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(blob),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+        if (targetDsid === activeDsid) {
+            annotationDsid = j.annotation_dsid || annotationDsid;
+            serverAnnotBlob = blob;
+            annotDirty = false;
+            setSaveState('saved');
+        }
+        cgToast('Annotations saved', 'bi-check-circle');
+    } catch (e) {
+        if (targetDsid === activeDsid) setSaveState('error', e.message);
+        cgToast('Could not save annotations: ' + e.message, 'bi-exclamation-triangle', 4000);
+    }
+}
+
+// Best-effort save on tab-hide / navigation / before a swap. sendBeacon POSTs the
+// blob with the session cookie even as the page unloads.
+function beaconSaveAnnotations() {
+    if (!HAS_SERVER) return false;
+    try {
+        const body = new Blob([JSON.stringify(serializeAnnotations())],
+                              { type: 'application/json' });
+        return navigator.sendBeacon(annotUrl(activeDsid), body);
+    } catch (e) { return false; }
+}
+
+function setSaveState(state, err) {
+    saveState = state;
+    saveError = err || '';
+    updateSaveStatus();
+}
+
+// Refresh the save-status label if the save bar is present (Part D).
+function updateSaveStatus() {
+    const el = document.getElementById('annot-save-status');
+    if (el) updateSaveStatusUI(el);
+}
+
+// Render the status text + toggle the Save button per saveState.
+function updateSaveStatusUI(el) {
+    const map = {
+        idle:   { text: '',                cls: 'text-muted' },
+        dirty:  { text: 'Unsaved changes', cls: 'text-warning' },
+        saving: { text: 'Saving…',         cls: 'text-muted' },
+        saved:  { text: 'Saved',           cls: 'text-success' },
+        error:  { text: 'Save failed',     cls: 'text-danger' },
+    };
+    const s = map[saveState] || map.idle;
+    el.className = s.cls + ' text-truncate';
+    el.style.fontSize = 'var(--fs-xs)';
+    el.textContent = s.text + (saveState === 'error' && saveError ? ': ' + saveError : '');
+    const btn = document.getElementById('annot-save-btn');
+    if (btn) btn.disabled = (saveState === 'saving');
+}
+
+// Reveal + wire the save bar (once). Runs regardless of viewer open state.
+function setupSaveBar() {
+    if (!HAS_SERVER) return;
+    const bar = document.getElementById('annot-savebar');
+    if (bar) bar.classList.remove('d-none');
+    const btn = document.getElementById('annot-save-btn');
+    if (btn) {
+        btn.addEventListener('click', saveAnnotationsServer);
+        if (IS_LOCAL) btn.title = 'Dev: saves to a test_data/<file>.annot.json sidecar';
+    }
+    updateSaveStatus();
+}
+
+// ── Right-click context menu (tools) ─────────────────────────────────────────
+// Extensible: add entries here to offer more marker types (e.g. an area select).
+const MENU_ITEMS = [
+    { action: 'set-origin', label: 'Set origin here', icon: 'bi-crosshair' },
+    { action: 'add-marker', label: 'Add marker',      icon: 'bi-geo-alt' },
+    { action: 'add-area', label: 'Add area',       icon: 'bi-bounding-box' },
+    { action: 'add-fiducial', label: 'Add fiducial here', icon: 'bi-compass' },
+];
+let menuImgPoint = { x: 0, y: 0 };   // image px where the menu was opened
+
+function buildContextMenu() {
+    const menu = document.getElementById('mosaic-menu');
+    menu.innerHTML = '';
+    MENU_ITEMS.forEach(({ action, label, icon }) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'mosaic-menu-item';
+        btn.dataset.action = action;
+        btn.innerHTML = `<i class="bi ${icon}"></i><span>${label}</span>`;
+        menu.appendChild(btn);
+    });
+    menu.addEventListener('click', (e) => {
+        const btn = e.target.closest('.mosaic-menu-item');
+        if (!btn) return;
+        handleMenuAction(btn.dataset.action);
+        hideMenu();
+    });
+}
+
+function showMenu(elemX, elemY, imgPoint) {
+    menuImgPoint = imgPoint;
+    const menu = document.getElementById('mosaic-menu');
+    menu.classList.remove('d-none');
+    // Keep the menu inside the viewport bounds.
+    const vp = document.getElementById('mosaic-viewport').getBoundingClientRect();
+    menu.style.left = Math.min(elemX, vp.width  - menu.offsetWidth  - 4) + 'px';
+    menu.style.top  = Math.min(elemY, vp.height - menu.offsetHeight - 4) + 'px';
+}
+
+function hideMenu() { document.getElementById('mosaic-menu').classList.add('d-none'); }
+
+function handleMenuAction(action) {
+    if (action === 'add-marker') {
+        enterToolMode('marker');
+    } else if (action === 'set-origin') {
+        setOrigin(menuImgPoint.x, menuImgPoint.y, true);
+        markAnnotationsDirty();
+        cgToast('Origin set', 'bi-crosshair');
+    } else if (action === 'add-area'){
+        enterToolMode('area')
+    } else if (action === 'add-fiducial') {
+        // Convenience: drop a point at the clicked spot and open its fiducial form.
+        const m = addMarker(menuImgPoint.x, menuImgPoint.y);
+        markAnnotationsDirty();
+        promoteFiducial(m);
+    }
+}
+
+function enterToolMode(mode) {
+    toolMode = mode;
+    document.getElementById('mosaic-viewport').classList.add('tool-active');
+    if (mode === 'marker') cgToast('Click to place a marker · Esc to cancel', 'bi-geo-alt');
+    else if (mode === 'area') cgToast('Drag to draw an area · Esc to cancel', 'bi-bounding-box');
+}
+
+function exitToolMode() {
+    toolMode = null;
+    document.getElementById('mosaic-viewport').classList.remove('tool-active');
+    cancelAreaDraw();
+}
+
+function setupInteractions() {
+    buildContextMenu();   // origin is (re)placed by the open handler, not here
+
+    // Coordinate-frame selector → drive hover readout (next mousemove) + panel.
+    const frameSel = document.getElementById('frame-select');
+    if (frameSel) frameSel.addEventListener('change', () => {
+        activeFrameId = frameSel.value;
+        renderMarkerPanel();
+    });
+
+    // Right-click → context menu at the cursor (carrying the image point clicked).
+    mosaicViewer.element.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const item = mosaicViewer.world.getItemAt(0);
+        if (!item) return;
+        const rect = mosaicViewer.element.getBoundingClientRect();
+        const ex = e.clientX - rect.left, ey = e.clientY - rect.top;
+        const p = item.viewportToImageCoordinates(
+            mosaicViewer.viewport.pointFromPixel(new OpenSeadragon.Point(ex, ey)));
+        showMenu(ex, ey, { x: Math.round(p.x), y: Math.round(p.y) });
+    });
+
+    // Left-click: place a marker if the marker tool is armed; otherwise the only
+    // default action is selecting an existing marker (no placement).
+    mosaicViewer.addHandler('canvas-click', (event) => {
+        hideMenu();
+        if (!event.quick) return;                 // ignore the click that ends a pan
+        const item = mosaicViewer.world.getItemAt(0);
+        if (!item) return;
+
+        if (toolMode === 'marker') {
+            const p = item.viewportToImageCoordinates(
+                mosaicViewer.viewport.pointFromPixel(event.position));
+            const x = Math.round(p.x), y = Math.round(p.y);
+            const size = item.getContentSize();
+            if (x >= 0 && y >= 0 && x < size.x && y < size.y) {
+                const m = addMarker(x, y);
+                markAnnotationsDirty();
+                cgToast(`Marker ${markers.indexOf(m) + 1} added`, 'bi-geo-alt-fill');
+            }
+            exitToolMode();                        // one-shot placement
+            return;
+        }
+        const hit = markerHitTest(event.position);
+        if (hit) { selectMarker(hit); return; }    // a marker wins over a region below it
+        const region = detailRegionHitTest(event.position);
+        if (region) activateMosaic(region);        // click a detail box → open that mosaic
+    });
+
+    // Area tool: click-drag draws a rectangle (pan is suppressed while drawing).
+    // Shift-drag on a detail region moves it (manual nudge) instead of panning.
+    mosaicViewer.addHandler('canvas-press', (event) => {
+        if (toolMode === 'area') {
+            event.preventDefaultAction = true;
+            beginAreaDraw(eventImg(event));
+            return;
+        }
+        if (event.originalEvent && event.originalEvent.shiftKey) {
+            const d = detailRegionHitTest(event.position);
+            if (d) {
+                event.preventDefaultAction = true;   // don't pan while moving
+                regionDrag = { region: d, startImg: eventImg(event),
+                               orig: { x: d.x, y: d.y } };
+            }
+        }
+    });
+    mosaicViewer.addHandler('canvas-drag', (event) => {
+        hideMenu();
+        if (toolMode === 'area' && areaDraw) {
+            event.preventDefaultAction = true;   // don't pan while drawing
+            updateAreaDraw(eventImg(event));
+            return;
+        }
+        if (regionDrag) {
+            event.preventDefaultAction = true;
+            const cur = eventImg(event);
+            const d = regionDrag.region;
+            d.x = regionDrag.orig.x + (cur.x - regionDrag.startImg.x);
+            d.y = regionDrag.orig.y + (cur.y - regionDrag.startImg.y);
+            const item = mosaicViewer.world.getItemAt(0);
+            mosaicViewer.updateOverlay(d.el, item.imageToViewportRectangle(
+                imgRect(d.x, d.y, d.w, d.h)));
+        }
+    });
+    mosaicViewer.addHandler('canvas-release', (event) => {
+        if (toolMode === 'area' && areaDraw) { finishAreaDraw(eventImg(event)); return; }
+        if (regionDrag) {
+            const d = regionDrag.region;
+            // Persist the delta from the auto-projected position, so re-projection
+            // (reload / re-stitch) keeps the correction.
+            const base = projectStageRectToBasePx(d.stage_bbox_mm, geomFor(activeDsid));
+            if (base) saveOverride(activeDsid, d.dsid,
+                { dx: Math.round(d.x - base.x), dy: Math.round(d.y - base.y) });
+            cgToast(`${d.magnification ? d.magnification + '×' : 'Region'} position saved`,
+                    'bi-check2');
+            updateResetButton();                 // first nudge reveals the reset control
+            regionDrag = null;
+        }
+    });
+
+    // Zooming dismisses the menu.
+    mosaicViewer.addHandler('canvas-scroll', hideMenu);
+
+    // Click anywhere outside the menu dismisses it.
+    document.addEventListener('mousedown', (e) => {
+        const menu = document.getElementById('mosaic-menu');
+        if (!menu.classList.contains('d-none') && !menu.contains(e.target)) hideMenu();
+    });
+
+    // Keyboard: Esc cancels the menu/armed tool; Delete removes the hovered marker
+    // (ignored while editing a name or description).
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') { hideMenu(); exitToolMode(); return; }
+        if (event.key !== 'Delete' || !hoveredMarker) return;
+        const ae = document.activeElement;
+        if (ae && (ae.isContentEditable || ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return;
+        event.preventDefault();
+        removeMarker(hoveredMarker);
+        cgToast('Marker removed', 'bi-trash');
+    });
+}
+
+// Loss-prevention flush points (server tier only): best-effort beacon on tab
+// hide / page unload if there are unsaved edits. localStorage already holds them.
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && HAS_SERVER && annotDirty) beaconSaveAnnotations();
+});
+window.addEventListener('pagehide', () => {
+    flushAnnotationsLocal();
+    if (HAS_SERVER && annotDirty) beaconSaveAnnotations();
+});
+
+sizeStage();
+window.addEventListener('resize', sizeStage);
+setupSaveBar();
+initViewer();
+</script>
+{% endblock %}
