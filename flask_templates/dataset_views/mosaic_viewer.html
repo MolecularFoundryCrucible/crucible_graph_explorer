@@ -1716,6 +1716,7 @@ let applyingAnnotations = false; // guard: rebuilding state must not mark dirty
 let annotSaveTimer = null;       // debounce handle for the localStorage autosave
 let serverAnnotBlob = null;      // last blob loaded from / saved to the server
 let annotationDsid = null;       // the per-user annotation child dataset id (once known)
+let annotSaving = false;         // a fetch save is in flight (single-flight guard)
 let saveState = 'idle';          // idle | dirty | saving | saved | error (UI only)
 let saveError = '';
 
@@ -1930,12 +1931,20 @@ async function loadAnnotationsForCurrent() {
 // the next load's precedence check stable.
 async function saveAnnotationsServer() {
     if (!HAS_SERVER) return;
+    // Re-entry guard: a second Save while the first POST is still in flight would
+    // race its find-or-create and create a duplicate annotation dataset. localStorage
+    // already holds the latest state; the in-flight save persists it.
+    if (annotSaving) return;
     const blob = serializeAnnotations();
     if (annotSaveTimer) { clearTimeout(annotSaveTimer); annotSaveTimer = null; }
     try { localStorage.setItem(annotKey(activeDsid), JSON.stringify(blob)); }
     catch (e) { /* quota / disabled */ }
     setSaveState('saving');
     const targetDsid = activeDsid;
+    // Single-flight: while this POST is in flight an unload beacon must NOT fire a
+    // second POST for the same state — with no annotation child yet, two concurrent
+    // find-or-creates each create a duplicate dataset with the same name.
+    annotSaving = true;
     try {
         const r = await fetch(annotUrl(targetDsid), {
             method: 'POST',
@@ -1954,6 +1963,8 @@ async function saveAnnotationsServer() {
     } catch (e) {
         if (targetDsid === activeDsid) setSaveState('error', e.message);
         cgToast('Could not save annotations: ' + e.message, 'bi-exclamation-triangle', 4000);
+    } finally {
+        annotSaving = false;
     }
 }
 
@@ -1961,10 +1972,20 @@ async function saveAnnotationsServer() {
 // blob with the session cookie even as the page unloads.
 function beaconSaveAnnotations() {
     if (!HAS_SERVER) return false;
+    // A fetch save already covers the current state (localStorage holds it too);
+    // don't race it with a beacon that would find-or-create in parallel.
+    if (annotSaving) return false;
     try {
         const body = new Blob([JSON.stringify(serializeAnnotations())],
                               { type: 'application/json' });
-        return navigator.sendBeacon(annotUrl(activeDsid), body);
+        const ok = navigator.sendBeacon(annotUrl(activeDsid), body);
+        // Clear dirty the moment the beacon is queued. Closing a tab fires BOTH
+        // visibilitychange(hidden) AND pagehide; without this each would send its
+        // own beacon and, when no annotation child exists yet, each find-or-create
+        // would make a duplicate dataset with the same name. Same guard stops a
+        // swap-flush beacon from being followed by an unload beacon.
+        if (ok) annotDirty = false;
+        return ok;
     } catch (e) { return false; }
 }
 

@@ -47,14 +47,20 @@ ANNOT_KEY = 'viewer_annotations'
 def _find_annotation_child(client, parent_dsid, orcid):
     """The logged-in user's mosaic_annotations child of parent_dsid, or None.
 
-    There is at most one such child per (mosaic, user). We ask the children
-    endpoint to filter, then defensively re-check client-side in case it doesn't.
+    There should be at most one such child per (mosaic, user), but a past
+    find-or-create race could have left duplicates behind (two beacons/POSTs
+    creating in parallel before either committed). To stay stable we always
+    return the SAME one — the oldest. Crucible ids are time-ordered, so the
+    lexicographically smallest id is the first created; picking it deterministically
+    makes the GET (load) and every POST (save) converge on a single canonical child
+    instead of bouncing between duplicates.
     """
     try:
         children = client.datasets.list_children(
             parent_dsid, measurement=ANNOT_MEASUREMENT, owner_orcid=orcid)
     except Exception:
         children = None
+    matches = []
     for ch in children or []:
         # Lenient: skip only on a POSITIVE mismatch. If the children endpoint
         # honored the measurement/owner_orcid query filters, the list is already
@@ -66,8 +72,10 @@ def _find_annotation_child(client, parent_dsid, orcid):
         owner = ch.get('owner_orcid')
         if orcid and owner is not None and owner != orcid:
             continue
-        return ch
-    return None
+        matches.append(ch)
+    if not matches:
+        return None
+    return min(matches, key=lambda ch: ch.get('unique_id') or '')
 
 
 def _create_annotation_child(client, parent_dsid, orcid, blob):
