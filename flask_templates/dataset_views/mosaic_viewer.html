@@ -1389,16 +1389,53 @@ async function addPastedLink(m, raw) {
     closeLinkPicker();
 }
 
+// ── Per-objective stage offset (parcentering correction) ──────────────────────
+// The SAME physical point sits at a slightly different stage (X,Y) under each
+// objective: the turret's objectives are not perfectly parcentered, so switching
+// magnification shifts where a point reads on the stage. Measured on a
+// calibration slide and expressed in mm RELATIVE TO THE 5× objective:
+//     offset(obj) = stage_position(obj) − stage_position(5×)
+// (50×/100× were measured relative to 20× and chained through 20×→5×.)
+// A mosaic's stage_bbox_mm is recorded in ITS OWN objective's frame, so before
+// projecting a higher-mag mosaic onto this (base) map we re-express its bbox in
+// the base map's objective frame:
+//     bbox_base = bbox_child − offset(child) + offset(base)
+// Keyed by magnification; unknown mags get no correction. Re-measure in a single
+// sitting (no sample move) to refine — see the offset table in the dev notes.
+const OBJECTIVE_STAGE_OFFSET_MM = {
+    5:   { x: 0.0000, y:  0.0000 },
+    10:  { x: 0.0560, y: -0.0520 },
+    20:  { x: 0.0280, y: -0.0200 },
+    50:  { x: 0.0220, y:  0.0070 },
+    100: { x: 0.0290, y: -0.0980 },
+};
+
+// Offset (mm, rel. to 5×) for an objective magnification, or (0,0) if unknown.
+// parseFloat tolerates numbers, "10", and "10x".
+function objectiveOffset(mag) {
+    const key = mag == null ? NaN : parseFloat(mag);
+    return OBJECTIVE_STAGE_OFFSET_MM[key] || { x: 0, y: 0 };
+}
+
 // ── Multi-magnification detail regions ────────────────────────────────────────
 // Project a mosaic's stage bounding box (mm) into the CURRENT map's image pixels
 // using that map's own affine (stage_origin_mm at pixel (0,0), mm_per_px, Y-flip).
-function projectStageRectToBasePx(bbox, geom) {
+// `childMag` is the projected mosaic's magnification; combined with the base map's
+// magnification it corrects the per-objective parcentering offset (above) so the
+// box lands on the right feature instead of tens-of-µm off.
+function projectStageRectToBasePx(bbox, geom, childMag) {
     if (!geom || !geom.stage_origin_mm || !geom.mm_per_px || !bbox) return null;
     const o = geom.stage_origin_mm, s = geom.mm_per_px;
     const up = geom.y_axis_up !== false;                 // default: Y increases upward
-    const xL = (bbox.x_min - o.x) / s, xR = (bbox.x_max - o.x) / s;
-    const yA = up ? (o.y - bbox.y_max) / s : (bbox.y_min - o.y) / s;
-    const yB = up ? (o.y - bbox.y_min) / s : (bbox.y_max - o.y) / s;
+    // Re-express the child bbox (its own objective frame) in the base objective
+    // frame: shift by offset(base) − offset(child), in stage mm, before the affine.
+    const oc = objectiveOffset(childMag), ob = objectiveOffset(geom.magnification);
+    const dX = ob.x - oc.x, dY = ob.y - oc.y;
+    const xMin = bbox.x_min + dX, xMax = bbox.x_max + dX;
+    const yMin = bbox.y_min + dY, yMax = bbox.y_max + dY;
+    const xL = (xMin - o.x) / s, xR = (xMax - o.x) / s;
+    const yA = up ? (o.y - yMax) / s : (yMin - o.y) / s;
+    const yB = up ? (o.y - yMin) / s : (yMax - o.y) / s;
     return { x: Math.min(xL, xR), y: Math.min(yA, yB),
              w: Math.abs(xR - xL), h: Math.abs(yB - yA) };
 }
@@ -1475,7 +1512,7 @@ function renderDetailRegions(dsid) {
         // to a box larger than this map). If a mag is unknown, fall back to a
         // bounds/size check below.
         if (curMag && m.magnification && m.magnification <= curMag) continue;
-        const rect = applyOverride(m, projectStageRectToBasePx(m.stage_bbox_mm, geom));
+        const rect = applyOverride(m, projectStageRectToBasePx(m.stage_bbox_mm, geom, m.magnification));
         if (!rect) continue;
         if (rect.x + rect.w < 0 || rect.y + rect.h < 0 ||
             rect.x > imageWidthPx || rect.y > imageHeightPx) continue;      // off-image
@@ -1716,6 +1753,7 @@ let applyingAnnotations = false; // guard: rebuilding state must not mark dirty
 let annotSaveTimer = null;       // debounce handle for the localStorage autosave
 let serverAnnotBlob = null;      // last blob loaded from / saved to the server
 let annotationDsid = null;       // the per-user annotation child dataset id (once known)
+let annotSaving = false;         // a fetch save is in flight (single-flight guard)
 let saveState = 'idle';          // idle | dirty | saving | saved | error (UI only)
 let saveError = '';
 
@@ -1930,12 +1968,20 @@ async function loadAnnotationsForCurrent() {
 // the next load's precedence check stable.
 async function saveAnnotationsServer() {
     if (!HAS_SERVER) return;
+    // Re-entry guard: a second Save while the first POST is still in flight would
+    // race its find-or-create and create a duplicate annotation dataset. localStorage
+    // already holds the latest state; the in-flight save persists it.
+    if (annotSaving) return;
     const blob = serializeAnnotations();
     if (annotSaveTimer) { clearTimeout(annotSaveTimer); annotSaveTimer = null; }
     try { localStorage.setItem(annotKey(activeDsid), JSON.stringify(blob)); }
     catch (e) { /* quota / disabled */ }
     setSaveState('saving');
     const targetDsid = activeDsid;
+    // Single-flight: while this POST is in flight an unload beacon must NOT fire a
+    // second POST for the same state — with no annotation child yet, two concurrent
+    // find-or-creates each create a duplicate dataset with the same name.
+    annotSaving = true;
     try {
         const r = await fetch(annotUrl(targetDsid), {
             method: 'POST',
@@ -1954,6 +2000,8 @@ async function saveAnnotationsServer() {
     } catch (e) {
         if (targetDsid === activeDsid) setSaveState('error', e.message);
         cgToast('Could not save annotations: ' + e.message, 'bi-exclamation-triangle', 4000);
+    } finally {
+        annotSaving = false;
     }
 }
 
@@ -1961,10 +2009,20 @@ async function saveAnnotationsServer() {
 // blob with the session cookie even as the page unloads.
 function beaconSaveAnnotations() {
     if (!HAS_SERVER) return false;
+    // A fetch save already covers the current state (localStorage holds it too);
+    // don't race it with a beacon that would find-or-create in parallel.
+    if (annotSaving) return false;
     try {
         const body = new Blob([JSON.stringify(serializeAnnotations())],
                               { type: 'application/json' });
-        return navigator.sendBeacon(annotUrl(activeDsid), body);
+        const ok = navigator.sendBeacon(annotUrl(activeDsid), body);
+        // Clear dirty the moment the beacon is queued. Closing a tab fires BOTH
+        // visibilitychange(hidden) AND pagehide; without this each would send its
+        // own beacon and, when no annotation child exists yet, each find-or-create
+        // would make a duplicate dataset with the same name. Same guard stops a
+        // swap-flush beacon from being followed by an unload beacon.
+        if (ok) annotDirty = false;
+        return ok;
     } catch (e) { return false; }
 }
 
@@ -2171,7 +2229,7 @@ function setupInteractions() {
             const d = regionDrag.region;
             // Persist the delta from the auto-projected position, so re-projection
             // (reload / re-stitch) keeps the correction.
-            const base = projectStageRectToBasePx(d.stage_bbox_mm, geomFor(activeDsid));
+            const base = projectStageRectToBasePx(d.stage_bbox_mm, geomFor(activeDsid), d.magnification);
             if (base) saveOverride(activeDsid, d.dsid,
                 { dx: Math.round(d.x - base.x), dy: Math.round(d.y - base.y) });
             cgToast(`${d.magnification ? d.magnification + '×' : 'Region'} position saved`,
