@@ -271,26 +271,32 @@ def create_blueprint(auth):
 
         try:
             client = get_user_client()
-            try:
-                result = client.samples.create(
-                    sample_name=sample_name,
-                    sample_type=sample_type,
-                    description=description,
-                    project_id=project_id,
-                    owner_orcid=orcid,
-                    timestamp=timestamp,
-                    public=public_val,
-                    parents=parents,
-                    children=children,
-                    scientific_metadata=sci_meta,
-                )
-            except Exception:
-                # will error if the sample isn't found; sending user to next except block with 500 error
-                results = client.samples.list(sample_name = sample_name, project_id = project_id)
-                if len(results) > 0:
-                    result = results[-1]
-                else:
-                    raise
+
+            if not data.get('allow_duplicate'):
+                existing = client.samples.list(sample_name=sample_name, project_id=project_id)
+                if existing:
+                    return jsonify({'conflict': True, 'matches': [
+                        {
+                            'id':   s['unique_id'],
+                            'name': s['sample_name'],
+                            'type': s.get('sample_type') or '',
+                            'url':  f"{flask.request.script_root}/{project_id}/samples/{s['unique_id']}",
+                        }
+                        for s in existing
+                    ]}), 409
+
+            result = client.samples.create(
+                sample_name=sample_name,
+                sample_type=sample_type,
+                description=description,
+                project_id=project_id,
+                owner_orcid=orcid,
+                timestamp=timestamp,
+                public=public_val,
+                parents=parents,
+                children=children,
+                scientific_metadata=sci_meta,
+            )
 
             uid = result.get('unique_id', '')
             for did in linked_datasets:

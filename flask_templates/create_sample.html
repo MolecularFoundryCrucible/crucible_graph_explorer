@@ -12,17 +12,46 @@
 {% block content %}
 <h1 class="fw-semibold mb-4" style="font-size:var(--fs-2xl);">New Sample</h1>
 
+{% if existing %}
+<div class="alert alert-warning" role="alert">
+    <div class="fw-semibold mb-1">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        {% if existing | length == 1 %}
+            A sample named "{{ prefill['sample_name'] }}" already exists in this project.
+        {% else %}
+            {{ existing | length }} samples named "{{ prefill['sample_name'] }}" already exist in this project.
+        {% endif %}
+    </div>
+    <div class="mb-2" style="font-size:var(--fs-md);">
+        Open one of them to use it instead, or create another sample with the same name.
+        Nothing has been created yet.
+    </div>
+    {% for s in existing %}
+    <div class="list-row" onmouseup="navIfNoSelection(event, '{{ base }}/{{ pc['project_id'] }}/samples/{{ s['unique_id'] }}')">
+        <i class="bi bi-flask me-1 text-secondary"></i>
+        <span class="fw-medium">{{ s['sample_name'] }}</span>
+        {% if s['sample_type'] %}
+        <span class="text-muted" style="font-size:var(--fs-xs);">{{ s['sample_type'] }}</span>
+        {% endif %}
+        <span class="mfid ms-auto" style="font-size:var(--fs-xs);">{{ s['unique_id'] }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 <form method="POST">
     <div class="mb-3">
         <label for="sample_name" class="form-label fw-semibold">Sample name <span class="text-danger">*</span></label>
-        <input type="text" name="sample_name" id="sample_name" class="form-control" required autofocus>
+        <input type="text" name="sample_name" id="sample_name" class="form-control" required autofocus
+               value="{{ prefill['sample_name'] if prefill else '' }}">
     </div>
 
     <div class="mb-3">
         <label class="form-label fw-semibold">Sample type <span class="text-danger">*</span></label>
         <div class="input-group mb-1">
             <input type="text" name="sample_type" id="sample_type" class="form-control"
-                   placeholder="Search or enter new type…" autocomplete="off" required>
+                   placeholder="Search or enter new type…" autocomplete="off" required
+                   value="{{ prefill['sample_type'] if prefill else '' }}">
             <button type="button" class="btn btn-outline-secondary" onclick="searchType()">
                 <i class="bi bi-search"></i>
             </button>
@@ -32,7 +61,7 @@
 
     <div class="mb-4">
         <label for="description" class="form-label fw-semibold">Description <span class="text-muted fw-normal">(optional)</span></label>
-        <textarea name="description" id="description" class="form-control" rows="3"></textarea>
+        <textarea name="description" id="description" class="form-control" rows="3">{{ prefill['description'] if prefill else '' }}</textarea>
     </div>
 
     <!-- ── Parent samples ──────────────────────────────────────────────── -->
@@ -71,10 +100,21 @@
     <div id="hiddenParents"></div>
     <div id="hiddenChildren"></div>
 
+    {% if existing %}
+    <!-- Editing the name after the warning must re-run the check, so the ack is name-bound. -->
+    <input type="hidden" name="duplicate_ack_name" value="{{ prefill['sample_name'] }}">
+    {% endif %}
+
     <div class="d-flex gap-2">
+        {% if existing %}
+        <button type="submit" name="allow_duplicate" value="1" class="btn btn-warning">
+            <i class="bi bi-plus-circle me-1"></i>Create another with this name
+        </button>
+        {% else %}
         <button type="submit" class="btn btn-primary">
             <i class="bi bi-plus-circle me-1"></i>Create Sample
         </button>
+        {% endif %}
         <a href="{{ base }}/{{ pc['project_id'] }}/" class="btn btn-outline-secondary">Cancel</a>
     </div>
 </form>
@@ -187,5 +227,11 @@ function renderSelected(role) {
         `<input type="hidden" name="${r.field}" value="${id}">`
     ).join('');
 }
+
+// Restore picks when the form comes back with a duplicate-name warning.
+const PREFILL_LINKS = {{ ({'parent': prefill['parents'], 'child': prefill['children']} if prefill else {}) | tojson }};
+Object.entries(PREFILL_LINKS).forEach(([role, samples]) =>
+    (samples || []).forEach(s => addSelected(role, s))
+);
 </script>
 {% endblock %}

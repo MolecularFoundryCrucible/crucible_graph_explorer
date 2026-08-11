@@ -15,6 +15,7 @@
     <button class="btn-close" onclick="cgCloseAllPanels()" aria-label="Close"></button>
   </div>
   <div class="cg-create-panel-body">
+    <div id="sp-conflict" class="alert alert-warning py-2 px-3 mb-3" style="display:none;"></div>
     <div class="mb-3">
       <label class="form-label fw-semibold" for="sp-name">Name <span class="text-danger">*</span></label>
       <input type="text" id="sp-name" class="form-control" autocomplete="off">
@@ -488,6 +489,41 @@ const spLinks = new CgLinkBuilder('sp-links-container', '{{ pid }}', SAMPLE_LINK
 const dsLinks = new CgLinkBuilder('ds-links-container', '{{ pid }}', DATASET_LINK_TYPES);
 const ntLinks = new CgLinkBuilder('nt-links-container', '{{ pid }}', NOTE_LINK_TYPES);
 
+// ── duplicate sample names ────────────────────────────────────────────────────
+// Bound to the name it was granted for, so editing the name re-runs the check.
+let _spDupAckName = null;
+
+function _cgShowSampleConflict(pid, name, matches) {
+    const box = document.getElementById('sp-conflict');
+    const heading = matches.length === 1
+        ? `A sample named “${escHtml(name)}” already exists in this project.`
+        : `${matches.length} samples named “${escHtml(name)}” already exist in this project.`;
+    box.innerHTML = `
+        <div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-1"></i>${heading}</div>
+        <div class="mb-2" style="font-size:var(--fs-md);">
+            Open one of them to use it instead, or create another with the same name.
+            Nothing has been created yet.
+        </div>
+        ${matches.map(m => `
+        <div class="list-row" data-url="${escHtml(m.url)}">
+            <i class="bi bi-flask me-1 text-secondary"></i>
+            <span class="fw-medium">${escHtml(m.name)}</span>
+            ${m.type ? `<span class="text-muted" style="font-size:var(--fs-xs);">${escHtml(m.type)}</span>` : ''}
+            <span class="mfid ms-auto" style="font-size:var(--fs-xs);">${escHtml(m.id)}</span>
+        </div>`).join('')}
+        <button type="button" class="btn btn-warning btn-sm mt-2" id="sp-dup-confirm">
+            <i class="bi bi-plus-circle me-1"></i>Create another with this name
+        </button>`;
+    box.style.display = '';
+    box.querySelectorAll('.list-row').forEach(row =>
+        row.addEventListener('mouseup', e => navIfNoSelection(e, row.dataset.url))
+    );
+    document.getElementById('sp-dup-confirm').addEventListener('click', () => {
+        _spDupAckName = name;
+        cgSubmitSample(pid);
+    });
+}
+
 // ── submit: sample ────────────────────────────────────────────────────────────
 async function cgSubmitSample(pid) {
     const name    = document.getElementById('sp-name').value.trim();
@@ -501,6 +537,7 @@ async function cgSubmitSample(pid) {
     if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; return; }
     const meta = cgParseMetaJson('sp-meta-json', 'sp-meta-error');
     if (meta === undefined) return;
+    document.getElementById('sp-conflict').style.display = 'none';
     _cgSetSubmitting('sp-submit', 'sp-error', true);
     const url    = isEdit ? cgUrl(`/${selectedPid}/api/samples/${editId}/update`) : cgUrl(`/${selectedPid}/api/samples/create`);
     const method = isEdit ? 'PATCH' : 'POST';
@@ -512,12 +549,20 @@ async function cgSubmitSample(pid) {
         public:      document.getElementById('sp-public').checked,
         scientific_metadata: meta,
     };
-    if (!isEdit) body.links = spLinks.export();
+    if (!isEdit) {
+        body.links = spLinks.export();
+        body.allow_duplicate = (_spDupAckName === name);
+    }
     const resp = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
     const data = await resp.json();
     const resetLabel = isEdit
         ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
         : '<i class="bi bi-plus-circle me-1"></i>Create Sample';
+    if (resp.status === 409 && data.conflict) {
+        _cgSetSubmitting('sp-submit', 'sp-error', false, resetLabel);
+        _cgShowSampleConflict(selectedPid, name, data.matches || []);
+        return;
+    }
     if (!resp.ok || data.error) {
         _cgSetSubmitting('sp-submit', 'sp-error', false, resetLabel);
         errEl.textContent = data.error || 'Failed.';
@@ -629,6 +674,8 @@ function cgOpenSamplePanel(editData) {
     document.getElementById('sp-type-results').style.display = 'none';
     document.getElementById('sp-meta-error').style.display   = 'none';
     document.getElementById('sp-error').style.display        = 'none';
+    document.getElementById('sp-conflict').style.display     = 'none';
+    _spDupAckName = null;
 
     // Edit mode: hide project selector and links (not relevant for editing)
     document.getElementById('sp-project').closest('.mb-3').style.display          = isEdit ? 'none' : '';

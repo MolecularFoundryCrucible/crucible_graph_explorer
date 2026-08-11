@@ -16,6 +16,19 @@ from utils.graph import get_entity_graph_nx
 logger = logging.getLogger(__name__)
 
 
+def _link_chips(pc, sample_ids):
+    """Re-hydrate parent/child picks so a re-rendered form keeps its badges."""
+    chips = []
+    for sid in sample_ids:
+        info = pc['samples_by_id'].get(sid) or {}
+        chips.append({
+            'id': sid,
+            'name': info.get('sample_name') or sid,
+            'type': info.get('sample_type') or '',
+        })
+    return chips
+
+
 def create_blueprint(auth):
     bp = Blueprint('samples', __name__)
 
@@ -40,22 +53,35 @@ def create_blueprint(auth):
 
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        try:
-            result = get_user_client().samples.create(
-                sample_name=sample_name,
-                sample_type=sample_type,
-                description=description,
-                project_id=project_id,
-                owner_orcid=orcid,
-                parents=[{'unique_id': pid} for pid in parent_ids],
-                children=[{'unique_id': cid} for cid in child_ids],
+        client = get_user_client()
+
+        acknowledged = (request.form.get('allow_duplicate') == '1'
+                        and request.form.get('duplicate_ack_name') == sample_name)
+        existing = client.samples.list(sample_name=sample_name, project_id=project_id)
+        if existing and not acknowledged:
+            pc = get_project(project_id, orcid)
+            return render_template(
+                'create_sample.html',
+                pc=pc,
+                existing=existing,
+                prefill={
+                    'sample_name': sample_name,
+                    'sample_type': sample_type,
+                    'description': description or '',
+                    'parents': _link_chips(pc, parent_ids),
+                    'children': _link_chips(pc, child_ids),
+                },
             )
-        except Exception:
-            results = get_user_client().samples.list(sample_name = sample_name, project_id = project_id)
-            if len(results) > 0:
-                result = results[-1]
-            else:
-                raise
+
+        result = client.samples.create(
+            sample_name=sample_name,
+            sample_type=sample_type,
+            description=description,
+            project_id=project_id,
+            owner_orcid=orcid,
+            parents=[{'unique_id': pid} for pid in parent_ids],
+            children=[{'unique_id': cid} for cid in child_ids],
+        )
 
         clear_project_cache(project_id, orcid)
         sample_mfid = result.get("unique_id")
