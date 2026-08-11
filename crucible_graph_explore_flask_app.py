@@ -16,7 +16,9 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from crucible import CrucibleClient
 
 from utils.auth import attach_request_logging, get_user_client
-from utils.cache import clear_project_cache, get_project, is_user_in_project
+from utils.cache import (
+    clear_project_cache, clear_user_projects_cache, get_project, is_user_in_project,
+)
 from utils.graph import get_entity_graph_nx, get_project_graph
 from utils.helpers import abbrev_name, humanize_size
 
@@ -159,6 +161,25 @@ def _fetch_user_api_key() -> None:
                            getattr(e, 'status_code', ''), e)
 
 
+def _sync_user_projects() -> None:
+    """Refresh the user's project memberships from the MF proposal database.
+
+    Best-effort — a proposal-DB outage must never block login.
+    """
+    if not flask.session.get('crucible_apikey'):
+        return  # no Crucible account yet; account creation does the initial sync
+    try:
+        orcid = UserSession(flask.session).userinfo['sub']
+        # Raw _request until client.account.sync_projects() ships in nano-crucible >=3.1.1
+        result = get_user_client()._request('post', '/account/sync-projects') or {}
+        added = result.get('projects_added')
+        if added:
+            app.logger.info("Synced %d new project(s) for %s: %s", len(added), orcid, added)
+            clear_user_projects_cache(orcid)
+    except Exception as e:
+        app.logger.warning("Project sync failed: %s", e)
+
+
 def _crucible_user_exists(orcid):
     """Return True if the ORCID has a Crucible account. Result cached in session."""
     if flask.session.get('crucible_user_ok'):
@@ -222,6 +243,7 @@ def login():
 @auth.oidc_auth('orcid')
 def login_go():
     _fetch_user_api_key()
+    _sync_user_projects()
     return redirect(request.script_root + '/')
 
 
