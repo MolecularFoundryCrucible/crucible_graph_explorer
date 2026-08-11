@@ -25,7 +25,8 @@
       <input type="text" id="sp-type" class="form-control" autocomplete="off"
              placeholder="Search or enter new…"
              oninput="cgTypeahead('sp-type','sp-type-results','{{ pid }}','sample-types')">
-      <div id="sp-type-results" class="list-group mt-1" style="display:none;"></div>
+      <div id="sp-type-results" class="list-group mt-1 cg-typeahead-results"
+           data-typeahead-for="sp-type" style="display:none;"></div>
     </div>
     <div class="mb-3">
       <label class="form-label fw-semibold" for="sp-project">Project</label>
@@ -102,7 +103,8 @@
       <input type="text" id="ds-measurement" class="form-control" autocomplete="off"
              placeholder="Search or enter new…"
              oninput="cgTypeahead('ds-measurement','ds-measurement-results','{{ pid }}','measurements')">
-      <div id="ds-measurement-results" class="list-group mt-1" style="display:none;"></div>
+      <div id="ds-measurement-results" class="list-group mt-1 cg-typeahead-results"
+           data-typeahead-for="ds-measurement" style="display:none;"></div>
     </div>
     <div class="mb-3">
       <label class="form-label fw-semibold" for="ds-project">Project</label>
@@ -236,7 +238,15 @@ function cgCloseAllPanels() {
     document.querySelectorAll('.cg-create-panel').forEach(p => p.classList.remove('open'));
     document.getElementById('cgPanelBackdrop').classList.remove('open');
 }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') cgCloseAllPanels(); });
+// Escape closes an open typeahead list first, and only closes the panel once none are open —
+// otherwise dismissing a suggestion list would discard everything typed into the form.
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    const open = [...document.querySelectorAll('.cg-typeahead-results')]
+        .filter(box => box.style.display !== 'none');
+    if (open.length) { open.forEach(box => box.style.display = 'none'); return; }
+    cgCloseAllPanels();
+});
 
 // ── typeahead ─────────────────────────────────────────────────────────────────
 function cgTypeahead(inputId, resultsId, pid, endpoint) {
@@ -247,20 +257,45 @@ function cgTypeahead(inputId, resultsId, pid, endpoint) {
     fetch(`{{ base }}/${pid}/api/${endpoint}?q=${encodeURIComponent(q)}`)
         .then(r => r.json())
         .then(items => {
+            if (input.value.trim() !== q) return;  // stale response, input moved on
             if (!items.length) { results.style.display = 'none'; return; }
             results.innerHTML = items.map(t =>
                 `<button type="button" class="list-group-item list-group-item-action py-1"
-                         style="font-size:var(--fs-sm);"
-                         onclick="document.getElementById('${inputId}').value=${JSON.stringify(t)};
-                                  document.getElementById('${resultsId}').style.display='none';">
-                    ${escHtml(t)}
-                 </button>`
+                         style="font-size:var(--fs-sm);">${escHtml(t)}</button>`
             ).join('');
             results.style.display = '';
-        });
+            results.querySelectorAll('button').forEach((btn, i) =>
+                btn.addEventListener('click', () => {
+                    input.value = items[i];
+                    results.style.display = 'none';
+                })
+            );
+        })
+        .catch(() => { results.style.display = 'none'; });
 }
 
+// Dismiss any open typeahead list on outside click. mousedown beats the suggestion's own
+// click, so the container check below must run before the list can be torn down.
+document.addEventListener('mousedown', e => {
+    document.querySelectorAll('.cg-typeahead-results').forEach(box => {
+        if (box.style.display === 'none') return;
+        const input = document.getElementById(box.dataset.typeaheadFor);
+        if (box.contains(e.target) || input === e.target) return;
+        box.style.display = 'none';
+    });
+});
+
 // ── submit helper ─────────────────────────────────────────────────────────────
+// A request that never yields JSON means the fetch failed outright or the server sent
+// HTML — most often an expired session redirecting to the OIDC login page.
+function cgRequestErrorText(resp) {
+    if (!resp) return 'Could not reach the server. Check your connection and try again.';
+    if (resp.redirected || resp.status === 401 || resp.status === 403) {
+        return 'Your session expired. Reload the page and sign in again.';
+    }
+    return `Server error (${resp.status}). Nothing was created.`;
+}
+
 function _cgSetSubmitting(btnId, errId, submitting, label) {
     const btn = document.getElementById(btnId);
     const err = document.getElementById(errId);
@@ -553,11 +588,19 @@ async function cgSubmitSample(pid) {
         body.links = spLinks.export();
         body.allow_duplicate = (_spDupAckName === name);
     }
-    const resp = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
-    const data = await resp.json();
     const resetLabel = isEdit
         ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
         : '<i class="bi bi-plus-circle me-1"></i>Create Sample';
+    let resp, data;
+    try {
+        resp = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+        data = await resp.json();
+    } catch (err) {
+        _cgSetSubmitting('sp-submit', 'sp-error', false, resetLabel);
+        errEl.textContent = cgRequestErrorText(resp);
+        errEl.style.display = '';
+        return;
+    }
     if (resp.status === 409 && data.conflict) {
         _cgSetSubmitting('sp-submit', 'sp-error', false, resetLabel);
         _cgShowSampleConflict(selectedPid, name, data.matches || []);
@@ -599,11 +642,19 @@ async function cgSubmitDataset(pid) {
         scientific_metadata: meta,
     };
     if (!isEdit) body.links = dsLinks.export();
-    const resp = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
-    const data = await resp.json();
     const resetLabel = isEdit
         ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
         : '<i class="bi bi-plus-circle me-1"></i>Create Dataset';
+    let resp, data;
+    try {
+        resp = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+        data = await resp.json();
+    } catch (err) {
+        _cgSetSubmitting('ds-submit', 'ds-error', false, resetLabel);
+        errEl.textContent = cgRequestErrorText(resp);
+        errEl.style.display = '';
+        return;
+    }
     if (!resp.ok || data.error) {
         _cgSetSubmitting('ds-submit', 'ds-error', false, resetLabel);
         errEl.textContent = data.error || 'Failed.';
@@ -616,15 +667,22 @@ async function cgSubmitDataset(pid) {
             btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Uploading ${i+1}/${_dsFiles.length}…`;
             const fd = new FormData();
             fd.append('file', _dsFiles[i]);
-            const ur = await fetch(`{{ base }}/${selectedPid}/api/datasets/${data.id}/upload-file`, {
-                method: 'POST', body: fd,
-            });
+            let ur;
+            try {
+                ur = await fetch(`{{ base }}/${selectedPid}/api/datasets/${data.id}/upload-file`, {
+                    method: 'POST', body: fd,
+                });
+            } catch (err) {
+                _cgSetSubmitting('ds-submit', 'ds-error', false, resetLabel);
+                errEl.textContent = `File "${_dsFiles[i].name}" upload failed: ${cgRequestErrorText(ur)}`;
+                errEl.style.display = '';
+                return;
+            }
             if (!ur.ok) {
                 const ud = await ur.json().catch(() => ({}));
+                _cgSetSubmitting('ds-submit', 'ds-error', false, resetLabel);
                 errEl.textContent = `File "${_dsFiles[i].name}" upload failed: ${ud.error || ur.status}`;
                 errEl.style.display = '';
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Create Dataset';
                 return;
             }
         }
@@ -639,18 +697,27 @@ async function cgSubmitNote(pid) {
     const errEl = document.getElementById('nt-error');
     if (!name) { errEl.textContent = 'Title is required.'; errEl.style.display = ''; return; }
     _cgSetSubmitting('nt-submit', 'nt-error', true);
-    const resp = await fetch(`{{ base }}/${selectedPid}/api/datasets/create`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            dataset_name: name,
-            measurement:  'MDNote',
-            links: ntLinks.export(),
-        }),
-    });
-    const data = await resp.json();
+    const resetLabel = '<i class="bi bi-plus-circle me-1"></i>Create &amp; Edit Note';
+    let resp, data;
+    try {
+        resp = await fetch(`{{ base }}/${selectedPid}/api/datasets/create`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                dataset_name: name,
+                measurement:  'MDNote',
+                links: ntLinks.export(),
+            }),
+        });
+        data = await resp.json();
+    } catch (err) {
+        _cgSetSubmitting('nt-submit', 'nt-error', false, resetLabel);
+        errEl.textContent = cgRequestErrorText(resp);
+        errEl.style.display = '';
+        return;
+    }
     if (!resp.ok || data.error) {
-        _cgSetSubmitting('nt-submit', 'nt-error', false, '<i class="bi bi-plus-circle me-1"></i>Create &amp; Edit Note');
+        _cgSetSubmitting('nt-submit', 'nt-error', false, resetLabel);
         errEl.textContent = data.error || 'Creation failed.';
         errEl.style.display = '';
         return;
@@ -684,6 +751,7 @@ function cgOpenSamplePanel(editData) {
     const title  = document.querySelector('#cgSamplePanel .cg-create-panel-title');
     const submit = document.getElementById('sp-submit');
     title.textContent  = isEdit ? 'Edit Sample'  : 'New Sample';
+    submit.disabled    = false;
     submit.innerHTML   = isEdit
         ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
         : '<i class="bi bi-plus-circle me-1"></i>Create Sample';
@@ -720,6 +788,7 @@ function cgOpenDatasetPanel(editData) {
     const title  = document.querySelector('#cgDatasetPanel .cg-create-panel-title');
     const submit = document.getElementById('ds-submit');
     title.textContent = isEdit ? 'Edit Dataset' : 'New Dataset';
+    submit.disabled   = false;
     submit.innerHTML  = isEdit
         ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
         : '<i class="bi bi-plus-circle me-1"></i>Create Dataset';
@@ -814,6 +883,9 @@ function _cgCancelDeletion(btnId) {
 }
 
 function cgOpenNotePanel() {
+    const submit = document.getElementById('nt-submit');
+    submit.disabled  = false;
+    submit.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Create &amp; Edit Note';
     document.getElementById('nt-name').value = '';
     document.getElementById('nt-error').style.display = 'none';
     ntLinks.reset();
