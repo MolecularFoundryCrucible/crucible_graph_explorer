@@ -18,11 +18,14 @@ CORS setup.
 
 import json
 import os
+from datetime import datetime, timezone
 
-from flask import (Blueprint, abort, jsonify, render_template, request,
-                   send_from_directory, session, url_for)
+from flask import (Blueprint, abort, current_app, jsonify, render_template,
+                   request, send_from_directory, session, url_for)
 from flask_pyoidc.user_session import UserSession
 
+from overlays import adapter_measurements, get_adapter
+from overlays.base import open_h5_cloud, open_h5_local
 from utils.auth import get_user_client
 
 
@@ -37,40 +40,35 @@ MEASUREMENT_TYPES = ['stitched_mosaic']
 URL_PREFIX = '/dataset-view/mosaic'
 LABEL = 'Mosaic Viewer'
 
-# Annotations are persisted in a per-(mosaic, user) CHILD dataset — the mosaic
-# itself is never mutated. The child is a metadata-only dataset whose
-# scientific_metadata holds the annotation blob under ANNOT_KEY.
+# Annotations are persisted in a single PROJECT-SHARED CHILD dataset per mosaic
+# (v4) — the mosaic itself is never mutated. The child is a metadata-only dataset
+# whose scientific_metadata holds the annotation blob under ANNOT_KEY. Writes are
+# mediated by the admin client and merged item-wise so collaborators share one
+# canvas non-destructively.
 ANNOT_MEASUREMENT = 'mosaic_annotations'
 ANNOT_KEY = 'viewer_annotations'
 
 
-def _find_annotation_child(client, parent_dsid, orcid):
-    """The logged-in user's mosaic_annotations child of parent_dsid, or None.
+def _find_annotation_child(client, parent_dsid):
+    """The single PROJECT-SHARED mosaic_annotations child of parent_dsid, or None.
 
-    There should be at most one such child per (mosaic, user), but a past
-    find-or-create race could have left duplicates behind (two beacons/POSTs
-    creating in parallel before either committed). To stay stable we always
-    return the SAME one — the oldest. Crucible ids are time-ordered, so the
-    lexicographically smallest id is the first created; picking it deterministically
-    makes the GET (load) and every POST (save) converge on a single canonical child
-    instead of bouncing between duplicates.
+    v4 makes annotations project-shared (one child per mosaic, not per-user), so
+    the ORCID filter is gone — every collaborator reads/writes the same child.
+    Crucible ids are time-ordered, so we deterministically adopt the OLDEST match
+    as the canonical shared child. Any per-user children left by the old v3 scheme
+    are simply not returned (they go inert; adopt-oldest migration, plan §7c).
     """
     try:
         children = client.datasets.list_children(
-            parent_dsid, measurement=ANNOT_MEASUREMENT, owner_orcid=orcid)
+            parent_dsid, measurement=ANNOT_MEASUREMENT)
     except Exception:
         children = None
     matches = []
     for ch in children or []:
-        # Lenient: skip only on a POSITIVE mismatch. If the children endpoint
-        # honored the measurement/owner_orcid query filters, the list is already
-        # correct and a record may omit those fields — rejecting on absence would
-        # miss the existing child and create a duplicate on every save.
+        # Lenient: skip only on a POSITIVE mismatch (a record may omit the field
+        # if the endpoint already honored the measurement query filter).
         m = ch.get('measurement')
         if m is not None and m != ANNOT_MEASUREMENT:
-            continue
-        owner = ch.get('owner_orcid')
-        if orcid and owner is not None and owner != orcid:
             continue
         matches.append(ch)
     if not matches:
@@ -78,40 +76,124 @@ def _find_annotation_child(client, parent_dsid, orcid):
     return min(matches, key=lambda ch: ch.get('unique_id') or '')
 
 
-def _create_annotation_child(client, parent_dsid, orcid, blob):
-    """Create + link a metadata-only annotation child holding the blob; return id.
+def _create_annotation_child(admin_client, parent_dsid, creator_orcid, blob):
+    """Create + link the PROJECT-SHARED annotation child holding the blob; return id.
 
-    The child inherits the parent mosaic's project and sample(s) so it groups with
-    it. The mosaic (parent) is never modified — only a new child is created and
-    linked via link_parent_child.
+    Written through the admin (service-account) client so the child's ACL can be
+    granted the project access-group with write=True — Crucible authorizes
+    metadata writes by access-group, and the GET ACL endpoint doesn't expose the
+    create-time default, so we set it explicitly. The child inherits the parent
+    mosaic's project and sample(s); the mosaic itself is never modified.
     """
     from crucible.models import Dataset
 
-    parent = client.datasets.get(parent_dsid)
+    parent = admin_client.datasets.get(parent_dsid)
     parent = parent if isinstance(parent, dict) else {}
     parent_name = parent.get('dataset_name') or parent_dsid
-    orcid_short = (orcid or 'anon').split('-')[-1][:8]
+    project_id = parent.get('project_id')
     ds = Dataset(
-        dataset_name=f'annotations_{parent_name}_{orcid_short}',
-        project_id=parent.get('project_id'),
+        dataset_name=f'annotations_{parent_name}',
+        project_id=project_id,
         measurement=ANNOT_MEASUREMENT,
         data_type=ANNOT_MEASUREMENT,
-        owner_orcid=orcid,
+        owner_orcid=creator_orcid,
     )
     # No files_to_upload → metadata-only dataset. Blob lands in scientific_metadata.
-    record = client.datasets.create(dataset=ds, scientific_metadata={ANNOT_KEY: blob})
+    record = admin_client.datasets.create(
+        dataset=ds, scientific_metadata={ANNOT_KEY: blob})
     child_id = record['dsid']
-    client.datasets.link_parent_child(parent_dsid, child_id)
+    admin_client.datasets.link_parent_child(parent_dsid, child_id)
+    # Make the project group's write access explicit so any project member's save
+    # (mediated by admin_client) is consistent with the ACL model. Admin-only call.
+    if project_id:
+        try:
+            admin_client.datasets.add_access_group(
+                child_id, project_id, read=True, write=True)
+        except Exception:
+            pass
     # Propagate the sample(s) so the annotation child sits in the same group as the
     # mosaic. Non-fatal — the parent/child link is what actually matters.
     try:
-        for s in (client.samples.list(dataset_id=parent_dsid) or []):
+        for s in (admin_client.samples.list(dataset_id=parent_dsid) or []):
             sid = s.get('unique_id')
             if sid:
-                client.datasets.add_sample(child_id, sid)
+                admin_client.datasets.add_sample(child_id, sid)
     except Exception:
         pass
     return child_id
+
+
+# ── Item-level merge (shared, non-destructive persistence) ─────────────────────
+# Shared annotations must merge item-wise so two collaborators' concurrent saves
+# don't clobber each other: markers/areas and overlays are keyed by `id`, and the
+# copy with the newer per-item `updated` wins. A `deleted:true` tombstone is
+# retained (never dropped) so a delete stays deleted even after a stale draft
+# reloads. Absence of an item in the incoming blob never deletes it (the poster
+# may simply not have loaded another author's item).
+
+def _ts(s):
+    """Parse an ISO-8601 timestamp to epoch seconds; 0.0 on absence/parse error."""
+    if not s:
+        return 0.0
+    try:
+        return datetime.fromisoformat(
+            str(s).replace('Z', '+00:00')).timestamp()
+    except Exception:
+        return 0.0
+
+
+def _merge_item_lists(base_items, incoming_items):
+    """Union two item lists by `id`; per-item newer `updated` wins (ties → incoming)."""
+    by_id = {}
+    order = []
+    for src in (base_items or [], incoming_items or []):
+        incoming = src is incoming_items
+        for it in src:
+            if not isinstance(it, dict):
+                continue
+            iid = it.get('id')
+            key = iid if iid is not None else ('__anon__', id(it))
+            prev = by_id.get(key)
+            if prev is None:
+                by_id[key] = it
+                order.append(key)
+            elif incoming and _ts(it.get('updated')) >= _ts(prev.get('updated')):
+                by_id[key] = it
+    return [by_id[k] for k in order]
+
+
+def _merge_blobs(base, incoming):
+    """Merge a posted blob into the current server blob (item-wise; §7b).
+
+    Item lists (`annotations`, `overlays`) merge by id; all other top-level fields
+    (origin, detail_overrides, …) come from whichever blob has the newer top-level
+    `updated`. Returns the merged blob so the client can reconcile.
+    """
+    if not isinstance(base, dict):
+        return incoming
+    if not isinstance(incoming, dict):
+        return base
+    merged = dict(base)
+    merged['annotations'] = _merge_item_lists(
+        base.get('annotations'), incoming.get('annotations'))
+    merged['overlays'] = _merge_item_lists(
+        base.get('overlays'), incoming.get('overlays'))
+    newer = incoming if _ts(incoming.get('updated')) >= _ts(base.get('updated')) else base
+    for k in ('schema', 'version', 'dataset_id', 'origin', 'origin_user_set',
+              'detail_overrides', 'updated', 'author'):
+        if k in newer:
+            merged[k] = newer[k]
+    return merged
+
+
+def _reduce_params():
+    """Common overlay-reduce query params, shared by the cloud and /local routes."""
+    return {
+        'reduction': request.args.get('reduction'),
+        'x_axis':    request.args.get('x_axis'),
+        'spec_min':  request.args.get('spec_min', type=float),
+        'spec_max':  request.args.get('spec_max', type=float),
+    }
 
 # Local .ome.tif files for the /local dev route (not used in production).
 _TEST_DATA_DIR = os.path.join(
@@ -215,6 +297,28 @@ def _local_siblings(exclude):
     return out
 
 
+def _local_h5s():
+    """Local .h5 files in test_data/ — the offline harness's overlay-source stand-ins."""
+    if not os.path.isdir(_TEST_DATA_DIR):
+        return []
+    return sorted(f for f in os.listdir(_TEST_DATA_DIR)
+                  if f.lower().endswith('.h5'))
+
+
+def _local_overlay_measurement(filename):
+    """Guess a local h5's measurement from its filename (offline picker only).
+
+    Cloud datasets carry a real ``measurement``; local files don't, so match the
+    filename against the registered adapter measurement types (the hyperspec test
+    file is named ``…_hyperspec_picam_mcl.h5``).
+    """
+    low = filename.lower()
+    for meas in adapter_measurements():
+        if meas.lower() in low:
+            return meas
+    return None
+
+
 def create_blueprint(auth, helpers):
     bp = Blueprint('dview_mosaic', __name__)
     is_user_in_project = helpers['is_user_in_project']
@@ -238,6 +342,9 @@ def create_blueprint(auth, helpers):
             geometry=geometry,
             viewer_orcid=_current_orcid(),
             has_server=True,   # durable tier = Crucible child dataset
+            # Measurement types that have an overlay adapter — the "Add overlay"
+            # picker shows only sample datasets whose measurement is in this set.
+            overlay_measurements=adapter_measurements(),
         )
 
     def _signed_mosaic_url(client, dsid):
@@ -380,23 +487,28 @@ def create_blueprint(auth, helpers):
             return jsonify({'error': 'Dataset not found.'}), 404
         return jsonify({'dataset': _dataset_link_payload(ds)})
 
-    # ── annotation persistence (per-user child dataset) ───────────────────────
+    # ── annotation persistence (project-shared child dataset) ─────────────────
     @bp.route('/<project_id>/<dsid>/annotations')
     @auth.oidc_auth('orcid')
     def get_annotations(project_id, dsid):
-        """Return the current user's saved annotation blob for this mosaic (or null).
+        """Return the PROJECT-SHARED annotation blob for this mosaic (or null).
 
-        Response: {'annotations': <blob|null>, 'annotation_dsid': <id|null>}.
+        Response: {'annotations': <blob|null>, 'annotation_dsid': <id|null>}. Read
+        through admin_client so an adopted v3 child (whose ACL predates the shared
+        grant) is still readable by every project member.
         """
         if not is_user_in_project(project_id):
             abort(403)
-        client = get_user_client()
-        child = _find_annotation_child(client, dsid, _current_orcid())
+        # Service-account client: shared-annotation reads are mediated through it
+        # so an adopted v3 child (whose ACL predates the shared grant) is still
+        # readable by every project member. The gate above is the auth boundary.
+        admin_client = current_app.admin_client
+        child = _find_annotation_child(admin_client, dsid)
         if not child:
             return jsonify({'annotations': None, 'annotation_dsid': None})
         child_id = child.get('unique_id')
         try:
-            meta = client.datasets.get_scientific_metadata(child_id) or {}
+            meta = admin_client.datasets.get_scientific_metadata(child_id) or {}
         except Exception as e:
             return jsonify({'error': str(e)}), 502
         return jsonify({'annotations': meta.get(ANNOT_KEY),
@@ -405,33 +517,105 @@ def create_blueprint(auth, helpers):
     @bp.route('/<project_id>/<dsid>/annotations', methods=['POST'])
     @auth.oidc_auth('orcid')
     def save_annotations(project_id, dsid):
-        """Find-or-create this user's annotation child and store the posted blob.
+        """Merge the posted blob into the project-shared annotation child (§7).
 
-        The mosaic itself is never modified. update_scientific_metadata MERGES, so
-        only the ANNOT_KEY entry is written. Accepts both fetch() (application/json)
-        and navigator.sendBeacon() (force-parsed) bodies.
+        Read-modify-write with item-level merge so concurrent collaborators don't
+        clobber each other: markers/areas and overlays merge by id (newer wins),
+        deletes are tombstoned. Writes are mediated by admin_client; the mosaic
+        itself is never modified. Returns the merged blob so the client reconciles.
+        Accepts both fetch() (application/json) and sendBeacon() bodies.
         """
         if not is_user_in_project(project_id):
             abort(403)
+        # Writes are mediated by the service-account client (Crucible authorizes
+        # metadata writes by access-group). The gate above is the auth boundary.
+        admin_client = current_app.admin_client
         blob = request.get_json(force=True, silent=True)
         if not isinstance(blob, dict):
             return jsonify({'error': 'Expected a JSON annotation blob.'}), 400
-        client = get_user_client()
         orcid = _current_orcid()
         try:
-            child = _find_annotation_child(client, dsid, orcid)
+            child = _find_annotation_child(admin_client, dsid)
             if child:
                 child_id = child.get('unique_id')
-                client.datasets.update_scientific_metadata(child_id, {ANNOT_KEY: blob})
+                current = (admin_client.datasets.get_scientific_metadata(child_id)
+                           or {}).get(ANNOT_KEY)
+                merged = _merge_blobs(current, blob) if current else blob
+                admin_client.datasets.update_scientific_metadata(
+                    child_id, {ANNOT_KEY: merged})
             else:
-                child_id = _create_annotation_child(client, dsid, orcid, blob)
+                merged = blob
+                child_id = _create_annotation_child(
+                    admin_client, dsid, orcid, merged)
         except Exception as e:
             return jsonify({'error': str(e)}), 502
         return jsonify({'annotation_dsid': child_id,
-                        'updated': blob.get('updated')})
+                        'annotations': merged,
+                        'updated': merged.get('updated')})
 
+    # ── correlative overlays (adapter-backed reductions) ──────────────────────
+    # Other-modality datasets (starting with hyperspec Raman/PL) register onto the
+    # mosaic as blended layers. The reduction is computed server-side by the
+    # target's overlay adapter and returned as a small JSON scalar field — the raw
+    # cube never reaches the browser.
 
+    def _cloud_adapter(target_dsid):
+        """(adapter, dataset) for a target dataset, or (None, ds) if not overlay-able."""
+        try:
+            ds = get_user_client().datasets.get(target_dsid)
+        except Exception:
+            return None, None
+        meas = ds.get('measurement') if isinstance(ds, dict) else None
+        return get_adapter(meas), ds
 
+    @bp.route('/<project_id>/<dsid>/overlay/<target_dsid>/descriptor')
+    @auth.oidc_auth('orcid')
+    def overlay_descriptor(project_id, dsid, target_dsid):
+        if not is_user_in_project(project_id):
+            abort(403)
+        adapter, _ = _cloud_adapter(target_dsid)
+        if not adapter:
+            return jsonify({'error': 'No overlay adapter for this dataset.'}), 404
+        try:
+            h5 = open_h5_cloud(target_dsid, get_user_client())
+            return jsonify(adapter.descriptor(h5))
+        except Exception as e:
+            return jsonify({'error': str(e)}), 502
+
+    @bp.route('/<project_id>/<dsid>/overlay/<target_dsid>/reduce')
+    @auth.oidc_auth('orcid')
+    def overlay_reduce(project_id, dsid, target_dsid):
+        if not is_user_in_project(project_id):
+            abort(403)
+        adapter, _ = _cloud_adapter(target_dsid)
+        if not adapter:
+            return jsonify({'error': 'No overlay adapter for this dataset.'}), 404
+        try:
+            h5 = open_h5_cloud(target_dsid, get_user_client())
+            return jsonify(adapter.reduce(h5, _reduce_params()))
+        except Exception as e:
+            return jsonify({'error': str(e)}), 502
+
+    @bp.route('/<project_id>/<dsid>/overlay/<target_dsid>/probe')
+    @auth.oidc_auth('orcid')
+    def overlay_probe(project_id, dsid, target_dsid):
+        if not is_user_in_project(project_id):
+            abort(403)
+        adapter, _ = _cloud_adapter(target_dsid)
+        if not adapter:
+            return jsonify({'error': 'No overlay adapter for this dataset.'}), 404
+        xi = request.args.get('xi', type=int)
+        yi = request.args.get('yi', type=int)
+        if xi is None or yi is None:
+            return jsonify({'error': 'xi and yi are required.'}), 400
+        try:
+            h5 = open_h5_cloud(target_dsid, get_user_client())
+            pr = adapter.probe(h5, xi, yi)
+            if pr is None:
+                return jsonify({'error': 'Pixel out of range.'}), 404
+            return jsonify(pr)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 502
 
     # ── local dev routes: test the viewer against a file in test_data/ ─────────
     @bp.route('/localfile/<path:filename>')
@@ -462,6 +646,7 @@ def create_blueprint(auth, helpers):
             geometry=_local_meta(filename),   # geometry from the sidecar JSON
             viewer_orcid=_current_orcid(),
             has_server=True,   # durable tier = dev-only .annot.json sidecar
+            overlay_measurements=adapter_measurements(),
         )
 
     @bp.route('/local/<string:filename>/siblings')
@@ -472,7 +657,9 @@ def create_blueprint(auth, helpers):
     @bp.route('/local/<string:filename>/sample-datasets')
     @auth.oidc_auth('orcid')
     def local_sample_datasets(filename):
-        # Offline picker: every other local TIFF stands in for a sample dataset.
+        # Offline picker: every other local TIFF stands in for a sample dataset,
+        # and every local .h5 stands in for an overlay-source dataset (so the
+        # "Add overlay" picker, which filters by adapter measurement, finds it).
         out = []
         for f in _local_tifs():
             if f == filename:
@@ -482,6 +669,13 @@ def create_blueprint(auth, helpers):
                 'dsid': f, 'project_id': None, 'dataset_name': f,
                 'measurement': 'stitched_mosaic',
                 'instrument': m.get('coord_frame') or 'local',
+                'timestamp': None, 'sample_name': 'local', 'page_url': None,
+            })
+        for f in _local_h5s():
+            out.append({
+                'dsid': f, 'project_id': None, 'dataset_name': f,
+                'measurement': _local_overlay_measurement(f) or 'unknown',
+                'instrument': 'local (h5)',
                 'timestamp': None, 'sample_name': 'local', 'page_url': None,
             })
         return jsonify({'datasets': out})
@@ -536,11 +730,72 @@ def create_blueprint(auth, helpers):
         blob = request.get_json(force=True, silent=True)
         if not isinstance(blob, dict):
             return jsonify({'error': 'Expected a JSON annotation blob.'}), 400
+        # The sidecar is inherently shared (one file), so apply the same item-level
+        # merge as the cloud tier for parity — a stale draft can't resurrect a
+        # deleted item or clobber a newer edit.
+        p = _local_annot_path(filename)
+        current = None
+        if os.path.isfile(p):
+            try:
+                with open(p, encoding='utf-8') as fh:
+                    current = json.load(fh)
+            except Exception:
+                current = None
+        merged = _merge_blobs(current, blob) if current else blob
         try:
-            with open(_local_annot_path(filename), 'w', encoding='utf-8') as fh:
-                json.dump(blob, fh, indent=2)
+            with open(p, 'w', encoding='utf-8') as fh:
+                json.dump(merged, fh, indent=2)
         except Exception as e:
             return jsonify({'error': str(e)}), 500
-        return jsonify({'annotation_dsid': filename, 'updated': blob.get('updated')})
+        return jsonify({'annotation_dsid': filename, 'annotations': merged,
+                        'updated': merged.get('updated')})
+
+    # ── local overlay routes (adapter reads test_data/<file>.h5 directly) ──────
+    def _local_adapter(target):
+        """(adapter, abspath) for a local overlay target, or (None, None)."""
+        path = os.path.join(_TEST_DATA_DIR, target)
+        if not os.path.isfile(path):
+            return None, None
+        return get_adapter(_local_overlay_measurement(target)), path
+
+    @bp.route('/local/<string:filename>/overlay/<path:target>/descriptor')
+    @auth.oidc_auth('orcid')
+    def local_overlay_descriptor(filename, target):
+        adapter, path = _local_adapter(target)
+        if not adapter:
+            return jsonify({'error': 'No overlay adapter for this file.'}), 404
+        try:
+            return jsonify(adapter.descriptor(open_h5_local(path)))
+        except Exception as e:
+            return jsonify({'error': str(e)}), 502
+
+    @bp.route('/local/<string:filename>/overlay/<path:target>/reduce')
+    @auth.oidc_auth('orcid')
+    def local_overlay_reduce(filename, target):
+        adapter, path = _local_adapter(target)
+        if not adapter:
+            return jsonify({'error': 'No overlay adapter for this file.'}), 404
+        try:
+            return jsonify(adapter.reduce(open_h5_local(path), _reduce_params()))
+        except Exception as e:
+            return jsonify({'error': str(e)}), 502
+
+    @bp.route('/local/<string:filename>/overlay/<path:target>/probe')
+    @auth.oidc_auth('orcid')
+    def local_overlay_probe(filename, target):
+        adapter, path = _local_adapter(target)
+        if not adapter:
+            return jsonify({'error': 'No overlay adapter for this file.'}), 404
+        xi = request.args.get('xi', type=int)
+        yi = request.args.get('yi', type=int)
+        if xi is None or yi is None:
+            return jsonify({'error': 'xi and yi are required.'}), 400
+        try:
+            pr = adapter.probe(open_h5_local(path), xi, yi)
+            if pr is None:
+                return jsonify({'error': 'Pixel out of range.'}), 404
+            return jsonify(pr)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 502
 
     return bp
