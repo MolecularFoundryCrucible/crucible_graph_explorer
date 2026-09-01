@@ -77,7 +77,7 @@ app.config.update(
     SECRET_KEY=os.getenv("PYOIDC_SECRET"),
 )
 
-crucible_api_url = os.getenv("CRUCIBLE_API_URL", "https://crucible.lbl.gov/api/v2")
+crucible_api_url = os.getenv("CRUCIBLE_API_URL", "https://crucible.lbl.gov/api/v3")
 crucible_api_key = os.getenv("CRUCIBLE_API_KEY")
 app.admin_client = CrucibleClient(api_url=crucible_api_url, api_key=crucible_api_key)
 attach_request_logging(app.admin_client, tag="crucible-admin")
