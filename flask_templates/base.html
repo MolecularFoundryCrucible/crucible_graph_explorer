@@ -89,6 +89,12 @@
                 {% endblock %}
             </ol>
             <div class="d-flex align-items-center gap-1 ms-2">
+                {% if current_user_orcid %}
+                <button class="nav-icon" title="Scan resource QR code" aria-label="Scan resource QR code"
+                        onclick="cgQrScannerOpen()">
+                    <i class="bi bi-qr-code-scan"></i>
+                </button>
+                {% endif %}
                 <button class="nav-icon d-none d-sm-flex" title="Quick search (Ctrl+K)"
                         onclick="cgPaletteOpen()" style="gap:0.3rem; width:auto; padding:0 0.5rem; font-size: var(--fs-sm);">
                     <i class="bi bi-search" style="font-size: var(--fs-md);"></i>
@@ -126,6 +132,66 @@
         </div>
     </nav>
     {% endblock %}
+
+    {% if current_user_orcid %}
+    <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-fullscreen-sm-down">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="modal-title fs-5" id="qrScannerTitle">Scan a Crucible resource</h2>
+                        <div class="small text-muted">Scan a sample, dataset, instrument, or project MFID.</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="qrScannerStatus" class="alert alert-secondary py-2 mb-3" role="status">Preparing scanner...</div>
+                    <div class="cg-qr-video-wrap mb-3">
+                        <video id="qrScannerVideo" playsinline muted aria-label="Camera preview"></video>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mb-4">
+                        <button id="qrScannerRetry" type="button" class="btn btn-outline-primary" hidden>
+                            <i class="bi bi-camera me-1"></i>Try camera again
+                        </button>
+                        <button id="qrScannerSwitch" type="button" class="btn btn-outline-secondary" hidden>
+                            <i class="bi bi-arrow-repeat me-1"></i>Switch camera
+                        </button>
+                        <button id="qrScannerTorch" type="button" class="btn btn-outline-secondary" aria-pressed="false" hidden>
+                            <i id="qrScannerTorchIcon" class="bi bi-lightbulb me-1"></i><span id="qrScannerTorchLabel">Turn on light</span>
+                        </button>
+                        <label class="btn btn-outline-secondary mb-0" for="qrScannerFile">
+                            <i class="bi bi-image me-1"></i>Scan an image
+                        </label>
+                        <input id="qrScannerFile" class="visually-hidden" type="file" accept="image/*">
+                    </div>
+                    <div class="border-top pt-3">
+                        <label for="qrScannerMfid" class="form-label fw-semibold">Enter an MFID or Crucible link</label>
+                        <form id="qrScannerManualForm" class="input-group">
+                            <input id="qrScannerMfid" class="form-control font-monospace" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" required placeholder="MFID or resource link">
+                            <button class="btn btn-primary" type="submit">Open</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    let cgQrScannerControllerPromise = null;
+    window.cgQrScannerOpen = async function() {
+        try {
+            cgQrScannerControllerPromise ||= window.loadQrScanner().then(initialize => initialize());
+            const controller = await cgQrScannerControllerPromise;
+            controller.open();
+        } catch (error) {
+            cgQrScannerControllerPromise = null;
+            window.alert(error.message || 'The QR scanner could not be loaded.');
+        }
+    };
+    </script>
+    {% endif %}
 
     <script>
     const _CG_BASE = {{ base | tojson }};

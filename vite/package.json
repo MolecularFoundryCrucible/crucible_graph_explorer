@@ -23,6 +23,7 @@
     "cytoscape": "^3.33.1",
     "cytoscape-dagre": "^2.5.0",
     "cytoscape-elk": "^2.3.0",
-    "markdown-it": "^14.0.0"
+    "markdown-it": "^14.0.0",
+    "qr-scanner": "1.4.2"
   }
 }

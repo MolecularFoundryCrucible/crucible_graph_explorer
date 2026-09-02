@@ -5,3 +5,4 @@ import './src/styles.css'
 window.loadEntityGraph  = () => import('./src/sample-graph.js').then(m => m.initEntityGraph);
 window.loadGraphRender  = () => import('./src/graph-render.js').then(m => m.mountGraph);
 window.loadMDNoteEditor = () => import('./src/mdnote-editor.js').then(m => m.initMDNoteEditor);
+window.loadQrScanner    = () => import('./src/qr-scanner.js').then(m => m.initQrScanner);
