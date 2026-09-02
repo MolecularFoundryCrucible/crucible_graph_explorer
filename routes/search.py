@@ -2,13 +2,33 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import flask
-from flask import Blueprint, abort, render_template, request
+from flask import Blueprint, abort, jsonify, render_template, request
 from flask_pyoidc.user_session import UserSession
+from crucible.utils.identifiers import is_mfid
 
+from utils.api_errors import api_error_response
 from utils.auth import get_user_client
 from utils.cache import is_user_in_project
 
 logger = logging.getLogger(__name__)
+
+
+def _resource_path(resource):
+    resource_type = resource.get('resource_type')
+    resource_mfid = resource.get('unique_id')
+    project_id = resource.get('project_id')
+
+    if resource_type == 'dataset' and resource_mfid and project_id:
+        return f'/{project_id}/datasets/{resource_mfid}'
+    if resource_type == 'sample' and resource_mfid and project_id:
+        return f'/{project_id}/samples/{resource_mfid}'
+    if resource_type == 'instrument' and resource_mfid:
+        return f'/instrument/{resource_mfid}'
+    if resource_type == 'project' and project_id:
+        return f'/{project_id}/'
+    if not resource_type and project_id and resource.get('organization'):
+        return f'/{project_id}/'
+    return None
 
 
 def _global_search_results(client, query):
@@ -93,6 +113,30 @@ def _project_search_results(client, query, project_id):
 
 def create_blueprint(auth):
     bp = Blueprint('search', __name__)
+
+    @bp.route('/api/resource-location/<resource_mfid>')
+    @auth.oidc_auth('orcid')
+    def resource_location(resource_mfid):
+        resource_mfid = resource_mfid.strip().lower()
+        if not is_mfid(resource_mfid):
+            return jsonify({'error': 'Invalid MFID'}), 400
+        try:
+            resource = get_user_client().get(
+                resource_mfid,
+                include_owner=False,
+            )
+        except Exception as exc:
+            return api_error_response(exc)
+
+        path = _resource_path(resource)
+        if path is None:
+            return jsonify({
+                'error': 'The scanned resource type is not supported by the explorer'
+            }), 422
+        return jsonify({
+            'resource_type': resource.get('resource_type') or 'project',
+            'url': f'{request.script_root}{path}',
+        })
 
     @bp.route("/search")
     @auth.oidc_auth('orcid')
