@@ -28,6 +28,11 @@ logging.basicConfig(level=logging.INFO)
 app = Flask(__name__, template_folder="flask_templates")
 
 
+def _normalize_url_prefix(prefix):
+    stripped = prefix.strip("/")
+    return f"/{stripped}" if stripped else ""
+
+
 class PrefixMiddleware:
     """Mount the app under a URL path prefix (e.g. /explore) behind a reverse proxy.
 
@@ -38,7 +43,7 @@ class PrefixMiddleware:
 
     def __init__(self, wsgi_app, prefix=""):
         self.wsgi_app = wsgi_app
-        self.prefix = "/" + prefix.strip("/") if prefix.strip("/") else ""
+        self.prefix = _normalize_url_prefix(prefix)
 
     def __call__(self, environ, start_response):
         if not self.prefix:
@@ -66,15 +71,22 @@ class PrefixMiddleware:
 
 
 # Honor X-Forwarded-Proto/Host from Cloud Run; PrefixMiddleware owns the path prefix.
+url_prefix = _normalize_url_prefix(os.getenv("URL_PREFIX", ""))
+oidc_redirect_uri = os.getenv("OIDC_REDIRECT_URI")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
-app.wsgi_app = PrefixMiddleware(app.wsgi_app, os.getenv("URL_PREFIX", ""))
+app.wsgi_app = PrefixMiddleware(app.wsgi_app, url_prefix)
 
 QRcode(app)
 Vite(app)
 
 app.config.update(
-    OIDC_REDIRECT_URI=os.getenv("OIDC_REDIRECT_URI"),
+    OIDC_REDIRECT_URI=oidc_redirect_uri,
     SECRET_KEY=os.getenv("PYOIDC_SECRET"),
+    SESSION_COOKIE_NAME="crucible_explorer_session",
+    SESSION_COOKIE_PATH=url_prefix or "/",
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=(oidc_redirect_uri or "").startswith("https://"),
+    SESSION_COOKIE_SAMESITE="Lax",
 )
 
 crucible_api_url = os.getenv("CRUCIBLE_API_URL", "https://crucible.lbl.gov/api/v3")
