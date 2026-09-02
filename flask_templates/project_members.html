@@ -14,6 +14,9 @@
     {% set active_settings_tab = 'members' %}
     {% include "_project_settings_header.html" %}
 
+    <div id="member-error" class="alert alert-danger py-2" role="alert" style="display:none;"></div>
+
+    {% if capabilities.get('can_manage_access') %}
     <section class="rounded border overflow-visible mb-4">
         <div class="px-3 py-2 border-bottom rounded-top" style="background:var(--bs-tertiary-bg);">
             <h2 class="fw-semibold mb-0" style="font-size:var(--fs-lg);"><i class="bi bi-person-plus me-1"></i>Add member</h2>
@@ -44,8 +47,8 @@
                 <button id="add-member" class="btn btn-primary" type="button" disabled>Add member</button>
             </div>
         </div>
-        <div id="member-error" class="text-danger small px-3 pb-3" style="display:none;"></div>
     </section>
+    {% endif %}
 
     <section>
         <div class="d-flex align-items-center justify-content-between mb-2">
@@ -92,7 +95,9 @@
                 {% endif %}
                 <span class="member-save-status small text-success" style="width:3.25rem;"></span>
                 {% if (capabilities.get('max_grant_role') == 'admin' and role != 'owner') or (member_id == current_user and role != 'owner') %}
-                <button type="button" class="btn btn-sm btn-outline-danger remove-member">Remove</button>
+                <button type="button" class="btn btn-sm btn-outline-danger remove-member" data-self="{{ 'true' if member_id == current_user else 'false' }}">
+                    {{ 'Leave' if member_id == current_user else 'Remove' }}
+                </button>
                 {% else %}
                 <span style="width:4.5rem;"></span>
                 {% endif %}
@@ -141,8 +146,10 @@ function pmApplyRoleTone(select, role) {
 }
 
 const addRoleSelect = document.getElementById('member-role');
-pmApplyRoleTone(addRoleSelect, addRoleSelect.value);
-addRoleSelect.addEventListener('change', () => pmApplyRoleTone(addRoleSelect, addRoleSelect.value));
+if (addRoleSelect) {
+    pmApplyRoleTone(addRoleSelect, addRoleSelect.value);
+    addRoleSelect.addEventListener('change', () => pmApplyRoleTone(addRoleSelect, addRoleSelect.value));
+}
 
 function closeSuggestions() {
     suggestions.style.display = 'none';
@@ -177,7 +184,7 @@ function renderCandidates(candidates) {
     });
 }
 
-searchInput.addEventListener('input', () => {
+if (searchInput) searchInput.addEventListener('input', () => {
     selectedUser = null;
     addButton.disabled = true;
     const query = searchInput.value.trim();
@@ -206,11 +213,11 @@ searchInput.addEventListener('input', () => {
     }, 250);
 });
 
-document.addEventListener('click', event => {
+if (suggestions) document.addEventListener('click', event => {
     if (!suggestions.contains(event.target) && event.target !== searchInput) closeSuggestions();
 });
 
-addButton.addEventListener('click', async () => {
+if (addButton) addButton.addEventListener('click', async () => {
     if (!selectedUser) return;
     addButton.disabled = true;
     errorBox.style.display = 'none';
@@ -268,13 +275,16 @@ document.querySelectorAll('.project-member-avatar').forEach(avatar => {
 document.querySelectorAll('.remove-member').forEach(button => {
     button.addEventListener('click', async () => {
         const row = button.closest('[data-member-id]');
-        if (!window.confirm('Remove this member from the project?')) return;
+        const removingSelf = button.dataset.self === 'true';
+        const prompt = removingSelf ? 'Leave this project?' : 'Remove this member from the project?';
+        if (!window.confirm(prompt)) return;
         button.disabled = true;
         try {
             const response = await fetch(`${memberApiUrl}/${encodeURIComponent(row.dataset.memberId)}`, {method: 'DELETE'});
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || `Remove failed (${response.status})`);
-            window.location.reload();
+            if (removingSelf) window.location.assign({{ (base ~ '/') | tojson }});
+            else window.location.reload();
         } catch (error) {
             pmError(error.message);
             button.disabled = false;

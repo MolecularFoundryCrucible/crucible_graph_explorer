@@ -46,10 +46,16 @@ def management_client(monkeypatch, settings_app):
 
 
 def test_allowed_roles_respects_api_grant_ceiling():
+    assert _allowed_roles({'max_grant_role': 'contributor'}) == [
+        'viewer', 'contributor'
+    ]
     assert _allowed_roles({'max_grant_role': 'editor'}) == [
         'viewer', 'contributor', 'editor'
     ]
-    assert _allowed_roles({'max_grant_role': 'owner'}) == []
+    assert _allowed_roles({'max_grant_role': 'admin'}) == [
+        'viewer', 'contributor', 'editor', 'admin'
+    ]
+    assert _allowed_roles({'max_grant_role': None}) == []
 
 
 def test_sort_members_orders_roles_then_names():
@@ -164,6 +170,23 @@ def test_member_management_requires_api_capability(
     )
 
     assert response.status_code == 403
+
+
+def test_member_removal_defers_self_or_owner_authorization_to_api(
+        settings_app, management_client):
+    management_client.projects.get.return_value['capabilities'][
+        'can_manage_access'
+    ] = False
+    management_client.projects.remove_user.return_value = []
+
+    response = settings_app.test_client().delete(
+        '/project-1/api/members/user-existing'
+    )
+
+    assert response.status_code == 200
+    management_client.projects.remove_user.assert_called_once_with(
+        project_id='project-1', user_unique_id='user-existing'
+    )
 
 
 def test_add_update_and_remove_member(

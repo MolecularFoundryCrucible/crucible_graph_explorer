@@ -696,7 +696,7 @@ requires-dist = [
     { name = "h5py", specifier = ">=3.15.1" },
     { name = "markdown", specifier = ">=3.7" },
     { name = "mcp-crucible", git = "https://github.com/foundry-mcp/mcp-crucible.git?branch=main" },
-    { name = "nano-crucible", specifier = ">=3.2.0" },
+    { name = "nano-crucible", git = "https://github.com/MolecularFoundryCrucible/nano-crucible.git?rev=85094aa8494d29f62cd5cfbb6bea184fb8dd16df" },
     { name = "ncempy", specifier = ">=1.15" },
     { name = "networkx", specifier = ">=3.6.1" },
     { name = "pandas", specifier = ">=2.3.3" },
@@ -2705,7 +2705,7 @@ wheels = [
 [[package]]
 name = "nano-crucible"
 version = "3.2.0"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/MolecularFoundryCrucible/nano-crucible.git?rev=85094aa8494d29f62cd5cfbb6bea184fb8dd16df#85094aa8494d29f62cd5cfbb6bea184fb8dd16df" }
 dependencies = [
     { name = "argcomplete" },
     { name = "configupdater" },
@@ -2721,10 +2721,6 @@ dependencies = [
     { name = "pytz" },
     { name = "pyyaml" },
     { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/db/25/d560cff75be8eb4a04cee27bde9604d2bf663434cc4e18cd23512a300119/nano_crucible-3.2.0.tar.gz", hash = "sha256:7b00798b03528322e3756aa0462fb529f59c17b118b64372f3a2bcd7b7a18be9", size = 189911, upload-time = "2026-09-01T00:02:38.415Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fd/b7/80abff458e9441a2e1d931e642b26f22ac10462dbfd94b75abdc082cdc7b/nano_crucible-3.2.0-py3-none-any.whl", hash = "sha256:9c8f30d51e01f9e1d1301f27d1f893a86a7ba58f3b96970cc314b8e913ec2c98", size = 238082, upload-time = "2026-09-01T00:02:37.048Z" },
 ]
 
 [[package]]

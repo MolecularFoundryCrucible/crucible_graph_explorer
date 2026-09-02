@@ -148,7 +148,8 @@ def create_blueprint(auth):
     def project_members(project_id):
         client = get_user_client()
         try:
-            project, capabilities, members = _management_context(client, project_id)
+            project, capabilities, members = _project_context(client, project_id)
+            members = _sort_members(members)
         except HTTPException:
             raise
         except Exception as exc:
@@ -243,7 +244,7 @@ def create_blueprint(auth):
     def remove_member(project_id, user_id):
         try:
             client = get_user_client()
-            _management_context(client, project_id)
+            _project_context(client, project_id)
             members = client.projects.remove_user(
                 project_id=project_id,
                 user_unique_id=user_id,

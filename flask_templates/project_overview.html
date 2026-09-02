@@ -38,6 +38,10 @@
       <a href="{{ base }}/{{pc['project_id']}}/settings" class="cg-sidebar-action">
         <i class="bi bi-gear"></i><span>Project settings</span>
       </a>
+      {% else %}
+      <a href="{{ base }}/{{pc['project_id']}}/settings/members" class="cg-sidebar-action">
+        <i class="bi bi-people"></i><span>Members</span>
+      </a>
       {% endif %}
       {% if custom_views %}
       {% for view in custom_views %}
@@ -108,6 +112,10 @@
     {% if project_capabilities.get('can_edit') %}
     <button class="cg-rail-btn" onclick="window.location.href='{{ base }}/{{pc['project_id']}}/settings'" title="Project settings">
       <i class="bi bi-gear"></i>
+    </button>
+    {% else %}
+    <button class="cg-rail-btn" onclick="window.location.href='{{ base }}/{{pc['project_id']}}/settings/members'" title="Members">
+      <i class="bi bi-people"></i>
     </button>
     {% endif %}
     <button class="cg-rail-btn" onclick="cgOpenSamplePanel()" title="New Sample">
@@ -299,6 +307,10 @@ function toggleSidebar() {
             {% if project_capabilities.get('can_edit') %}
             <a href="{{ base }}/{{pc['project_id']}}/settings" class="btn btn-sm btn-outline-secondary flex-shrink-0" aria-label="Project settings" title="Project settings">
                 <i class="bi bi-gear me-lg-1"></i><span class="d-none d-lg-inline">Settings</span>
+            </a>
+            {% else %}
+            <a href="{{ base }}/{{pc['project_id']}}/settings/members" class="btn btn-sm btn-outline-secondary flex-shrink-0" aria-label="Project members" title="Project members">
+                <i class="bi bi-people me-lg-1"></i><span class="d-none d-lg-inline">Members</span>
             </a>
             {% endif %}
         </div>

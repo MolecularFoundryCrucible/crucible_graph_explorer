@@ -37,3 +37,4 @@ dev = [
 
 [tool.uv.sources]
 mcp-crucible = { git = "https://github.com/foundry-mcp/mcp-crucible.git", branch = "main" }
+nano-crucible = { git = "https://github.com/MolecularFoundryCrucible/nano-crucible.git", rev = "85094aa8494d29f62cd5cfbb6bea184fb8dd16df" }
