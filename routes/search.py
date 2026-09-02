@@ -1,28 +1,94 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import flask
 from flask import Blueprint, abort, render_template, request
 from flask_pyoidc.user_session import UserSession
 
 from utils.auth import get_user_client
-from utils.cache import get_project, get_user_projects
+from utils.cache import is_user_in_project
 
 logger = logging.getLogger(__name__)
 
 
-def _flatten_metadata(obj, path=''):
-    """Recursively flatten a nested dict to 'dotted.key: value' lines."""
-    lines = []
-    if not isinstance(obj, dict):
-        return lines
-    for key, val in obj.items():
-        full_path = f"{path}.{key}" if path else key
-        if isinstance(val, dict):
-            lines.extend(_flatten_metadata(val, full_path))
-        else:
-            lines.append(f"{full_path}: {val}")
-    return lines
+def _global_search_results(client, query):
+    results = {
+        'projects': [],
+        'samples': [],
+        'datasets': [],
+        'instruments': [],
+    }
+    failures = []
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {
+            executor.submit(client.projects.search, query, limit=20): 'projects',
+            executor.submit(client.samples.search, query, limit=20): 'samples',
+            executor.submit(client.datasets.search, query, limit=20): 'datasets',
+            executor.submit(client.instruments.search, query, limit=20): 'instruments',
+        }
+        for future in as_completed(futures):
+            resource_type = futures[future]
+            try:
+                records = future.result() or []
+            except Exception as exc:
+                logger.warning("global_search: %s search failed: %s", resource_type, exc)
+                failures.append(resource_type)
+                continue
+            for record in records:
+                if resource_type == 'projects':
+                    project_id = record.get('project_id')
+                    if not project_id:
+                        continue
+                    url = f'/{project_id}/'
+                elif resource_type == 'instruments':
+                    instrument_mfid = record.get('unique_id')
+                    if not instrument_mfid:
+                        continue
+                    url = f'/instrument/{instrument_mfid}'
+                else:
+                    project_id = record.get('project_id')
+                    resource_id = record.get('unique_id')
+                    if not project_id or not resource_id:
+                        continue
+                    url = f'/{project_id}/{resource_type}/{resource_id}'
+                results[resource_type].append({
+                    **record,
+                    '_url': url,
+                })
+    return results, sorted(failures)
+
+
+def _project_search_results(client, query, project_id):
+    results = {'samples': [], 'datasets': []}
+    failures = []
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = {
+            executor.submit(
+                client.samples.search,
+                query,
+                project_id=project_id,
+                limit=20,
+            ): 'samples',
+            executor.submit(
+                client.datasets.search,
+                query,
+                project_id=project_id,
+                limit=20,
+            ): 'datasets',
+        }
+        for future in as_completed(futures):
+            resource_type = futures[future]
+            try:
+                results[resource_type] = future.result() or []
+            except Exception as exc:
+                logger.warning(
+                    "project_search: %s search failed for %s: %s",
+                    resource_type,
+                    project_id,
+                    exc,
+                )
+                failures.append(resource_type)
+    return results, sorted(failures)
 
 
 def create_blueprint(auth):
@@ -32,84 +98,57 @@ def create_blueprint(auth):
     @auth.oidc_auth('orcid')
     def global_search():
         client = get_user_client()
-        user_session = UserSession(flask.session)
-        orcid = user_session.userinfo['sub']
-        user_projects = get_user_projects(orcid, client)
         q = request.args.get('q', '').strip()
 
-        sample_results  = []
-        dataset_results = []
-
-        def search_project(p):
-            pid = p['project_id']
-            try:
-                pc = get_project(pid, orcid, include_metadata=False, client=client)
-            except Exception as err:
-                logger.warning("global_search: failed to load project %s: %s", pid, err)
-                return [], []
-            ql = q.lower()
-            s_hits, d_hits = [], []
-            for s in pc.get('samples', []):
-                if (ql in (s.get('sample_name') or '').lower()
-                        or ql in (s.get('sample_type') or '').lower()
-                        or ql in (s.get('description') or '').lower()
-                        or ql in (s.get('unique_id') or '').lower()
-                        or ql in (s.get('owner_orcid') or '').lower()):
-                    s_hits.append({**s, '_pid': pid,
-                                   '_url': f'/{pid}/samples/{s["unique_id"]}'})
-            for d in pc.get('datasets', []):
-                if (ql in (d.get('dataset_name') or '').lower()
-                        or ql in (d.get('measurement') or '').lower()
-                        or ql in (d.get('session_name') or '').lower()
-                        or ql in (d.get('instrument_name') or '').lower()
-                        or ql in (d.get('unique_id') or '').lower()
-                        or ql in (d.get('owner_orcid') or '').lower()):
-                    d_hits.append({**d, '_pid': pid,
-                                   '_url': f'/{pid}/datasets/{d["unique_id"]}'})
-            return s_hits, d_hits
-
-        if q:
-            with ThreadPoolExecutor() as ex:
-                for s_hits, d_hits in ex.map(search_project, user_projects):
-                    sample_results.extend(s_hits)
-                    dataset_results.extend(d_hits)
+        results = {
+            'projects': [],
+            'samples': [],
+            'datasets': [],
+            'instruments': [],
+        }
+        search_message = None
+        if q and len(q) < 3:
+            search_message = 'Enter at least 3 characters.'
+        elif q:
+            results, failures = _global_search_results(client, q)
+            if failures:
+                search_message = 'Some search results could not be loaded.'
 
         return render_template('global_search.html',
                                q=q,
-                               sample_results=sample_results,
-                               dataset_results=dataset_results,
-                               projects_total=len(user_projects))
+                               project_results=results['projects'],
+                               sample_results=results['samples'],
+                               dataset_results=results['datasets'],
+                               instrument_results=results['instruments'],
+                               search_message=search_message)
 
     @bp.route("/<project_id>/search")
     @auth.oidc_auth('orcid')
     def project_search(project_id):
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        pc = get_project(project_id, orcid, include_metadata=True)
+        if not is_user_in_project(project_id, orcid):
+            abort(403)
 
-        samples_index = [{
-            'id': s['unique_id'],
-            'name': s['sample_name'],
-            'description': s.get('description', ''),
-            'type': s.get('sample_type', ''),
-            'owner': s.get('owner_orcid', ''),
-            'url': f'{flask.request.script_root}/{project_id}/samples/{s["unique_id"]}'
-        } for s in pc['samples']]
-
-        datasets_index = [{
-            'id': d['unique_id'],
-            'name': d['dataset_name'],
-            'measurement': d.get('measurement', ''),
-            'instrument': d.get('instrument_name', ''),
-            'session': d.get('session_name', ''),
-            'owner': d.get('owner_orcid', ''),
-            'metadata_str': '\n'.join(_flatten_metadata(d.get('scientific_metadata') or {})),
-            'url': f'{flask.request.script_root}/{project_id}/datasets/{d["unique_id"]}'
-        } for d in pc['datasets']]
+        q = request.args.get('q', '').strip()
+        results = {'samples': [], 'datasets': []}
+        search_message = None
+        if q and len(q) < 3:
+            search_message = 'Enter at least 3 characters.'
+        elif q:
+            results, failures = _project_search_results(
+                get_user_client(),
+                q,
+                project_id,
+            )
+            if failures:
+                search_message = 'Some search results could not be loaded.'
 
         return render_template('search.html',
-                               pc=pc,
-                               samples_index=samples_index,
-                               datasets_index=datasets_index)
+                               pc={'project_id': project_id},
+                               q=q,
+                               sample_results=results['samples'],
+                               dataset_results=results['datasets'],
+                               search_message=search_message)
 
     return bp

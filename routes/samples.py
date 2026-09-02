@@ -8,25 +8,14 @@ import networkx as nx
 from flask import Blueprint, abort, jsonify, redirect, render_template, request
 from flask_pyoidc.user_session import UserSession
 from PIL import Image
+from crucible.models import Dataset
 
 from utils.auth import get_user_client
+from utils.api_errors import api_error_response
 from utils.cache import clear_project_cache, get_project, get_user_name, get_user_projects
 from utils.graph import get_entity_graph_nx
 
 logger = logging.getLogger(__name__)
-
-
-def _link_chips(pc, sample_ids):
-    """Re-hydrate parent/child picks so a re-rendered form keeps its badges."""
-    chips = []
-    for sid in sample_ids:
-        info = pc['samples_by_id'].get(sid) or {}
-        chips.append({
-            'id': sid,
-            'name': info.get('sample_name') or sid,
-            'type': info.get('sample_type') or '',
-        })
-    return chips
 
 
 def create_blueprint(auth):
@@ -35,104 +24,11 @@ def create_blueprint(auth):
     @bp.route("/<project_id>/samples/new", methods=['GET'])
     @auth.oidc_auth('orcid')
     def sample_new(project_id):
-        user_session = UserSession(flask.session)
-        orcid = user_session.userinfo['sub']
-        pc = get_project(project_id, orcid)
-        return render_template('create_sample.html', pc=pc)
-
-    @bp.route("/<project_id>/samples/new", methods=['POST'])
-    @auth.oidc_auth('orcid')
-    def sample_new_post(project_id):
-        sample_name = request.form.get('sample_name', '').strip()
-        sample_type = request.form.get('sample_type', '').strip()
-        if not sample_name or not sample_type:
-            abort(400)
-        description = request.form.get('description', '').strip() or None
-        parent_ids  = [pid for pid in request.form.getlist('parent_ids') if pid]
-        child_ids   = [cid for cid in request.form.getlist('child_ids') if cid]
-
-        user_session = UserSession(flask.session)
-        orcid = user_session.userinfo['sub']
-        client = get_user_client()
-
-        acknowledged = (request.form.get('allow_duplicate') == '1'
-                        and request.form.get('duplicate_ack_name') == sample_name)
-        existing = client.samples.list(sample_name=sample_name, project_id=project_id)
-        if existing and not acknowledged:
-            pc = get_project(project_id, orcid)
-            return render_template(
-                'create_sample.html',
-                pc=pc,
-                existing=existing,
-                prefill={
-                    'sample_name': sample_name,
-                    'sample_type': sample_type,
-                    'description': description or '',
-                    'parents': _link_chips(pc, parent_ids),
-                    'children': _link_chips(pc, child_ids),
-                },
-            )
-
-        result = client.samples.create(
-            sample_name=sample_name,
-            sample_type=sample_type,
-            description=description,
-            project_id=project_id,
-            owner_orcid=orcid,
-            parents=[{'unique_id': pid} for pid in parent_ids],
-            children=[{'unique_id': cid} for cid in child_ids],
-        )
-
-        clear_project_cache(project_id, orcid)
-        sample_mfid = result.get("unique_id")
-        logger.info(f'{sample_mfid=}')
-        return redirect(f'{request.script_root}/{project_id}/samples/{sample_mfid}')
+        return redirect(f'{request.script_root}/{project_id}/')
 
     @bp.route("/<project_id>/samples/<sample_id>/edit", methods=['GET'])
     @auth.oidc_auth('orcid')
     def sample_edit(project_id, sample_id):
-        user_session = UserSession(flask.session)
-        orcid = user_session.userinfo['sub']
-        pc = get_project(project_id, orcid)
-        self_info = pc['samples_by_id'].get(sample_id)
-        if not self_info:
-            abort(404)
-        G = get_entity_graph_nx(sample_id)
-        direct_parents  = [pc['samples_by_id'][sid] for sid in G.predecessors(sample_id)
-                           if sid in pc['samples_by_id']]
-        direct_children = [pc['samples_by_id'][sid] for sid in G.successors(sample_id)
-                           if sid in pc['samples_by_id']]
-        return render_template('edit_sample.html', pc=pc, sample=self_info,
-                               direct_parents=direct_parents, direct_children=direct_children)
-
-    @bp.route("/<project_id>/samples/<sample_id>/edit", methods=['POST'])
-    @auth.oidc_auth('orcid')
-    def sample_edit_post(project_id, sample_id):
-        user_session = UserSession(flask.session)
-        orcid = user_session.userinfo['sub']
-        G = get_entity_graph_nx(sample_id)
-        existing_parent_ids = set(G.predecessors(sample_id))
-        existing_child_ids  = set(G.successors(sample_id))
-
-        sample_name = request.form.get('sample_name', '').strip()
-        sample_type = request.form.get('sample_type', '').strip()
-        if not sample_name or not sample_type:
-            abort(400)
-        description    = request.form.get('description', '').strip() or None
-        new_parent_ids = [pid for pid in request.form.getlist('parent_ids')
-                          if pid and pid not in existing_parent_ids]
-        new_child_ids  = [cid for cid in request.form.getlist('child_ids')
-                          if cid and cid not in existing_child_ids]
-
-        get_user_client().samples.update(
-            unique_id=sample_id,
-            sample_name=sample_name,
-            sample_type=sample_type,
-            description=description,
-            parents=[{'unique_id': pid} for pid in new_parent_ids],
-            children=[{'unique_id': cid} for cid in new_child_ids],
-        )
-        clear_project_cache(project_id, orcid)
         return redirect(f'{request.script_root}/{project_id}/samples/{sample_id}')
 
     @bp.route("/<project_id>/samples/<sample_id>/upload-photo", methods=['GET'])
@@ -152,7 +48,6 @@ def create_blueprint(auth):
 
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        from crucible.models import Dataset
         client = get_user_client()
 
         f = request.files.get('file')
@@ -169,7 +64,7 @@ def create_blueprint(auth):
         try:
             result = client.datasets.create(
                 Dataset(dataset_name=dataset_name, measurement='img', project_id=project_id),
-                files_to_upload=[tmpfile],
+                files=[tmpfile],
                 scientific_metadata={'description': description} if description else None,
                 wait_for_ingestion_response=False,
             )
@@ -182,7 +77,7 @@ def create_blueprint(auth):
                 img.save(thumb_path, 'PNG')
             client.datasets.add_thumbnail(dataset_id, thumb_path, thumbnail_name=dataset_name)
         except Exception as exc:
-            return jsonify({'error': str(exc)}), 500
+            return api_error_response(exc)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 

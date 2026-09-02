@@ -74,10 +74,9 @@ def _push(job_id: str, event: dict):
             job['events'].append(event)
 
 
-def _run_job(job_id, tmpfile_path, project_id, dataset_name, measurement, sample_id, app, clear_cache=None):
+def _run_job(job_id, tmpfile_path, project_id, dataset_name, measurement, sample_id, app, client, clear_cache=None):
     """Background thread: upload single H5 file and push SSE progress events."""
     with app.app_context():
-        client = current_app.admin_client
         try:
             _push(job_id, {'type': 'info',
                            'message': '[DRY RUN] Creating dataset…' if DRY_RUN else 'Creating dataset…'})
@@ -89,11 +88,11 @@ def _run_job(job_id, tmpfile_path, project_id, dataset_name, measurement, sample
                 result = client.datasets.create(
                     Dataset(
                         dataset_name=dataset_name,
-                        instrument_name='hip_microscope',
+                        instrument_id='hip-microscope',
                         measurement=measurement,
                         project_id=project_id,
                     ),
-                    files_to_upload=[tmpfile_path],
+                    files=[tmpfile_path],
                     wait_for_ingestion_response=False,
                     ingestor=None,  # use default ingestor based on file type
                 )
@@ -134,10 +133,9 @@ def _save_files(files, tmpdir):
         f.save(dest)
 
 
-def _run_session_job(job_id, tmpdir, project_id, dataset_name, sample_id, app, clear_cache=None):
+def _run_session_job(job_id, tmpdir, project_id, dataset_name, sample_id, app, client, clear_cache=None):
     """Background thread: upload session folder as parent + per-H5 child datasets."""
     with app.app_context():
-        client = current_app.admin_client
         try:
             h5_files = sorted(
                 os.path.join(root, fname)
@@ -161,11 +159,11 @@ def _run_session_job(job_id, tmpdir, project_id, dataset_name, sample_id, app, c
                 result = client.datasets.create(
                     Dataset(
                         dataset_name=dataset_name,
-                        instrument_name='hip_microscope',
+                        instrument_id='hip-microscope',
                         measurement='hip_microscope_session',
                         project_id=project_id,
                     ),
-                    files_to_upload=all_files,
+                    files=all_files,
                     wait_for_ingestion_response=False,
                 )
                 session_id = result['created_record']['unique_id']
@@ -197,11 +195,11 @@ def _run_session_job(job_id, tmpdir, project_id, dataset_name, sample_id, app, c
                     child_result = client.datasets.create(
                         Dataset(
                             dataset_name=h5_name,
-                            instrument_name='hip_microscope',
+                            instrument_id='hip-microscope',
                             measurement=measurement,
                             project_id=project_id,
                         ),
-                        files_to_upload=[h5_path],
+                        files=[h5_path],
                         wait_for_ingestion_response=False,
                         ingestor=None,  # use default ingestor based on file type
                     )
@@ -302,9 +300,10 @@ def create_blueprint(auth, helpers):
         _jobs[job_id] = {'events': [], 'done': False, 'lock': threading.Lock()}
 
         app = current_app._get_current_object()
+        client = get_user_client()
         threading.Thread(
             target=_run_job,
-            args=(job_id, tmpfile_path, project_id, dataset_name, measurement, sample_id, app, clear_project_cache),
+            args=(job_id, tmpfile_path, project_id, dataset_name, measurement, sample_id, app, client, clear_project_cache),
             daemon=True,
         ).start()
 
@@ -386,9 +385,10 @@ def create_blueprint(auth, helpers):
         _jobs[job_id] = {'events': [], 'done': False, 'lock': threading.Lock()}
 
         app = current_app._get_current_object()
+        client = get_user_client()
         threading.Thread(
             target=_run_session_job,
-            args=(job_id, tmpdir, project_id, dataset_name, sample_id, app, clear_project_cache),
+            args=(job_id, tmpdir, project_id, dataset_name, sample_id, app, client, clear_project_cache),
             daemon=True,
         ).start()
 

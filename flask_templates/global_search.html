@@ -1,6 +1,49 @@
 {% extends "base.html" %}
 {% block title %}Search{% if q %} – {{ q }}{% endif %}{% endblock %}
 
+{% macro search_row(resource_type, item) %}
+{% if resource_type == 'project' %}
+{% set display_name = item.get('title') or item.get('project_id') %}
+{% set icon = 'bi-collection' %}
+{% elif resource_type == 'sample' %}
+{% set display_name = item.get('sample_name') or item.get('unique_id') %}
+{% set icon = 'bi-flask' %}
+{% elif resource_type == 'dataset' %}
+{% set display_name = item.get('dataset_name') or item.get('unique_id') %}
+{% set icon = 'bi-database' %}
+{% else %}
+{% set display_name = item.get('instrument_name') or item.get('instrument_id') %}
+{% set icon = 'bi-tools' %}
+{% endif %}
+<a href="{{ base }}{{ item['_url'] }}" class="list-row d-flex align-items-start gap-2">
+    <i class="bi {{ icon }} text-secondary mt-1 flex-shrink-0"></i>
+    <div style="min-width:0; flex:1;">
+        <div class="d-flex align-items-center gap-2">
+            <span class="fw-medium text-truncate">{{ display_name | e }}</span>
+            <span class="badge text-bg-light border text-secondary fw-normal flex-shrink-0">{{ resource_type | capitalize }}</span>
+        </div>
+        <div class="small text-muted d-flex gap-2 flex-wrap mt-1">
+            {% if resource_type == 'project' %}
+            <span class="mfid">{{ item.get('project_id') }}</span>
+            {% if item.get('organization') %}<span>{{ item['organization'] | e }}</span>{% endif %}
+            {% elif resource_type == 'sample' %}
+            {% if item.get('sample_type') %}<span>{{ item['sample_type'] | e }}</span>{% endif %}
+            <span class="mfid">{{ item.get('unique_id') }}</span>
+            <span class="opacity-50">in</span><span class="mfid">{{ item.get('project_id') }}</span>
+            {% elif resource_type == 'dataset' %}
+            {% if item.get('measurement') %}<span>{{ item['measurement'] | e }}</span>{% endif %}
+            {% if item.get('instrument_name') %}<span>{{ item['instrument_name'] | e }}</span>{% endif %}
+            <span class="mfid">{{ item.get('unique_id') }}</span>
+            <span class="opacity-50">in</span><span class="mfid">{{ item.get('project_id') }}</span>
+            {% else %}
+            {% if item.get('instrument_id') %}<span class="mfid">{{ item['instrument_id'] }}</span>{% endif %}
+            {% if item.get('location') %}<span>{{ item['location'] | e }}</span>{% endif %}
+            {% endif %}
+        </div>
+    </div>
+</a>
+{% endmacro %}
+
 {% block sidebar %}{% endblock %}
 {% block main_col_class %}col-12{% endblock %}
 
@@ -14,6 +57,8 @@
     }
     .list-row:last-child { border-bottom: none; }
     .list-row:hover { background: var(--cg-hover-bg); color: inherit; }
+    .search-tabs { overflow-x: auto; scrollbar-width: thin; }
+    .search-tabs .nav { min-width: max-content; }
 </style>
 {% endblock %}
 
@@ -31,78 +76,105 @@
 <form method="get" action="{{ base }}/search" class="mb-4">
     <div class="input-group">
         <input type="search" name="q" class="form-control form-control-lg"
-               placeholder="Search samples and datasets across all projects…"
-               value="{{ q | e }}" autofocus autocomplete="off">
+               placeholder="Search projects, samples, datasets, and instruments…"
+               value="{{ q | e }}" minlength="3" autofocus autocomplete="off">
         <button class="btn btn-primary px-4" type="submit">
             <i class="bi bi-search"></i>
         </button>
     </div>
     {% if q %}
     <div class="text-muted small mt-2">
-        {% set total = sample_results | length + dataset_results | length %}
-        {{ total }} result{{ '' if total == 1 else 's' }} across {{ projects_total }} project{{ '' if projects_total == 1 else 's' }}
+        {% set total = project_results | length + sample_results | length + dataset_results | length + instrument_results | length %}
+        {{ total }} result{{ '' if total == 1 else 's' }}
     </div>
     {% endif %}
 </form>
 
-{% if q %}
-{% if not sample_results and not dataset_results %}
+{% if search_message %}
+<div class="alert alert-warning py-2">{{ search_message }}</div>
+{% endif %}
+
+{% if q and not project_results and not sample_results and not dataset_results and not instrument_results and not search_message %}
 <div class="text-center text-muted py-5">
     <i class="bi bi-search fs-2 d-block mb-2 opacity-50"></i>
     No results for <strong>{{ q | e }}</strong>
 </div>
-{% else %}
-<div class="row g-4">
-    <div class="col-md-6">
-        <h5 class="fw-semibold mb-2">
-            <i class="bi bi-flask me-1 text-secondary"></i>Samples
-            <span class="badge bg-secondary rounded-pill ms-1" style="font-size: var(--fs-sm);">{{ sample_results | length }}</span>
-        </h5>
-        {% if sample_results %}
+{% elif project_results or sample_results or dataset_results or instrument_results %}
+{% set total = project_results | length + sample_results | length + dataset_results | length + instrument_results | length %}
+<div class="search-tabs border-bottom mb-3">
+    <ul class="nav nav-tabs flex-nowrap border-0" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#search-all" type="button" role="tab">
+                All <span class="badge text-bg-secondary ms-1">{{ total }}</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#search-projects" type="button" role="tab">
+                Projects <span class="badge text-bg-secondary ms-1">{{ project_results | length }}</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#search-samples" type="button" role="tab">
+                Samples <span class="badge text-bg-secondary ms-1">{{ sample_results | length }}</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#search-datasets" type="button" role="tab">
+                Datasets <span class="badge text-bg-secondary ms-1">{{ dataset_results | length }}</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#search-instruments" type="button" role="tab">
+                Instruments <span class="badge text-bg-secondary ms-1">{{ instrument_results | length }}</span>
+            </button>
+        </li>
+    </ul>
+</div>
+
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="search-all" role="tabpanel">
         <div class="border rounded overflow-hidden">
-            {% for s in sample_results %}
-            <a href="{{ base }}{{ s['_url'] }}" class="list-row">
-                <div class="fw-medium text-truncate">{{ s.get('sample_name') | e }}</div>
-                <div class="small text-muted d-flex gap-2 flex-wrap mt-1">
-                    {% if s.get('sample_type') %}<span>{{ s['sample_type'] | e }}</span>{% endif %}
-                    <span class="mfid">{{ s['unique_id'] }}</span>
-                    <span class="opacity-50">in</span>
-                    <span class="mfid">{{ s['_pid'] }}</span>
-                </div>
-            </a>
+            {% for index in range(20) %}
+            {% if project_results | length > index %}{{ search_row('project', project_results[index]) }}{% endif %}
+            {% if sample_results | length > index %}{{ search_row('sample', sample_results[index]) }}{% endif %}
+            {% if dataset_results | length > index %}{{ search_row('dataset', dataset_results[index]) }}{% endif %}
+            {% if instrument_results | length > index %}{{ search_row('instrument', instrument_results[index]) }}{% endif %}
             {% endfor %}
         </div>
-        {% else %}
-        <p class="text-muted small">No matching samples.</p>
-        {% endif %}
     </div>
 
-    <div class="col-md-6">
-        <h5 class="fw-semibold mb-2">
-            <i class="bi bi-database me-1 text-secondary"></i>Datasets
-            <span class="badge bg-secondary rounded-pill ms-1" style="font-size: var(--fs-sm);">{{ dataset_results | length }}</span>
-        </h5>
+    <div class="tab-pane fade" id="search-projects" role="tabpanel">
+        {% if project_results %}
+        <div class="border rounded overflow-hidden">
+            {% for project in project_results %}{{ search_row('project', project) }}{% endfor %}
+        </div>
+        {% else %}<p class="text-muted">No matching projects.</p>{% endif %}
+    </div>
+
+    <div class="tab-pane fade" id="search-samples" role="tabpanel">
+        {% if sample_results %}
+        <div class="border rounded overflow-hidden">
+            {% for sample in sample_results %}{{ search_row('sample', sample) }}{% endfor %}
+        </div>
+        {% else %}<p class="text-muted">No matching samples.</p>{% endif %}
+    </div>
+
+    <div class="tab-pane fade" id="search-datasets" role="tabpanel">
         {% if dataset_results %}
         <div class="border rounded overflow-hidden">
-            {% for d in dataset_results %}
-            <a href="{{ base }}{{ d['_url'] }}" class="list-row">
-                <div class="fw-medium text-truncate">{{ d.get('dataset_name') | e }}</div>
-                <div class="small text-muted d-flex gap-2 flex-wrap mt-1">
-                    {% if d.get('measurement') %}<span>{{ d['measurement'] | e }}</span>{% endif %}
-                    {% if d.get('instrument_name') %}<span>{{ d['instrument_name'] | e }}</span>{% endif %}
-                    <span class="mfid">{{ d['unique_id'] }}</span>
-                    <span class="opacity-50">in</span>
-                    <span class="mfid">{{ d['_pid'] }}</span>
-                </div>
-            </a>
-            {% endfor %}
+            {% for dataset in dataset_results %}{{ search_row('dataset', dataset) }}{% endfor %}
         </div>
-        {% else %}
-        <p class="text-muted small">No matching datasets.</p>
-        {% endif %}
+        {% else %}<p class="text-muted">No matching datasets.</p>{% endif %}
+    </div>
+
+    <div class="tab-pane fade" id="search-instruments" role="tabpanel">
+        {% if instrument_results %}
+        <div class="border rounded overflow-hidden">
+            {% for instrument in instrument_results %}{{ search_row('instrument', instrument) }}{% endfor %}
+        </div>
+        {% else %}<p class="text-muted">No matching instruments.</p>{% endif %}
     </div>
 </div>
-{% endif %}
 {% endif %}
 
 </div>

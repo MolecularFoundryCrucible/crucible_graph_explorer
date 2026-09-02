@@ -152,8 +152,8 @@
         return str.replace(/[_\-]/g, ' ').split(' ')
             .filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
     }
-    function makeAvatar(el, str, size='2.5rem', fontSize='0.85rem') {
-        const color = hashColor(str);
+    function makeAvatar(el, str, size='2.5rem', fontSize='0.85rem', colorSeed=str) {
+        const color = hashColor(colorSeed);
         el.style.cssText = `width:${size};height:${size};min-width:${size};border-radius:50%;`
             + `background:${color};color:#fff;display:flex;align-items:center;`
             + `justify-content:center;font-size:${fontSize};font-weight:700;letter-spacing:0.05em;`;
@@ -965,8 +965,9 @@
     (function () {
         const avatarEl = document.getElementById('navUserAvatar');
         if (avatarEl) {
-            const avatarSeed = {{ (current_user_name or current_user_orcid) | tojson }};
-            makeAvatar(avatarEl, avatarSeed, '2rem', '0.65rem');
+            const avatarLabel = {{ (current_user_name or current_user_orcid) | tojson }};
+            const avatarSeed = {{ (current_user_orcid or current_user_name) | tojson }};
+            makeAvatar(avatarEl, avatarLabel, '2rem', '0.65rem', avatarSeed);
         }
 
         let _open = false;

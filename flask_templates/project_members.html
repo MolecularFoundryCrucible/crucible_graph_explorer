@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block title %}Project members - {{ project_id }}{% endblock %}
+
+{% block sidebar %}{% endblock %}
+{% block main_col_class %}col-12{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ base }}/{{ project_id }}/"><b>Project</b> {{ project_id }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">Members</li>
+{% endblock %}
+
+{% block content %}
+<div class="pb-5" style="max-width:900px; margin:0 auto;">
+    {% set active_settings_tab = 'members' %}
+    {% include "_project_settings_header.html" %}
+
+    <section class="rounded border overflow-visible mb-4">
+        <div class="px-3 py-2 border-bottom rounded-top" style="background:var(--bs-tertiary-bg);">
+            <h2 class="fw-semibold mb-0" style="font-size:var(--fs-lg);"><i class="bi bi-person-plus me-1"></i>Add member</h2>
+        </div>
+        <div class="row g-2 align-items-start p-3">
+            <div class="col-md">
+                <label for="member-search" class="form-label">User</label>
+                <div class="position-relative">
+                    <input id="member-search" type="search" class="form-control"
+                           placeholder="Search by name or username" autocomplete="off"
+                           role="combobox" aria-autocomplete="list" aria-expanded="false"
+                           aria-controls="member-suggestions">
+                    <div id="member-suggestions" class="list-group position-absolute w-100 shadow-sm"
+                         style="z-index:30; display:none; max-height:18rem; overflow-y:auto;"
+                         role="listbox"></div>
+                </div>
+                <div id="member-selection" class="form-text">Enter at least 3 characters.</div>
+            </div>
+            <div class="col-md-3">
+                <label for="member-role" class="form-label">Role</label>
+                <select id="member-role" class="form-select">
+                    {% for role in allowed_roles %}
+                    <option value="{{ role }}" {% if role == 'contributor' %}selected{% endif %}>{{ role | capitalize }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-auto" style="padding-top:2rem;">
+                <button id="add-member" class="btn btn-primary" type="button" disabled>Add member</button>
+            </div>
+        </div>
+        <div id="member-error" class="text-danger small px-3 pb-3" style="display:none;"></div>
+    </section>
+
+    <section>
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <h2 class="fw-semibold mb-0" style="font-size:var(--fs-lg);">Current members</h2>
+            <span class="badge text-bg-light border">{{ members | length }}</span>
+        </div>
+        <div class="border rounded overflow-hidden">
+            {% for member in members %}
+            {% set first = member.get('first_name') or '' %}
+            {% set last = member.get('last_name') or '' %}
+            {% set name = abbrev_name(first, last) %}
+            {% set role = member.get('role') or 'unknown' %}
+            {% set role_label = 'Lead' if role == 'owner' else role | capitalize %}
+            {% set role_tone = {
+                'owner': 'warning',
+                'admin': 'danger',
+                'editor': 'primary',
+                'contributor': 'info',
+                'viewer': 'secondary'
+            }.get(role, 'secondary') %}
+            {% set member_id = member.get('unique_id') %}
+            {% set initials = ((first[:1] if first else '') ~ (last[:1] if last else '')) | upper or '?' %}
+            <div class="d-flex align-items-center flex-wrap gap-2 px-3 py-2 border-bottom" data-member-id="{{ member_id }}">
+                <div class="project-member-avatar" data-avatar-for="{{ member_id or name }}"
+                     style="width:2rem; height:2rem; min-width:2rem; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:var(--fs-2xs); font-weight:700;">
+                    {{ initials }}
+                </div>
+                <div style="min-width:12rem; flex:1;">
+                    <a href="{{ base }}/user/{{ member_id }}" class="fw-medium text-decoration-none text-body">{{ name or member.get('username') or member_id }}</a>
+                    <div class="small text-muted">
+                        {% if member.get('username') %}@{{ member['username'] }} <span class="mx-1">·</span>{% endif %}
+                        <span class="mfid">{{ member_id }}</span>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                {% if role in allowed_roles %}
+                <select class="form-select form-select-sm member-role bg-{{ role_tone }}-subtle text-{{ role_tone }}-emphasis border-{{ role_tone }}-subtle" style="width:8.5rem;" data-current-role="{{ role }}" aria-label="Role for {{ name or member_id }}">
+                    {% for option in allowed_roles %}
+                    <option value="{{ option }}" {% if option == role %}selected{% endif %}>{{ option | capitalize }}</option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <span class="badge fw-normal border bg-{{ role_tone }}-subtle text-{{ role_tone }}-emphasis border-{{ role_tone }}-subtle" style="min-width:8.5rem;">{{ role_label }}</span>
+                {% endif %}
+                <span class="member-save-status small text-success" style="width:3.25rem;"></span>
+                {% if (capabilities.get('max_grant_role') == 'admin' and role != 'owner') or (member_id == current_user and role != 'owner') %}
+                <button type="button" class="btn btn-sm btn-outline-danger remove-member">Remove</button>
+                {% else %}
+                <span style="width:4.5rem;"></span>
+                {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+<script>
+const memberApiUrl = {{ (base ~ '/' ~ project_id ~ '/api/members') | tojson }};
+const candidateApiUrl = {{ (base ~ '/' ~ project_id ~ '/api/member-candidates') | tojson }};
+const searchInput = document.getElementById('member-search');
+const suggestions = document.getElementById('member-suggestions');
+const selectionText = document.getElementById('member-selection');
+const addButton = document.getElementById('add-member');
+const errorBox = document.getElementById('member-error');
+let selectedUser = null;
+let searchTimer = null;
+let searchRequest = null;
+const projectRoleTones = {
+    owner: 'warning',
+    admin: 'danger',
+    editor: 'primary',
+    contributor: 'info',
+    viewer: 'secondary',
+};
+
+function pmEscape(value) {
+    return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function pmError(message) {
+    errorBox.textContent = message;
+    errorBox.style.display = '';
+}
+
+function pmApplyRoleTone(select, role) {
+    Object.values(projectRoleTones).forEach(tone => {
+        select.classList.remove(`bg-${tone}-subtle`, `text-${tone}-emphasis`, `border-${tone}-subtle`);
+    });
+    const tone = projectRoleTones[role] || 'secondary';
+    select.classList.add(`bg-${tone}-subtle`, `text-${tone}-emphasis`, `border-${tone}-subtle`);
+}
+
+const addRoleSelect = document.getElementById('member-role');
+pmApplyRoleTone(addRoleSelect, addRoleSelect.value);
+addRoleSelect.addEventListener('change', () => pmApplyRoleTone(addRoleSelect, addRoleSelect.value));
+
+function closeSuggestions() {
+    suggestions.style.display = 'none';
+    suggestions.innerHTML = '';
+    searchInput.setAttribute('aria-expanded', 'false');
+}
+
+function selectCandidate(candidate) {
+    selectedUser = candidate;
+    const name = [candidate.first_name, candidate.last_name].filter(Boolean).join(' ');
+    searchInput.value = name || (candidate.username ? `@${candidate.username}` : candidate.unique_id);
+    selectionText.textContent = `${name || candidate.username || candidate.unique_id}${candidate.username ? ` (@${candidate.username})` : ''} - ${candidate.unique_id}`;
+    addButton.disabled = false;
+    closeSuggestions();
+}
+
+function renderCandidates(candidates) {
+    suggestions.innerHTML = candidates.length ? candidates.map((candidate, index) => {
+        const name = [candidate.first_name, candidate.last_name].filter(Boolean).join(' ');
+        const secondary = [candidate.username ? `@${candidate.username}` : '', candidate.unique_id].filter(Boolean).join(' - ');
+        return `<button type="button" class="list-group-item list-group-item-action candidate-item" role="option"
+                    data-index="${index}" ${candidate.already_member ? 'disabled' : ''}>
+                    <span class="d-flex justify-content-between gap-2"><span>${pmEscape(name || candidate.username || candidate.unique_id)}</span>
+                    ${candidate.already_member ? '<span class="badge text-bg-light border">Already a member</span>' : ''}</span>
+                    <span class="small text-muted">${pmEscape(secondary)}</span>
+                </button>`;
+    }).join('') : '<div class="list-group-item text-muted">No matching users.</div>';
+    suggestions.style.display = '';
+    searchInput.setAttribute('aria-expanded', 'true');
+    suggestions.querySelectorAll('.candidate-item').forEach(button => {
+        button.addEventListener('click', () => selectCandidate(candidates[Number(button.dataset.index)]));
+    });
+}
+
+searchInput.addEventListener('input', () => {
+    selectedUser = null;
+    addButton.disabled = true;
+    const query = searchInput.value.trim();
+    clearTimeout(searchTimer);
+    if (searchRequest) searchRequest.abort();
+    if (query.length < 3) {
+        selectionText.textContent = 'Enter at least 3 characters.';
+        closeSuggestions();
+        return;
+    }
+    selectionText.textContent = 'Searching…';
+    searchTimer = setTimeout(async () => {
+        searchRequest = new AbortController();
+        try {
+            const response = await fetch(`${candidateApiUrl}?q=${encodeURIComponent(query)}`, {signal: searchRequest.signal});
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || `Search failed (${response.status})`);
+            renderCandidates(data);
+            selectionText.textContent = 'Select a user from the suggestions.';
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                closeSuggestions();
+                selectionText.textContent = error.message;
+            }
+        }
+    }, 250);
+});
+
+document.addEventListener('click', event => {
+    if (!suggestions.contains(event.target) && event.target !== searchInput) closeSuggestions();
+});
+
+addButton.addEventListener('click', async () => {
+    if (!selectedUser) return;
+    addButton.disabled = true;
+    errorBox.style.display = 'none';
+    try {
+        const response = await fetch(memberApiUrl, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({user_id: selectedUser.unique_id, role: document.getElementById('member-role').value}),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `Add failed (${response.status})`);
+        window.location.reload();
+    } catch (error) {
+        pmError(error.message);
+        addButton.disabled = false;
+    }
+});
+
+document.querySelectorAll('.member-role').forEach(select => {
+    select.addEventListener('change', async () => {
+        const row = select.closest('[data-member-id]');
+        const status = row.querySelector('.member-save-status');
+        const previous = select.dataset.currentRole;
+        select.disabled = true;
+        status.textContent = 'Saving...';
+        status.className = 'member-save-status small text-muted';
+        try {
+            const response = await fetch(`${memberApiUrl}/${encodeURIComponent(row.dataset.memberId)}`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({role: select.value}),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || `Update failed (${response.status})`);
+            select.dataset.currentRole = select.value;
+            pmApplyRoleTone(select, select.value);
+            status.textContent = 'Saved';
+            status.className = 'member-save-status small text-success';
+            window.setTimeout(() => { status.textContent = ''; }, 1600);
+        } catch (error) {
+            select.value = previous;
+            status.textContent = 'Failed';
+            status.className = 'member-save-status small text-danger';
+            pmError(error.message);
+        } finally {
+            select.disabled = false;
+        }
+    });
+});
+
+document.querySelectorAll('.project-member-avatar').forEach(avatar => {
+    avatar.style.background = hashColor(avatar.dataset.avatarFor || '?');
+});
+
+document.querySelectorAll('.remove-member').forEach(button => {
+    button.addEventListener('click', async () => {
+        const row = button.closest('[data-member-id]');
+        if (!window.confirm('Remove this member from the project?')) return;
+        button.disabled = true;
+        try {
+            const response = await fetch(`${memberApiUrl}/${encodeURIComponent(row.dataset.memberId)}`, {method: 'DELETE'});
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || `Remove failed (${response.status})`);
+            window.location.reload();
+        } catch (error) {
+            pmError(error.message);
+            button.disabled = false;
+        }
+    });
+});
+</script>
+{% endblock %}

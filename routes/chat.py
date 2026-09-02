@@ -17,7 +17,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.models.google import GoogleModel
-from pydantic_ai.providers.google import GoogleProvider
+from pydantic_ai.providers.google_cloud import GoogleCloudProvider
 from pydantic_ai.toolsets import FunctionToolset
 
 from flask import Blueprint, render_template, request, Response, session, stream_with_context
@@ -40,10 +40,10 @@ _model_name     = os.getenv("CHAT_MODEL", "gemini-2.5-pro")
 
 _model = GoogleModel(
     _model_name,
-    provider=GoogleProvider(vertexai=True, project=_vertex_project, location=_vertex_region),
+    provider=GoogleCloudProvider(project=_vertex_project, location=_vertex_region),
 )
 
-# Single persistent event loop in a background thread so the GoogleProvider's
+# Single persistent event loop in a background thread so the provider's
 # httpx.AsyncClient is never tied to a loop that gets closed between requests.
 _loop = asyncio.new_event_loop()
 threading.Thread(target=_loop.run_forever, daemon=True).start()

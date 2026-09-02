@@ -121,7 +121,13 @@
     </div>
     <hr class="my-3" style="border-color:var(--bs-border-color); opacity:0.6;">
     <div class="mb-3">
-      <label class="form-label fw-semibold" for="ds-instrument">Instrument</label>
+      <label class="form-label fw-semibold" for="ds-instrument">
+        Instrument
+        <span id="ds-instrument-readonly-help" class="text-muted ms-1" style="display:none; cursor:help;"
+              title="The instrument is fixed after dataset creation." tabindex="0" aria-label="The instrument is fixed after dataset creation.">
+          <i class="bi bi-info-circle"></i>
+        </span>
+      </label>
       <input type="text" id="ds-instrument" class="form-control" autocomplete="off"
              list="ds-instrument-datalist" placeholder="Search instruments…">
       <datalist id="ds-instrument-datalist"></datalist>
@@ -290,10 +296,11 @@ document.addEventListener('mousedown', e => {
 // HTML — most often an expired session redirecting to the OIDC login page.
 function cgRequestErrorText(resp) {
     if (!resp) return 'Could not reach the server. Check your connection and try again.';
-    if (resp.redirected || resp.status === 401 || resp.status === 403) {
+    if (resp.redirected || resp.status === 401) {
         return 'Your session expired. Reload the page and sign in again.';
     }
-    return `Server error (${resp.status}). Nothing was created.`;
+    if (resp.status === 403) return 'You do not have permission to perform this action.';
+    return `The request failed (${resp.status}). Check the project before retrying.`;
 }
 
 function _cgSetSubmitting(btnId, errId, submitting, label) {
@@ -303,7 +310,32 @@ function _cgSetSubmitting(btnId, errId, submitting, label) {
     btn.innerHTML = submitting
         ? '<span class="spinner-border spinner-border-sm me-1"></span>Creating…'
         : label;
+    if (submitting) {
+        err.classList.remove('text-warning');
+        err.classList.add('text-danger');
+    }
     err.style.display = 'none';
+}
+
+function _cgShowPartial(errEl, kind, creation, warnings, fileError, action = 'created') {
+    const details = (warnings || []).map(w => escHtml(w.error || 'Unknown error'));
+    if (fileError) details.push(escHtml(fileError));
+    errEl.classList.remove('text-danger');
+    errEl.classList.add('text-warning');
+    errEl.innerHTML = `${kind} was ${action}, but some follow-up steps failed. `
+        + `<a href="${escHtml(creation.url)}">Open it</a>.`
+        + (details.length ? `<br>${details.join('<br>')}` : '');
+    errEl.style.display = '';
+}
+
+function _cgShowApiError(errEl, data, fallback) {
+    const message = data.error || fallback;
+    if (data.url) {
+        errEl.innerHTML = `${escHtml(message)} <a href="${escHtml(data.url)}">Open resource</a>.`;
+    } else {
+        errEl.textContent = message;
+    }
+    errEl.style.display = '';
 }
 
 // ── datetime helpers ──────────────────────────────────────────────────────────
@@ -333,16 +365,42 @@ function cgParseMetaJson(textareaId, errorId) {
     const ta  = document.getElementById(textareaId);
     const err = document.getElementById(errorId);
     const raw = ta.value.trim();
-    if (!raw || raw === '{}' || raw === 'null') { err.style.display = 'none'; return null; }
+    if (!raw || raw === '{}' || raw === 'null') { err.style.display = 'none'; return {}; }
     try {
         const parsed = JSON.parse(raw);
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+            err.textContent = 'Scientific metadata must be a JSON object.';
+            err.style.display = '';
+            return undefined;
+        }
         err.style.display = 'none';
-        return (typeof parsed === 'object' && parsed !== null && Object.keys(parsed).length) ? parsed : null;
+        return parsed;
     } catch (e) {
         err.textContent = 'Invalid JSON: ' + e.message;
         err.style.display = '';
         return undefined;  // sentinel: parse failed
     }
+}
+
+function _cgCanonicalJson(value) {
+    if (Array.isArray(value)) return value.map(_cgCanonicalJson);
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(
+            Object.keys(value).sort().map(key => [key, _cgCanonicalJson(value[key])])
+        );
+    }
+    return value;
+}
+
+function _cgEditChanges(candidate, initial) {
+    const changes = {};
+    Object.entries(candidate).forEach(([key, value]) => {
+        const changed = key === 'scientific_metadata'
+            ? JSON.stringify(_cgCanonicalJson(value)) !== JSON.stringify(_cgCanonicalJson(initial[key]))
+            : value !== initial[key];
+        if (changed) changes[key] = value;
+    });
+    return changes;
 }
 
 function cgImportJson(targetTextareaId) {
@@ -527,6 +585,12 @@ const ntLinks = new CgLinkBuilder('nt-links-container', '{{ pid }}', NOTE_LINK_T
 // ── duplicate sample names ────────────────────────────────────────────────────
 // Bound to the name it was granted for, so editing the name re-runs the check.
 let _spDupAckName = null;
+let _spCreation = null;
+let _dsCreation = null;
+let _spUpdateRetry = null;
+let _dsUpdateRetry = null;
+let _spInitial = null;
+let _dsInitial = null;
 
 function _cgShowSampleConflict(pid, name, matches) {
     const box = document.getElementById('sp-conflict');
@@ -565,18 +629,20 @@ async function cgSubmitSample(pid) {
     const submit  = document.getElementById('sp-submit');
     const editId  = submit.dataset.editId || '';
     const isEdit  = !!editId;
+    if (submit.disabled) return;
     const selectedPid = isEdit
         ? (submit.dataset.editPid || pid)
         : (document.getElementById('sp-project').value || pid);
     const errEl = document.getElementById('sp-error');
     if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; return; }
-    const meta = cgParseMetaJson('sp-meta-json', 'sp-meta-error');
+    const meta = _spUpdateRetry
+        ? _spUpdateRetry.scientific_metadata
+        : cgParseMetaJson('sp-meta-json', 'sp-meta-error');
     if (meta === undefined) return;
     document.getElementById('sp-conflict').style.display = 'none';
-    _cgSetSubmitting('sp-submit', 'sp-error', true);
     const url    = isEdit ? cgUrl(`/${selectedPid}/api/samples/${editId}/update`) : cgUrl(`/${selectedPid}/api/samples/create`);
     const method = isEdit ? 'PATCH' : 'POST';
-    const body   = {
+    const candidate = {
         sample_name: name,
         sample_type: document.getElementById('sp-type').value.trim() || null,
         description: document.getElementById('sp-desc').value.trim() || null,
@@ -584,21 +650,44 @@ async function cgSubmitSample(pid) {
         public:      document.getElementById('sp-public').checked,
         scientific_metadata: meta,
     };
+    const body = _spUpdateRetry
+        ? { scientific_metadata: meta, metadata_only: true }
+        : (isEdit ? _cgEditChanges(candidate, _spInitial) : candidate);
     if (!isEdit) {
-        body.links = spLinks.export();
-        body.allow_duplicate = (_spDupAckName === name);
+        body.links = _spCreation ? _spCreation.links : spLinks.export();
+        body.allow_duplicate = !!_spCreation || (_spDupAckName === name);
+        if (_spCreation) {
+            body.resume_id = _spCreation.id;
+            body.scientific_metadata = _spCreation.scientific_metadata;
+        }
     }
     const resetLabel = isEdit
         ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
         : '<i class="bi bi-plus-circle me-1"></i>Create Sample';
+    if (isEdit && !_spUpdateRetry && !Object.keys(body).length) {
+        cgToast('No changes to save', 'bi-check-circle');
+        cgCloseAllPanels();
+        return;
+    }
+    _cgSetSubmitting('sp-submit', 'sp-error', true);
     let resp, data;
     try {
         resp = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
         data = await resp.json();
     } catch (err) {
-        _cgSetSubmitting('sp-submit', 'sp-error', false, resetLabel);
-        errEl.textContent = cgRequestErrorText(resp);
-        errEl.style.display = '';
+        if (_spCreation) {
+            _cgSetSubmitting('sp-submit', 'sp-error', false,
+                '<i class="bi bi-arrow-repeat me-1"></i>Retry Failed Steps');
+            _cgShowPartial(errEl, 'Sample', _spCreation, [], cgRequestErrorText(resp));
+        } else if (_spUpdateRetry) {
+            _cgSetSubmitting('sp-submit', 'sp-error', false,
+                '<i class="bi bi-arrow-repeat me-1"></i>Retry Metadata');
+            _cgShowPartial(errEl, 'Sample', _spUpdateRetry, [], cgRequestErrorText(resp), 'updated');
+        } else {
+            _cgSetSubmitting('sp-submit', 'sp-error', false, resetLabel);
+            errEl.textContent = cgRequestErrorText(resp);
+            errEl.style.display = '';
+        }
         return;
     }
     if (resp.status === 409 && data.conflict) {
@@ -607,9 +696,40 @@ async function cgSubmitSample(pid) {
         return;
     }
     if (!resp.ok || data.error) {
-        _cgSetSubmitting('sp-submit', 'sp-error', false, resetLabel);
-        errEl.textContent = data.error || 'Failed.';
-        errEl.style.display = '';
+        if (_spCreation) {
+            _cgSetSubmitting('sp-submit', 'sp-error', false,
+                '<i class="bi bi-arrow-repeat me-1"></i>Retry Failed Steps');
+            _cgShowPartial(errEl, 'Sample', _spCreation, [], data.error || 'Retry failed.');
+        } else if (_spUpdateRetry) {
+            _cgSetSubmitting('sp-submit', 'sp-error', false,
+                '<i class="bi bi-arrow-repeat me-1"></i>Retry Metadata');
+            _cgShowPartial(errEl, 'Sample', _spUpdateRetry, [], data.error || 'Retry failed.', 'updated');
+        } else {
+            _cgSetSubmitting('sp-submit', 'sp-error', false, resetLabel);
+            _cgShowApiError(errEl, data, 'Failed.');
+        }
+        return;
+    }
+    if (!isEdit && data.partial) {
+        _spCreation = {
+            id: data.id,
+            url: data.url,
+            links: data.retry?.links || [],
+            scientific_metadata: data.retry?.scientific_metadata || null,
+        };
+        _cgSetSubmitting('sp-submit', 'sp-error', false,
+            '<i class="bi bi-arrow-repeat me-1"></i>Retry Failed Steps');
+        _cgShowPartial(errEl, 'Sample', _spCreation, data.warnings);
+        return;
+    }
+    if (isEdit && data.partial) {
+        _spUpdateRetry = {
+            url: data.url,
+            scientific_metadata: data.retry?.scientific_metadata,
+        };
+        _cgSetSubmitting('sp-submit', 'sp-error', false,
+            '<i class="bi bi-arrow-repeat me-1"></i>Retry Metadata');
+        _cgShowPartial(errEl, 'Sample', _spUpdateRetry, data.warnings, null, 'updated');
         return;
     }
     window.location.href = data.url;
@@ -621,71 +741,160 @@ async function cgSubmitDataset(pid) {
     const submit = document.getElementById('ds-submit');
     const editId  = submit.dataset.editId || '';
     const isEdit  = !!editId;
+    if (submit.disabled) return;
     const selectedPid = isEdit
         ? (submit.dataset.editPid || pid)
         : (document.getElementById('ds-project').value || pid);
     const errEl = document.getElementById('ds-error');
     if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; return; }
-    const meta = cgParseMetaJson('ds-meta-json', 'ds-meta-error');
+    let instrumentId = null;
+    if (!isEdit && !_dsCreation) {
+        const instrumentName = document.getElementById('ds-instrument').value.trim();
+        if (instrumentName) {
+            submit.disabled = true;
+            try {
+                await _cgLoadInstruments();
+            } catch (err) {
+                submit.disabled = false;
+                errEl.textContent = 'Could not load registered instruments. Try again.';
+                errEl.style.display = '';
+                return;
+            }
+            submit.disabled = false;
+            instrumentId = _instrumentsByName.get(instrumentName.toLocaleLowerCase()) || null;
+            if (!instrumentId) {
+                errEl.textContent = 'Select a registered instrument or leave the field empty.';
+                errEl.style.display = '';
+                return;
+            }
+        }
+    }
+    const meta = _dsUpdateRetry
+        ? _dsUpdateRetry.scientific_metadata
+        : cgParseMetaJson('ds-meta-json', 'ds-meta-error');
     if (meta === undefined) return;
-    _cgSetSubmitting('ds-submit', 'ds-error', true);
     const url    = isEdit ? cgUrl(`/${selectedPid}/api/datasets/${editId}/update`) : cgUrl(`/${selectedPid}/api/datasets/create`);
     const method = isEdit ? 'PATCH' : 'POST';
-    const body   = {
-        dataset_name:    name,
-        measurement:     document.getElementById('ds-measurement').value.trim() || null,
-        instrument_name: document.getElementById('ds-instrument').value.trim() || null,
-        session_name:    document.getElementById('ds-session').value.trim() || null,
-        data_type:       document.getElementById('ds-datatype').value.trim() || null,
-        timestamp:       _cgToISO(document.getElementById('ds-timestamp').value) || null,
-        public:          document.getElementById('ds-public').checked,
+    const candidate = {
+        dataset_name: name,
+        measurement: document.getElementById('ds-measurement').value.trim() || null,
+        session_name: document.getElementById('ds-session').value.trim() || null,
+        data_type: document.getElementById('ds-datatype').value.trim() || null,
+        timestamp: _cgToISO(document.getElementById('ds-timestamp').value) || null,
+        public: document.getElementById('ds-public').checked,
         scientific_metadata: meta,
     };
-    if (!isEdit) body.links = dsLinks.export();
+    const body = _dsUpdateRetry
+        ? { scientific_metadata: meta, metadata_only: true }
+        : (isEdit ? _cgEditChanges(candidate, _dsInitial) : candidate);
+    if (!isEdit) {
+        if (!_dsCreation) body.instrument_id = instrumentId;
+        body.links = _dsCreation ? _dsCreation.links : dsLinks.export();
+        if (_dsCreation) {
+            body.resume_id = _dsCreation.id;
+            body.scientific_metadata = _dsCreation.scientific_metadata;
+        }
+    }
     const resetLabel = isEdit
         ? '<i class="bi bi-check-circle me-1"></i>Save Changes'
         : '<i class="bi bi-plus-circle me-1"></i>Create Dataset';
+    if (isEdit && !_dsUpdateRetry && !Object.keys(body).length) {
+        cgToast('No changes to save', 'bi-check-circle');
+        cgCloseAllPanels();
+        return;
+    }
+    _cgSetSubmitting('ds-submit', 'ds-error', true);
     let resp, data;
     try {
         resp = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
         data = await resp.json();
     } catch (err) {
-        _cgSetSubmitting('ds-submit', 'ds-error', false, resetLabel);
-        errEl.textContent = cgRequestErrorText(resp);
-        errEl.style.display = '';
+        if (_dsCreation) {
+            _cgSetSubmitting('ds-submit', 'ds-error', false,
+                '<i class="bi bi-arrow-repeat me-1"></i>Retry Failed Steps');
+            _cgShowPartial(errEl, 'Dataset', _dsCreation, [], cgRequestErrorText(resp));
+        } else if (_dsUpdateRetry) {
+            _cgSetSubmitting('ds-submit', 'ds-error', false,
+                '<i class="bi bi-arrow-repeat me-1"></i>Retry Metadata');
+            _cgShowPartial(errEl, 'Dataset', _dsUpdateRetry, [], cgRequestErrorText(resp), 'updated');
+        } else {
+            _cgSetSubmitting('ds-submit', 'ds-error', false, resetLabel);
+            errEl.textContent = cgRequestErrorText(resp);
+            errEl.style.display = '';
+        }
         return;
     }
     if (!resp.ok || data.error) {
-        _cgSetSubmitting('ds-submit', 'ds-error', false, resetLabel);
-        errEl.textContent = data.error || 'Failed.';
-        errEl.style.display = '';
+        if (_dsCreation) {
+            _cgSetSubmitting('ds-submit', 'ds-error', false,
+                '<i class="bi bi-arrow-repeat me-1"></i>Retry Failed Steps');
+            _cgShowPartial(errEl, 'Dataset', _dsCreation, [], data.error || 'Retry failed.');
+        } else if (_dsUpdateRetry) {
+            _cgSetSubmitting('ds-submit', 'ds-error', false,
+                '<i class="bi bi-arrow-repeat me-1"></i>Retry Metadata');
+            _cgShowPartial(errEl, 'Dataset', _dsUpdateRetry, [], data.error || 'Retry failed.', 'updated');
+        } else {
+            _cgSetSubmitting('ds-submit', 'ds-error', false, resetLabel);
+            _cgShowApiError(errEl, data, 'Failed.');
+        }
         return;
     }
-    if (!isEdit && _dsFiles.length) {
+    if (!isEdit) {
+        _dsCreation = {
+            id: data.id,
+            url: data.url,
+            links: data.retry?.links || [],
+            scientific_metadata: data.retry?.scientific_metadata || null,
+            files: _dsCreation ? _dsCreation.files : [..._dsFiles],
+        };
+    }
+    if (!isEdit && _dsCreation.files.length) {
         const btn = document.getElementById('ds-submit');
-        for (let i = 0; i < _dsFiles.length; i++) {
-            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Uploading ${i+1}/${_dsFiles.length}…`;
+        const total = _dsCreation.files.length;
+        while (_dsCreation.files.length) {
+            const file = _dsCreation.files[0];
+            const completed = total - _dsCreation.files.length;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Uploading ${completed + 1}/${total}…`;
             const fd = new FormData();
-            fd.append('file', _dsFiles[i]);
+            fd.append('file', file);
             let ur;
             try {
                 ur = await fetch(`{{ base }}/${selectedPid}/api/datasets/${data.id}/upload-file`, {
                     method: 'POST', body: fd,
                 });
             } catch (err) {
-                _cgSetSubmitting('ds-submit', 'ds-error', false, resetLabel);
-                errEl.textContent = `File "${_dsFiles[i].name}" upload failed: ${cgRequestErrorText(ur)}`;
-                errEl.style.display = '';
+                _cgSetSubmitting('ds-submit', 'ds-error', false,
+                    '<i class="bi bi-arrow-repeat me-1"></i>Retry Failed Steps');
+                _cgShowPartial(errEl, 'Dataset', _dsCreation, data.warnings,
+                    `File "${file.name}" upload failed: ${cgRequestErrorText(ur)}`);
                 return;
             }
             if (!ur.ok) {
                 const ud = await ur.json().catch(() => ({}));
-                _cgSetSubmitting('ds-submit', 'ds-error', false, resetLabel);
-                errEl.textContent = `File "${_dsFiles[i].name}" upload failed: ${ud.error || ur.status}`;
-                errEl.style.display = '';
+                _cgSetSubmitting('ds-submit', 'ds-error', false,
+                    '<i class="bi bi-arrow-repeat me-1"></i>Retry Failed Steps');
+                _cgShowPartial(errEl, 'Dataset', _dsCreation, data.warnings,
+                    `File "${file.name}" upload failed: ${ud.error || ur.status}`);
                 return;
             }
+            _dsCreation.files.shift();
         }
+    }
+    if (!isEdit && data.partial) {
+        _cgSetSubmitting('ds-submit', 'ds-error', false,
+            '<i class="bi bi-arrow-repeat me-1"></i>Retry Failed Steps');
+        _cgShowPartial(errEl, 'Dataset', _dsCreation, data.warnings);
+        return;
+    }
+    if (isEdit && data.partial) {
+        _dsUpdateRetry = {
+            url: data.url,
+            scientific_metadata: data.retry?.scientific_metadata,
+        };
+        _cgSetSubmitting('ds-submit', 'ds-error', false,
+            '<i class="bi bi-arrow-repeat me-1"></i>Retry Metadata');
+        _cgShowPartial(errEl, 'Dataset', _dsUpdateRetry, data.warnings, null, 'updated');
+        return;
     }
     window.location.href = data.url;
 }
@@ -727,6 +936,35 @@ async function cgSubmitNote(pid) {
 
 // ── open panel functions ──────────────────────────────────────────────────────
 let _instrumentsLoaded = false;
+let _instrumentsLoadPromise = null;
+const _instrumentsByName = new Map();
+
+function _cgLoadInstruments() {
+    if (_instrumentsLoaded) return Promise.resolve();
+    if (_instrumentsLoadPromise) return _instrumentsLoadPromise;
+    _instrumentsLoadPromise = fetch('{{ base }}/api/instruments')
+        .then(resp => {
+            if (!resp.ok) throw new Error(`Instrument request failed: ${resp.status}`);
+            return resp.json();
+        })
+        .then(instruments => {
+            const dl = document.getElementById('ds-instrument-datalist');
+            dl.innerHTML = '';
+            _instrumentsByName.clear();
+            instruments.forEach(instrument => {
+                _instrumentsByName.set(
+                    instrument.name.trim().toLocaleLowerCase(),
+                    instrument.instrument_id
+                );
+                const option = document.createElement('option');
+                option.value = instrument.name;
+                dl.appendChild(option);
+            });
+            _instrumentsLoaded = true;
+        })
+        .finally(() => { _instrumentsLoadPromise = null; });
+    return _instrumentsLoadPromise;
+}
 
 function cgOpenSamplePanel(editData) {
     const isEdit = !!editData;
@@ -743,6 +981,16 @@ function cgOpenSamplePanel(editData) {
     document.getElementById('sp-error').style.display        = 'none';
     document.getElementById('sp-conflict').style.display     = 'none';
     _spDupAckName = null;
+    _spCreation = null;
+    _spUpdateRetry = null;
+    _spInitial = isEdit ? {
+        sample_name: document.getElementById('sp-name').value.trim(),
+        sample_type: document.getElementById('sp-type').value.trim() || null,
+        description: document.getElementById('sp-desc').value.trim() || null,
+        timestamp: _cgToISO(document.getElementById('sp-timestamp').value) || null,
+        public: document.getElementById('sp-public').checked,
+        scientific_metadata: d.scientific_metadata || {},
+    } : null;
 
     // Edit mode: hide project selector and links (not relevant for editing)
     document.getElementById('sp-project').closest('.mb-3').style.display          = isEdit ? 'none' : '';
@@ -771,7 +1019,11 @@ function cgOpenDatasetPanel(editData) {
     document.getElementById('ds-measurement').value = d.measurement     || '';
     document.getElementById('ds-session').value     = d.session_name    || '';
     document.getElementById('ds-datatype').value    = d.data_type       || '';
-    document.getElementById('ds-instrument').value  = d.instrument_name || '';
+    const instrument = document.getElementById('ds-instrument');
+    instrument.value = d.instrument_name || '';
+    instrument.readOnly = isEdit;
+    instrument.title = isEdit ? 'The instrument is fixed after dataset creation.' : '';
+    document.getElementById('ds-instrument-readonly-help').style.display = isEdit ? '' : 'none';
     document.getElementById('ds-public').checked    = !!d.public;
     document.getElementById('ds-timestamp').value   = isEdit ? _cgToLocal(d.timestamp) : _cgNowLocal();
     document.getElementById('ds-meta-json').value   = isEdit && d.scientific_metadata
@@ -779,6 +1031,17 @@ function cgOpenDatasetPanel(editData) {
     document.getElementById('ds-measurement-results').style.display = 'none';
     document.getElementById('ds-meta-error').style.display          = 'none';
     document.getElementById('ds-error').style.display               = 'none';
+    _dsCreation = null;
+    _dsUpdateRetry = null;
+    _dsInitial = isEdit ? {
+        dataset_name: document.getElementById('ds-name').value.trim(),
+        measurement: document.getElementById('ds-measurement').value.trim() || null,
+        session_name: document.getElementById('ds-session').value.trim() || null,
+        data_type: document.getElementById('ds-datatype').value.trim() || null,
+        timestamp: _cgToISO(document.getElementById('ds-timestamp').value) || null,
+        public: document.getElementById('ds-public').checked,
+        scientific_metadata: d.scientific_metadata || {},
+    } : null;
 
     // Edit mode: hide project selector, links, and file drop zone
     document.getElementById('ds-project').closest('.mb-3').style.display           = isEdit ? 'none' : '';
@@ -801,20 +1064,7 @@ function cgOpenDatasetPanel(editData) {
     _dsRenderFileList();
     dsLinks.reset();
     cgOpenPanel('cgDatasetPanel');
-    if (!_instrumentsLoaded) {
-        fetch('{{ base }}/api/instruments')
-            .then(r => r.json())
-            .then(instruments => {
-                _instrumentsLoaded = true;
-                const dl = document.getElementById('ds-instrument-datalist');
-                instruments.forEach(i => {
-                    const opt = document.createElement('option');
-                    opt.value = i.name;
-                    dl.appendChild(opt);
-                });
-            })
-            .catch(() => {});
-    }
+    _cgLoadInstruments().catch(() => {});
 }
 
 // ── request deletion ──────────────────────────────────────────────────────────

@@ -1,20 +1,32 @@
 import logging
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import flask
 from flask import Blueprint, abort, jsonify, render_template, request
 from flask_pyoidc.user_session import UserSession
-from crucible.models import Dataset
+from crucible.models import Dataset, Sample
+from pydantic import ValidationError
 
 from utils.auth import get_user_client
+from utils.api_errors import api_error_payload, api_error_response, validation_error_response
 from utils.cache import (
     _project_cache,
-    clear_project_cache, get_project, get_user_projects, warm_project_caches,
+    clear_project_cache, get_project, get_user_projects,
 )
 from utils.helpers import abbrev_name
+from utils.creation_validation import validate_creation_extras, validate_scientific_metadata
+from utils.resource_scope import project_scope_conflict
 
 logger = logging.getLogger(__name__)
+_DASHBOARD_PROJECT_LIMIT = 100
+_PROJECT_ROLE_ORDER = {
+    'owner': 0,
+    'admin': 1,
+    'editor': 2,
+    'contributor': 3,
+    'viewer': 4,
+}
 
 
 def _slim_sample(s):
@@ -41,6 +53,72 @@ def _slim_dataset(ds):
     }
 
 
+def _project_member_display(members):
+    owner_map = {}
+    project_users = []
+    for member in members or []:
+        user = member.model_dump() if hasattr(member, 'model_dump') else member
+        uid = user.get('unique_id')
+        if not uid:
+            continue
+        first = (user.get('first_name') or '').strip()
+        last = (user.get('last_name') or '').strip()
+        full_name = f'{first} {last}'.strip()
+        name = abbrev_name(first, last)
+        email = user.get('email') or ''
+        username = user.get('username') or ''
+        owner_map[uid] = full_name or username or email or uid
+        project_users.append({
+            'orcid': uid,
+            'name': name,
+            'username': username,
+            'email': email,
+            'role': user.get('role') or '',
+            'initials': (first[:1] + last[:1]).upper() or '?',
+        })
+    project_users.sort(key=lambda user: (
+        _PROJECT_ROLE_ORDER.get(user['role'], len(_PROJECT_ROLE_ORDER)),
+        user['name'].casefold() or user['orcid'],
+    ))
+    return owner_map, project_users
+
+
+def _dashboard_project_stats(client, project_ids, orcid):
+    stats = {}
+    uncached = []
+    for project_id in project_ids:
+        cached = _project_cache.get((orcid, project_id, False))
+        if cached is not None:
+            stats[project_id] = {
+                'datasets': len(cached.get('datasets', [])),
+                'samples': len(cached.get('samples', [])),
+            }
+        else:
+            stats[project_id] = {'datasets': None, 'samples': None}
+            uncached.append(project_id)
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = {}
+        for project_id in uncached:
+            futures[executor.submit(
+                client.datasets.count,
+                project_id=project_id,
+            )] = (project_id, 'datasets')
+            futures[executor.submit(
+                client.samples.count,
+                project_id=project_id,
+            )] = (project_id, 'samples')
+
+        for future in as_completed(futures):
+            project_id, resource_type = futures[future]
+            try:
+                stats[project_id][resource_type] = future.result()
+            except Exception:
+                pass
+
+    return stats
+
+
 def create_blueprint(auth):
     bp = Blueprint('projects', __name__)
 
@@ -62,8 +140,6 @@ def create_blueprint(auth):
             p['project_lead_email'] = email
             p['project_lead_name']  = abbrev_name(first, last) or email
 
-        warm_project_caches([p['project_id'] for p in user_projects], client, orcid)
-
         return render_template('project_list.html', projects=user_projects, user_name=user_name)
 
     @bp.route("/api/dashboard-stats")
@@ -73,26 +149,19 @@ def create_blueprint(auth):
         client = get_user_client()
         user_session = UserSession(flask.session)
         orcid = user_session.userinfo['sub']
-        ids = [i.strip() for i in request.args.get('ids', '').split(',') if i.strip()]
+        ids = list(dict.fromkeys(
+            value.strip()
+            for value in request.args.get('ids', '').split(',')
+            if value.strip()
+        ))
         if not ids:
             return jsonify({})
+        if len(ids) > _DASHBOARD_PROJECT_LIMIT:
+            return jsonify({
+                'error': f'At most {_DASHBOARD_PROJECT_LIMIT} projects may be requested'
+            }), 400
 
-        def get_stats(pid):
-            cached = _project_cache.get((orcid, pid, False))
-            if cached is not None:
-                return pid, len(cached.get('datasets', [])), len(cached.get('samples', []))
-            try:
-                with ThreadPoolExecutor(max_workers=2) as inner:
-                    f_ds = inner.submit(client.datasets.count, project_id=pid)
-                    f_s  = inner.submit(client.samples.count,  project_id=pid)
-                return pid, f_ds.result(), f_s.result()
-            except Exception:
-                return pid, None, None
-
-        with ThreadPoolExecutor(max_workers=8) as ex:
-            results = list(ex.map(get_stats, ids))
-
-        return jsonify({pid: {'datasets': ds, 'samples': s} for pid, ds, s in results})
+        return jsonify(_dashboard_project_stats(client, ids, orcid))
 
     @bp.route("/<project_id>/")
     @auth.oidc_auth('orcid')
@@ -111,29 +180,19 @@ def create_blueprint(auth):
         if project_meta is None:
             abort(403)
 
-        owner_map: dict = {}
-        project_users: list = []
         try:
-            for u in (client.projects.get_users(project_id) or []):
-                uid = u.get('unique_id')
-                if not uid:
-                    continue
-                first    = u.get('first_name') or ''
-                last     = u.get('last_name')  or ''
-                name     = (first + ' ' + last).strip()
-                email    = u.get('email')    or ''
-                username = u.get('username') or ''
-                owner_map[uid] = name or username or email or uid
-                project_users.append({
-                    'orcid':    uid,
-                    'name':     name,
-                    'username': username,
-                    'email':    email,
-                    'initials': ((first[:1] if first else '') + (last[:1] if last else '')).upper() or '?',
-                })
-            project_users.sort(key=lambda u: u['name'].lower() or u['orcid'])
-        except Exception:
-            pass
+            project_with_members = client.projects.get(
+                project_id=project_id,
+                include_members=True,
+            )
+            owner_map, project_users = _project_member_display(
+                project_with_members.get('members')
+            )
+            project_capabilities = project_with_members.get('capabilities') or {}
+        except Exception as exc:
+            logger.warning("Could not load members for project %s: %s", project_id, exc)
+            owner_map, project_users = {}, []
+            project_capabilities = {}
         _t_users = time.perf_counter()
 
         logger.info(
@@ -153,6 +212,7 @@ def create_blueprint(auth):
                                project_meta=project_meta,
                                owner_map=owner_map,
                                project_users=project_users,
+                               project_capabilities=project_capabilities,
                                all_projects=user_projects,
                                custom_views=project_views.get_views(project_id))
 
@@ -262,17 +322,16 @@ def create_blueprint(auth):
         description = (data.get('description') or '').strip() or None
         timestamp   = (data.get('timestamp')   or '').strip() or None
         public_val  = data.get('public')
-        sci_meta    = data.get('scientific_metadata') or None
-        links       = data.get('links') or []
-
-        parents         = [{'unique_id': l['id']} for l in links if l.get('type') == 'sample_parent'  and l.get('id')]
-        children        = [{'unique_id': l['id']} for l in links if l.get('type') == 'sample_child'   and l.get('id')]
-        linked_datasets = [l['id']               for l in links if l.get('type') == 'linked_dataset'  and l.get('id')]
+        try:
+            links, sci_meta = validate_creation_extras(data, 'sample')
+        except ValidationError as exc:
+            return validation_error_response(exc)
+        resume_id   = (data.get('resume_id') or '').strip() or None
 
         try:
             client = get_user_client()
 
-            if not data.get('allow_duplicate'):
+            if not resume_id and not data.get('allow_duplicate'):
                 existing = client.samples.list(sample_name=sample_name, project_id=project_id)
                 if existing:
                     return jsonify({'conflict': True, 'matches': [
@@ -285,31 +344,70 @@ def create_blueprint(auth):
                         for s in existing
                     ]}), 409
 
-            result = client.samples.create(
-                sample_name=sample_name,
-                sample_type=sample_type,
-                description=description,
-                project_id=project_id,
-                owner_orcid=orcid,
-                timestamp=timestamp,
-                public=public_val,
-                parents=parents,
-                children=children,
-                scientific_metadata=sci_meta,
-            )
+            if resume_id:
+                conflict = project_scope_conflict(
+                    client.samples.get(resume_id), project_id, 'sample'
+                )
+                if conflict:
+                    return conflict
+                uid = resume_id
+                result = {'unique_id': uid, 'sample_name': sample_name}
+            else:
+                result = client.samples.create(Sample(
+                    sample_name=sample_name,
+                    sample_type=sample_type,
+                    description=description,
+                    project_id=project_id,
+                    timestamp=timestamp,
+                    public=public_val,
+                ))
+                uid = result['unique_id']
+        except Exception as exc:
+            return api_error_response(exc)
 
-            uid = result.get('unique_id', '')
-            for did in linked_datasets:
-                client.datasets.add_sample(did, uid)
-        except Exception as exc:     
-            return jsonify({'error': str(exc)}), 500
+        failed_links = []
+        warnings = []
+        metadata_failed = False
+
+        if sci_meta:
+            try:
+                client.samples.update_scientific_metadata(uid, sci_meta)
+            except Exception as exc:
+                metadata_failed = True
+                warning, status = api_error_payload(exc)
+                warnings.append({'step': 'scientific_metadata', 'status': status, **warning})
+
+        for link in links:
+            link_type = link.get('type')
+            link_id = link.get('id')
+            if not link_id:
+                continue
+            try:
+                if link_type == 'sample_parent':
+                    client.samples.link(link_id, uid)
+                elif link_type == 'sample_child':
+                    client.samples.link(uid, link_id)
+                elif link_type == 'linked_dataset':
+                    client.datasets.add_sample(link_id, uid)
+            except Exception as exc:
+                failed_links.append(link)
+                warning, status = api_error_payload(exc)
+                warnings.append({'step': 'relationship', 'target_id': link_id, 'status': status, **warning})
 
         clear_project_cache(project_id, orcid)
-        return jsonify({
+        response = {
+            'created': True,
             'id':   uid,
             'name': result.get('sample_name', sample_name),
             'url':  f'{flask.request.script_root}/{project_id}/samples/{uid}',
-        })
+            'partial': bool(warnings),
+            'warnings': warnings,
+            'retry': {
+                'links': failed_links,
+                'scientific_metadata': sci_meta if metadata_failed else None,
+            },
+        }
+        return jsonify(response), 200 if resume_id else 201
 
     @bp.route("/<project_id>/api/datasets/create", methods=['POST'])
     @auth.oidc_auth('orcid')
@@ -324,48 +422,89 @@ def create_blueprint(auth):
 
         measurement  = (data.get('measurement')     or '').strip() or None
         session_name = (data.get('session_name')    or '').strip() or None
-        instrument   = (data.get('instrument_name') or '').strip() or None
+        instrument_id = (data.get('instrument_id') or '').strip() or None
+        if data.get('instrument_name'):
+            return jsonify({
+                'error': 'instrument_name is display-only; submit instrument_id instead'
+            }), 422
         data_type    = (data.get('data_type')       or '').strip() or None
         timestamp    = (data.get('timestamp')       or '').strip() or None
         public_val   = data.get('public')
-        sci_meta     = data.get('scientific_metadata') or None
-        links        = data.get('links') or []
-
-        linked_samples  = [l['id'] for l in links if l.get('type') == 'linked_sample' and l.get('id')]
-        parent_datasets = [l['id'] for l in links if l.get('type') == 'dataset_parent' and l.get('id')]
-        child_datasets  = [l['id'] for l in links if l.get('type') == 'dataset_child' and l.get('id')]
+        try:
+            links, sci_meta = validate_creation_extras(data, 'dataset')
+        except ValidationError as exc:
+            return validation_error_response(exc)
+        resume_id    = (data.get('resume_id') or '').strip() or None
 
         ds = Dataset(
             dataset_name=dataset_name,
             project_id=project_id,
             measurement=measurement,
             session_name=session_name,
-            instrument_name=instrument,
+            instrument_id=instrument_id,
             data_type=data_type,
-            owner_orcid=orcid,
             timestamp=timestamp,
             public=public_val,
         )
 
         try:
             client = get_user_client()
-            result = client.datasets.create(ds, scientific_metadata=sci_meta or {})
-            uid = result['dsid']
-            for sid in linked_samples:
-                client.datasets.add_sample(uid, sid)
-            for pid in parent_datasets:
-                client.datasets.link_parent_child(pid, uid)
-            for cid in child_datasets:
-                client.datasets.link_parent_child(uid, cid)
+            if resume_id:
+                conflict = project_scope_conflict(
+                    client.datasets.get(resume_id), project_id, 'dataset'
+                )
+                if conflict:
+                    return conflict
+                uid = resume_id
+            else:
+                result = client.datasets.create(ds)
+                uid = result['dataset_mfid']
         except Exception as exc:
-            return jsonify({'error': str(exc)}), 500
+            return api_error_response(exc)
+
+        failed_links = []
+        warnings = []
+        metadata_failed = False
+
+        if sci_meta:
+            try:
+                client.datasets.update_scientific_metadata(uid, sci_meta)
+            except Exception as exc:
+                metadata_failed = True
+                warning, status = api_error_payload(exc)
+                warnings.append({'step': 'scientific_metadata', 'status': status, **warning})
+
+        for link in links:
+            link_type = link.get('type')
+            link_id = link.get('id')
+            if not link_id:
+                continue
+            try:
+                if link_type == 'linked_sample':
+                    client.datasets.add_sample(uid, link_id)
+                elif link_type == 'dataset_parent':
+                    client.datasets.link_parent_child(link_id, uid)
+                elif link_type == 'dataset_child':
+                    client.datasets.link_parent_child(uid, link_id)
+            except Exception as exc:
+                failed_links.append(link)
+                warning, status = api_error_payload(exc)
+                warnings.append({'step': 'relationship', 'target_id': link_id, 'status': status, **warning})
 
         clear_project_cache(project_id, orcid)
-        return jsonify({
+        response = {
+            'created': True,
             'id':   uid,
             'name': dataset_name,
             'url':  f'{flask.request.script_root}/{project_id}/datasets/{uid}',
-        })
+            'partial': bool(warnings),
+            'warnings': warnings,
+            'retry': {
+                'links': failed_links,
+                'scientific_metadata': sci_meta if metadata_failed else None,
+            },
+        }
+        return jsonify(response), 200 if resume_id else 201
 
     @bp.route("/<project_id>/api/samples/<sample_id>/update", methods=['PATCH'])
     @auth.oidc_auth('orcid')
@@ -376,32 +515,78 @@ def create_blueprint(auth):
 
         update_kwargs = {}
         for field in ('sample_name', 'sample_type', 'description', 'timestamp'):
-            val = data.get(field)
-            if val is not None:
+            if field in data:
+                val = data[field]
                 update_kwargs[field] = val.strip() if isinstance(val, str) else val
 
         public_val = data.get('public')
         if public_val is not None:
             update_kwargs['public'] = public_val
 
-        sci_meta = data.get('scientific_metadata')
+        metadata_only = data.get('metadata_only') is True
+        try:
+            sci_meta = (
+                validate_scientific_metadata(data.get('scientific_metadata'))
+                if 'scientific_metadata' in data else None
+            )
+        except ValidationError as exc:
+            return validation_error_response(exc)
+        if metadata_only and sci_meta is None:
+            return jsonify({'error': 'scientific_metadata is required for metadata retry'}), 400
 
         try:
             client = get_user_client()
-            result = client.samples.update(sample_id, **update_kwargs)
-            if sci_meta is not None:
+            current = client.samples.get(sample_id, include_metadata=True)
+            conflict = project_scope_conflict(current, project_id, 'sample')
+            if conflict:
+                return conflict
+            if not metadata_only:
+                update_kwargs = {
+                    key: value for key, value in update_kwargs.items()
+                    if current.get(key) != value
+                }
+            core_changed = bool(update_kwargs) and not metadata_only
+            if core_changed and any(value is None for value in update_kwargs.values()):
+                result = client.samples._request(
+                    'patch', f'/samples/{sample_id}', json=update_kwargs
+                )
+            elif core_changed:
+                result = client.samples.update(sample_id, **update_kwargs)
+            else:
+                result = current
+        except Exception as exc:
+            return api_error_response(exc)
+
+        warnings = []
+        metadata_failed = False
+        metadata_changed = (
+            'scientific_metadata' in data
+            and sci_meta is not None
+            and current.get('scientific_metadata') != sci_meta
+        )
+        if metadata_changed:
+            try:
                 client.samples.update_scientific_metadata(
                     sample_id, sci_meta, overwrite=True
                 )
-        except Exception as exc:
-            return jsonify({'error': str(exc)}), 500
+            except Exception as exc:
+                metadata_failed = True
+                warning, status = api_error_payload(exc)
+                warnings.append({'step': 'scientific_metadata', 'status': status, **warning})
 
-        clear_project_cache(project_id, orcid)
+        if core_changed or (metadata_changed and not metadata_failed):
+            clear_project_cache(project_id, orcid)
         uid = result.get('unique_id', sample_id)
         return jsonify({
             'id':   uid,
             'name': result.get('sample_name', ''),
             'url':  f'{flask.request.script_root}/{project_id}/samples/{uid}',
+            'partial': metadata_failed,
+            'changed': core_changed or (metadata_changed and not metadata_failed),
+            'warnings': warnings,
+            'retry': {
+                'scientific_metadata': sci_meta if metadata_failed else None,
+            },
         })
 
     @bp.route("/<project_id>/api/datasets/<dataset_id>/update", methods=['PATCH'])
@@ -413,32 +598,74 @@ def create_blueprint(auth):
 
         update_kwargs = {}
         for field in ('dataset_name', 'measurement', 'session_name',
-                      'instrument_name', 'data_type', 'timestamp'):
-            val = data.get(field)
-            if val is not None:
+                      'data_type', 'timestamp'):
+            if field in data:
+                val = data[field]
                 update_kwargs[field] = val.strip() if isinstance(val, str) else val
 
         public_val = data.get('public')
         if public_val is not None:
             update_kwargs['public'] = public_val
 
-        sci_meta = data.get('scientific_metadata')
+        metadata_only = data.get('metadata_only') is True
+        try:
+            sci_meta = (
+                validate_scientific_metadata(data.get('scientific_metadata'))
+                if 'scientific_metadata' in data else None
+            )
+        except ValidationError as exc:
+            return validation_error_response(exc)
+        if metadata_only and sci_meta is None:
+            return jsonify({'error': 'scientific_metadata is required for metadata retry'}), 400
 
         try:
             client = get_user_client()
-            result = client.datasets.update(dataset_id, **update_kwargs)
-            if sci_meta is not None:
+            current = client.datasets.get(dataset_id, include_metadata=True)
+            conflict = project_scope_conflict(current, project_id, 'dataset')
+            if conflict:
+                return conflict
+            if not metadata_only:
+                update_kwargs = {
+                    key: value for key, value in update_kwargs.items()
+                    if current.get(key) != value
+                }
+            core_changed = bool(update_kwargs) and not metadata_only
+            result = (
+                client.datasets.update(dataset_id, **update_kwargs)
+                if core_changed else current
+            )
+        except Exception as exc:
+            return api_error_response(exc)
+
+        warnings = []
+        metadata_failed = False
+        metadata_changed = (
+            'scientific_metadata' in data
+            and sci_meta is not None
+            and current.get('scientific_metadata') != sci_meta
+        )
+        if metadata_changed:
+            try:
                 client.datasets.update_scientific_metadata(
                     dataset_id, sci_meta, overwrite=True
                 )
-        except Exception as exc:
-            return jsonify({'error': str(exc)}), 500
+            except Exception as exc:
+                metadata_failed = True
+                warning, status = api_error_payload(exc)
+                warnings.append({'step': 'scientific_metadata', 'status': status, **warning})
 
-        clear_project_cache(project_id, orcid)
+        if core_changed or (metadata_changed and not metadata_failed):
+            clear_project_cache(project_id, orcid)
         return jsonify({
             'id':   dataset_id,
             'name': result.get('dataset_name', ''),
             'url':  f'{flask.request.script_root}/{project_id}/datasets/{dataset_id}',
+            'partial': metadata_failed,
+            'changed': core_changed or (metadata_changed and not metadata_failed),
+            'warnings': warnings,
+            'retry': {
+                'scientific_metadata': sci_meta if metadata_failed else None,
+            },
         })
 
     @bp.route("/<project_id>/api/resources/<resource_id>/request-deletion", methods=['POST'])
@@ -449,9 +676,14 @@ def create_blueprint(auth):
         data = request.get_json(silent=True) or {}
         reason = (data.get('reason') or '').strip() or None
         try:
-            get_user_client().deletions.request(resource_id, reason=reason)
+            client = get_user_client()
+            resource = client._request('get', f'/resources/{resource_id}')
+            conflict = project_scope_conflict(resource, project_id)
+            if conflict:
+                return conflict
+            client.deletions.request(resource_id, reason=reason)
         except Exception as exc:
-            return jsonify({'error': str(exc)}), 500
+            return api_error_response(exc)
         clear_project_cache(project_id, orcid)
         return jsonify({'ok': True})
 
@@ -471,10 +703,24 @@ def create_blueprint(auth):
 
         try:
             client = get_user_client()
+            sample_link_types = {'sample_parent', 'sample_child', 'linked_dataset'}
+            dataset_link_types = {'dataset_parent', 'dataset_child', 'linked_sample'}
+            if link_type in sample_link_types:
+                source = client.samples.get(source_id)
+                source_type = 'sample'
+            elif link_type in dataset_link_types:
+                source = client.datasets.get(source_id)
+                source_type = 'dataset'
+            else:
+                return jsonify({'error': f'Unknown link_type: {link_type}'}), 400
+            conflict = project_scope_conflict(source, project_id, source_type)
+            if conflict:
+                return conflict
+
             if link_type == 'sample_parent':
-                client.samples.update(source_id, parents=[{'unique_id': target_id}])
+                client.samples.link(target_id, source_id)
             elif link_type == 'sample_child':
-                client.samples.update(source_id, children=[{'unique_id': target_id}])
+                client.samples.link(source_id, target_id)
             elif link_type == 'linked_dataset':
                 client.datasets.add_sample(target_id, source_id)
             elif link_type == 'dataset_parent':
@@ -483,10 +729,8 @@ def create_blueprint(auth):
                 client.datasets.link_parent_child(source_id, target_id)
             elif link_type == 'linked_sample':
                 client.datasets.add_sample(source_id, target_id)
-            else:
-                return jsonify({'error': f'Unknown link_type: {link_type}'}), 400
         except Exception as exc:
-            return jsonify({'error': str(exc)}), 500
+            return api_error_response(exc)
 
         clear_project_cache(project_id, orcid)
         return jsonify({'ok': True})
@@ -507,6 +751,20 @@ def create_blueprint(auth):
 
         try:
             client = get_user_client()
+            sample_link_types = {'sample_parent', 'sample_child', 'linked_dataset'}
+            dataset_link_types = {'dataset_parent', 'dataset_child', 'linked_sample'}
+            if link_type in sample_link_types:
+                source = client.samples.get(source_id)
+                source_type = 'sample'
+            elif link_type in dataset_link_types:
+                source = client.datasets.get(source_id)
+                source_type = 'dataset'
+            else:
+                return jsonify({'error': f'Unknown link_type: {link_type}'}), 400
+            conflict = project_scope_conflict(source, project_id, source_type)
+            if conflict:
+                return conflict
+
             if link_type == 'sample_parent':
                 # source=child sample, target=parent sample → remove parent
                 client.samples.remove_child(target_id, source_id)
@@ -525,10 +783,8 @@ def create_blueprint(auth):
             elif link_type == 'linked_sample':
                 # source=dataset, target=sample → unlink
                 client.datasets.remove_sample(source_id, target_id)
-            else:
-                return jsonify({'error': f'Unknown link_type: {link_type}'}), 400
         except Exception as exc:
-            return jsonify({'error': str(exc)}), 500
+            return api_error_response(exc)
 
         clear_project_cache(project_id, orcid)
         return jsonify({'ok': True})

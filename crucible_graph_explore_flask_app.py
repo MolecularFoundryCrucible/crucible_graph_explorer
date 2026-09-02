@@ -170,8 +170,7 @@ def _sync_user_projects() -> None:
         return  # no Crucible account yet; account creation does the initial sync
     try:
         orcid = UserSession(flask.session).userinfo['sub']
-        # Raw _request until client.account.sync_projects() ships in nano-crucible >=3.1.1
-        result = get_user_client()._request('post', '/account/sync-projects') or {}
+        result = get_user_client().account.sync_projects() or {}
         added = result.get('projects_added')
         if added:
             app.logger.info("Synced %d new project(s) for %s: %s", len(added), orcid, added)
@@ -255,7 +254,7 @@ def logout():
     return redirect(url_for('login'))
 
 
-_USERNAME_RE = re.compile(r'^[a-z0-9_-]{3,32}$')
+_USERNAME_RE = re.compile(r'^[a-z][a-z0-9]*(?:[_-][a-z0-9]+)*$')
 
 
 def _suggest_username(admin_client, email: str, first: str, last: str) -> str:
@@ -265,7 +264,10 @@ def _suggest_username(admin_client, email: str, first: str, last: str) -> str:
     else:
         base = f"{first}_{last}".lower() if first or last else ''
     base = re.sub(r'[^a-z0-9_-]', '_', base)
-    base = re.sub(r'_+', '_', base).strip('_')[:28]
+    base = re.sub(r'[_-]+', '_', base).strip('_-')
+    if base and not base[0].isalpha():
+        base = f'user_{base}'
+    base = base[:22].rstrip('_-')
     if len(base) < 3:
         return ''
     for i in range(1, 4):
@@ -301,8 +303,10 @@ def account_setup():
             error = 'First name is required.'
         elif not last_name:
             error = 'Last name is required.'
-        elif username and not _USERNAME_RE.match(username):
-            error = 'Username must be 3–32 characters: lowercase letters, digits, hyphens, underscores.'
+        elif not username:
+            error = 'Username is required.'
+        elif not 3 <= len(username) <= 24 or not _USERNAME_RE.fullmatch(username):
+            error = 'Username must be 3-24 characters, start with a letter, and contain lowercase letters, digits, single hyphens, or single underscores.'
         if not error:
             try:
                 app.admin_client.users.create({
@@ -310,7 +314,7 @@ def account_setup():
                     'first_name': first_name,
                     'last_name':  last_name,
                     'email':      email    or None,
-                    'username':   username or None,
+                    'username':   username,
                 }, project_ids=[])
                 flask.session['crucible_user_ok'] = True
                 return redirect(request.script_root + '/')
@@ -364,7 +368,7 @@ def update_profile():
     email      = request.form.get('email',    '').strip()
     username   = request.form.get('username', '').strip()
 
-    if username and not _USERNAME_RE.match(username):
+    if username and (not 3 <= len(username) <= 24 or not _USERNAME_RE.fullmatch(username)):
         return redirect(f'{request.script_root}/user/{orcid}?update_error=1&error_msg=invalid_username')
 
     updates = {}
@@ -389,7 +393,7 @@ def update_profile():
 @auth.oidc_auth('orcid')
 def check_username():
     q = request.args.get('q', '').strip().lower()
-    if not _USERNAME_RE.match(q):
+    if not 3 <= len(q) <= 24 or not _USERNAME_RE.fullmatch(q):
         return jsonify({'available': False})
     try:
         user_session = UserSession(flask.session)

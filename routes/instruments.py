@@ -17,34 +17,58 @@ def create_blueprint(auth):
         instruments = get_user_client().instruments.list(limit=None)
         return render_template('instrument_list.html', instruments=instruments)
 
-    @bp.route("/instrument/<instrument_id>")
+    @bp.route("/instrument/<instrument_mfid>")
     @auth.oidc_auth('orcid')
-    def instrument_detail(instrument_id):
+    def instrument_detail(instrument_mfid):
         import views.instruments as instrument_views
         client = get_user_client()
-        instrument = client.instruments.get(instrument_id=instrument_id, include_metadata=True)
+        instrument = client.instruments.get(
+            instrument_mfid=instrument_mfid,
+            include_metadata=True,
+        )
         if not instrument:
             abort(404)
         instrument_name = instrument.get('instrument_name', '')
-        custom_views = instrument_views.get_views(instrument_name, instrument_id)
+        custom_views = instrument_views.get_views(instrument_name, instrument_mfid)
         recent_datasets = []
-        if instrument_name:
-            try:
-                recent_datasets = client.datasets.list(instrument_name=instrument_name, limit=None)
-                recent_datasets.sort(key=lambda d: d.get('timestamp') or '', reverse=True)
-            except Exception:
-                recent_datasets = []
+        dataset_total = 0
+        try:
+            recent_datasets = client.datasets.list(
+                instrument_mfid=instrument_mfid,
+                limit=50,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Could not load datasets for instrument %s: %s",
+                instrument_mfid,
+                exc,
+            )
+        try:
+            dataset_total = client.datasets.count(instrument_mfid=instrument_mfid)
+        except Exception as exc:
+            logger.warning(
+                "Could not count datasets for instrument %s: %s",
+                instrument_mfid,
+                exc,
+            )
+            dataset_total = len(recent_datasets)
         return render_template('instrument.html', instrument=instrument,
-                               custom_views=custom_views, recent_datasets=recent_datasets)
+                               custom_views=custom_views,
+                               recent_datasets=recent_datasets,
+                               dataset_total=dataset_total)
 
     @bp.route("/api/instruments")
     @auth.oidc_auth('orcid')
     def api_instruments_json():
         instruments = get_user_client().instruments.list(limit=None)
         return jsonify([
-            {'name': i.get('instrument_name', ''), 'id': i.get('unique_id', '')}
+            {
+                'mfid': i.get('unique_id', ''),
+                'instrument_id': i.get('instrument_id', ''),
+                'name': i.get('instrument_name', ''),
+            }
             for i in instruments
-            if i.get('instrument_name')
+            if i.get('instrument_name') and i.get('instrument_id')
         ])
 
     return bp

@@ -1,7 +1,6 @@
 import logging
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 import cachetools
 import flask
@@ -100,27 +99,6 @@ def get_project(project_id: str, orcid: str, include_metadata: bool = False, cli
         _project_cache[key] = data
 
     return data
-
-
-def warm_project_caches(project_ids: list, client, orcid: str) -> None:
-    """Pre-warm project caches in background daemon threads (non-blocking)."""
-    with _project_cache_lock:
-        stale = [pid for pid in project_ids if (orcid, pid, False) not in _project_cache]
-
-    if not stale:
-        return
-
-    def _run():
-        def _warm(pid):
-            try:
-                get_project(pid, orcid, client=client)
-            except Exception:
-                pass
-
-        with ThreadPoolExecutor(max_workers=4) as ex:
-            list(ex.map(_warm, stale))
-
-    threading.Thread(target=_run, daemon=True).start()
 
 
 def clear_project_cache(project_id: str, orcid: str = None) -> None:

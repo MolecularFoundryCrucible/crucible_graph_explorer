@@ -34,6 +34,11 @@
       <a href="{{ base }}/{{pc['project_id']}}/chat" class="cg-sidebar-action">
         <i class="bi bi-chat-dots"></i><span>Chat</span>
       </a>
+      {% if project_capabilities.get('can_edit') %}
+      <a href="{{ base }}/{{pc['project_id']}}/settings" class="cg-sidebar-action">
+        <i class="bi bi-gear"></i><span>Project settings</span>
+      </a>
+      {% endif %}
       {% if custom_views %}
       {% for view in custom_views %}
       <a href="{{ base }}{{ view.url }}" class="cg-sidebar-action">
@@ -100,6 +105,11 @@
     <button class="cg-rail-btn" onclick="window.location.href='{{ base }}/{{pc['project_id']}}/search'" title="Search">
       <i class="bi bi-search"></i>
     </button>
+    {% if project_capabilities.get('can_edit') %}
+    <button class="cg-rail-btn" onclick="window.location.href='{{ base }}/{{pc['project_id']}}/settings'" title="Project settings">
+      <i class="bi bi-gear"></i>
+    </button>
+    {% endif %}
     <button class="cg-rail-btn" onclick="cgOpenSamplePanel()" title="New Sample">
       <i class="bi bi-flask"></i>
     </button>
@@ -286,6 +296,11 @@ function toggleSidebar() {
                 </p>
                 {% endif %}
             </div>
+            {% if project_capabilities.get('can_edit') %}
+            <a href="{{ base }}/{{pc['project_id']}}/settings" class="btn btn-sm btn-outline-secondary flex-shrink-0" aria-label="Project settings" title="Project settings">
+                <i class="bi bi-gear me-lg-1"></i><span class="d-none d-lg-inline">Settings</span>
+            </a>
+            {% endif %}
         </div>
 
     </div>
@@ -465,9 +480,16 @@ function toggleSidebar() {
                 <span class="fw-semibold" style="font-size: var(--fs-sm);">
                     <i class="bi bi-people me-1 text-secondary"></i>Members
                 </span>
-                <span class="badge fw-normal border text-muted"
-                      style="background:var(--bs-body-bg); font-size: var(--fs-xs);">
-                    {{ project_users | length }}
+                <span class="d-flex align-items-center gap-2">
+                    <span class="badge fw-normal border text-muted"
+                          style="background:var(--bs-body-bg); font-size: var(--fs-xs);">
+                        {{ project_users | length }}
+                    </span>
+                    {% if project_capabilities.get('can_manage_access') %}
+                    <a href="{{ base }}/{{pc['project_id']}}/settings/members" class="text-muted" title="Manage members" aria-label="Manage members">
+                        <i class="bi bi-gear"></i>
+                    </a>
+                    {% endif %}
                 </span>
             </div>
 
@@ -479,12 +501,28 @@ function toggleSidebar() {
                 <div style="width:1.85rem; height:1.85rem; min-width:1.85rem; border-radius:50%;
                             display:flex; align-items:center; justify-content:center;
                             font-size: var(--fs-2xs); font-weight:700; color:#fff; flex-shrink:0;"
-                     data-avatar-for="{{ u.name or u.orcid }}">
+                     data-avatar-for="{{ u.orcid or u.name }}">
                     {{ u.initials }}
                 </div>
-                <div style="min-width:0;">
-                    <div class="fw-medium text-truncate" style="font-size: var(--fs-sm);">
-                        {{ u.name or '—' }}
+                <div style="min-width:0; flex:1;">
+                    <div class="d-flex align-items-center justify-content-between gap-2" style="min-width:0;">
+                        <span class="fw-medium text-truncate" style="font-size: var(--fs-sm);">
+                            {{ u.name or u.username or u.orcid }}
+                        </span>
+                        {% if u.role %}
+                        {% set role_label = 'Lead' if u.role == 'owner' else u.role | capitalize %}
+                        {% set role_tone = {
+                            'owner': 'warning',
+                            'admin': 'danger',
+                            'editor': 'primary',
+                            'contributor': 'info',
+                            'viewer': 'secondary'
+                        }.get(u.role, 'secondary') %}
+                        <span class="badge fw-normal border bg-{{ role_tone }}-subtle text-{{ role_tone }}-emphasis border-{{ role_tone }}-subtle text-capitalize flex-shrink-0 text-center"
+                              style="font-size:var(--fs-2xs);">
+                            {{ role_label }}
+                        </span>
+                        {% endif %}
                     </div>
                     {% if u.username %}
                     <div class="text-muted text-truncate" style="font-size: var(--fs-xs);">

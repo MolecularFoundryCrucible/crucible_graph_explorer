@@ -11,8 +11,10 @@ from flask import Blueprint, abort, jsonify, render_template, request
 from flask_pyoidc.user_session import UserSession
 
 from utils.auth import get_user_client
+from utils.api_errors import api_error_response
 from utils.cache import get_project, get_user_name, get_user_projects
 from utils.helpers import render_markdown
+from utils.resource_scope import project_scope_conflict
 
 logger = logging.getLogger(__name__)
 
@@ -79,12 +81,12 @@ def create_blueprint(auth):
         with ThreadPoolExecutor() as ex:
             f_pc       = ex.submit(get_project, project_id, orcid, client=client)
             f_ds       = ex.submit(client.datasets.get, dsid, include_metadata=True)
-            f_samples  = ex.submit(client.samples.list, dataset_id=dsid)
+            f_samples  = ex.submit(client.samples.list, dataset_mfid=dsid)
             f_thumbs   = ex.submit(client.datasets.get_thumbnails, dsid)
             f_files    = ex.submit(client.datasets.list_files, dsid)
             f_children = ex.submit(client.datasets.list_children, dsid)
             f_parents  = ex.submit(client.datasets.list_parents, dsid)
-            f_ingreqs  = ex.submit(client.datasets.get_ingestion_requests, dsid=dsid)
+            f_ingreqs  = ex.submit(client.ingestions.list, dsid=dsid)
 
         # Critical: let HTTPError propagate so Flask returns a proper error page.
         # Other exceptions are logged and re-raised as 500.
@@ -225,9 +227,12 @@ def create_blueprint(auth):
             try:
                 with open(tmp_path, 'w', encoding='utf-8') as f:
                     f.write(md_content)
-                client.datasets.add_file_to_dataset(dsid, tmp_path,
-                                                    ingestion_class='ApiUploadIngestor',
-                                                    wait_for_ingestion_response=True)
+                client.datasets.add_file(
+                    dsid,
+                    tmp_path,
+                    ingestion_class='ApiUploadIngestor',
+                    wait_for_ingestion_response=True,
+                )
             finally:
                 os.unlink(tmp_path)
                 os.rmdir(tmp_dir)
@@ -257,17 +262,27 @@ def create_blueprint(auth):
         if not f or not f.filename:
             return jsonify({'error': 'No file received'}), 400
         filename = os.path.basename(f.filename) or 'upload'
+        try:
+            client = get_user_client()
+            conflict = project_scope_conflict(
+                client.datasets.get(dsid), project_id, 'dataset'
+            )
+        except Exception as exc:
+            return api_error_response(exc)
+        if conflict:
+            return conflict
+
         tmpdir = tempfile.mkdtemp()
         tmpfile = os.path.join(tmpdir, filename)
         f.save(tmpfile)
         try:
-            get_user_client().datasets.add_file_to_dataset(
-                dsid, tmpfile,
-                ingestion_class='ApiUploadIngestor',
+            client.datasets.add_file(
+                dsid,
+                tmpfile,
                 wait_for_ingestion_response=False,
             )
         except Exception as exc:
-            return jsonify({'error': str(exc)}), 500
+            return api_error_response(exc)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
         return jsonify({'ok': True, 'filename': filename})
