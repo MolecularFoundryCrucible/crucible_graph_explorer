@@ -31,7 +31,7 @@ def generate_project_cache(project_id, crucible_client, include_metadata=True, s
             s['datasets'] = [
                 {'unique_id': lnk['unique_id'], 'dataset_name': lnk.get('name', '')}
                 for lnk in (s.get('links') or [])
-                if lnk.get('resource_type') == 'dataset' and lnk.get('relationship') == 'associated'
+                if lnk.get('resource_type') == 'dataset' and lnk.get('direction') == 'undirected'
             ]
 
     pc['samples_by_id'] = {s['unique_id']: s for s in pc['samples']}
