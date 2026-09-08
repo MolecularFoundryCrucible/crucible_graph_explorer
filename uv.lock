@@ -696,7 +696,7 @@ requires-dist = [
     { name = "h5py", specifier = ">=3.15.1" },
     { name = "markdown", specifier = ">=3.7" },
     { name = "mcp-crucible", git = "https://github.com/foundry-mcp/mcp-crucible.git?branch=main" },
-    { name = "nano-crucible", git = "https://github.com/MolecularFoundryCrucible/nano-crucible.git?rev=85094aa8494d29f62cd5cfbb6bea184fb8dd16df" },
+    { name = "nano-crucible", git = "https://github.com/MolecularFoundryCrucible/nano-crucible?rev=dev" },
     { name = "ncempy", specifier = ">=1.15" },
     { name = "networkx", specifier = ">=3.6.1" },
     { name = "pandas", specifier = ">=2.3.3" },
@@ -2705,7 +2705,7 @@ wheels = [
 [[package]]
 name = "nano-crucible"
 version = "3.2.0"
-source = { git = "https://github.com/MolecularFoundryCrucible/nano-crucible.git?rev=85094aa8494d29f62cd5cfbb6bea184fb8dd16df#85094aa8494d29f62cd5cfbb6bea184fb8dd16df" }
+source = { git = "https://github.com/MolecularFoundryCrucible/nano-crucible?rev=dev#d6a21609c301b84ff29109561a0562a343c5cdec" }
 dependencies = [
     { name = "argcomplete" },
     { name = "configupdater" },
