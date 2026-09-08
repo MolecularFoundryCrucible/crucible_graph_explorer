@@ -27,7 +27,7 @@ dependencies = [
     "vertexai>=1.43.0",
     "plotly>=6.8.0",
     "mcp-crucible",
-    "nano-crucible>=3.2.0",
+    "nano-crucible",
 ]
 
 [dependency-groups]
@@ -37,4 +37,4 @@ dev = [
 
 [tool.uv.sources]
 mcp-crucible = { git = "https://github.com/foundry-mcp/mcp-crucible.git", branch = "main" }
-nano-crucible = { git = "https://github.com/MolecularFoundryCrucible/nano-crucible.git", rev = "85094aa8494d29f62cd5cfbb6bea184fb8dd16df" }
+nano-crucible = { git = "https://github.com/MolecularFoundryCrucible/nano-crucible", rev = "dev" }
