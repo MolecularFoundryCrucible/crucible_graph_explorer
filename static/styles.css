@@ -487,7 +487,28 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
     display: flex !important; flex-direction: column;
     background: color-mix(in srgb, var(--cg-accent) 2%, var(--bs-body-bg));
 }
-@media (max-width: 767.98px) { .cg-sidebar { display: none !important; } }
+@media (max-width: 767.98px) {
+    .cg-sidebar { display: none !important; }
+    .cg-sidebar.mobile-open {
+        display: flex !important;
+        position: fixed; top: var(--cg-navbar-height); left: 0; bottom: 0;
+        width: min(280px, 85vw); height: auto;
+        z-index: 1045;
+        box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+        transform: translateX(0);
+    }
+    .cg-sidebar.mobile-open.collapsed { width: min(280px, 85vw); }
+    .cg-sidebar.mobile-open.collapsed .cg-sidebar-content { display: flex; }
+    .cg-sidebar.mobile-open .cg-sidebar-icon-rail { opacity: 0; pointer-events: none; }
+    .cg-sidebar-mobile-backdrop {
+        position: fixed; inset: var(--cg-navbar-height) 0 0 0;
+        background: rgba(0,0,0,0.3);
+        z-index: 1044;
+        opacity: 0; pointer-events: none;
+        transition: opacity 0.2s;
+    }
+    .cg-sidebar-mobile-backdrop.open { opacity: 1; pointer-events: auto; }
+}
 .cg-sidebar.collapsed { width: 40px; }
 /* Always-visible footer toggle button */
 .cg-sidebar-footer-btn {

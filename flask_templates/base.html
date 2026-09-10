@@ -41,6 +41,10 @@
     {% block nav %}
     <nav class="cg-navbar sticky-top" aria-label="breadcrumb">
         <div class="cg-navbar-inner d-flex align-items-center px-3 px-md-4">
+            <button id="cgSidebarMobileBtn" class="nav-icon d-md-none me-2" title="Menu" aria-label="Menu"
+                    onclick="cgToggleMobileSidebar()">
+                <i class="bi bi-list"></i>
+            </button>
             <div style="position:relative;">
                 <a href="{{ base }}/" class="cg-wordmark" title="All projects">
                     <!-- dark icon: shown in dark mode -->
@@ -612,6 +616,7 @@
 
     </script>
 
+    <div id="cgSidebarMobileBackdrop" class="cg-sidebar-mobile-backdrop" onclick="cgCloseMobileSidebar()"></div>
     <div class="container-fluid px-4" id="content">
       <div class="row">
         {% block sidebar %}{% endblock %}
@@ -1101,6 +1106,43 @@
         }
         applyNavbarHeight();
         window.addEventListener('resize', applyNavbarHeight);
+    })();
+    </script>
+    <script>
+    (function() {
+        function sidebar() { return document.getElementById('resourceSidebar'); }
+        window.cgOpenMobileSidebar = function() {
+            const sb = sidebar();
+            if (!sb) return;
+            sb.classList.add('mobile-open');
+            document.getElementById('cgSidebarMobileBackdrop').classList.add('open');
+        };
+        window.cgCloseMobileSidebar = function() {
+            const sb = sidebar();
+            if (sb) sb.classList.remove('mobile-open');
+            document.getElementById('cgSidebarMobileBackdrop').classList.remove('open');
+        };
+        window.cgToggleMobileSidebar = function() {
+            const sb = sidebar();
+            if (sb && sb.classList.contains('mobile-open')) cgCloseMobileSidebar();
+            else cgOpenMobileSidebar();
+        };
+        document.addEventListener('DOMContentLoaded', function() {
+            const btn = document.getElementById('cgSidebarMobileBtn');
+            if (btn && !sidebar()) btn.style.display = 'none';
+            const sb = sidebar();
+            if (sb) {
+                sb.addEventListener('click', function(e) {
+                    if (e.target.closest('a, button.cg-sidebar-action')) cgCloseMobileSidebar();
+                });
+            }
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') cgCloseMobileSidebar();
+        });
+        window.addEventListener('resize', function() {
+            if (window.innerWidth >= 768) cgCloseMobileSidebar();
+        });
     })();
     </script>
     <script>
