@@ -149,6 +149,11 @@ a:hover { color: var(--cg-link-hover); }
     .cg-breadcrumb .breadcrumb-item:not(:last-child) { display: none; }
     .cg-breadcrumb .breadcrumb-item:last-child::before { display: none; }
 }
+/* Below the sidebar breakpoint the hamburger button leaves too little room for the
+   breadcrumb to fit on one line, so it wraps and spills out of the navbar. Hide it. */
+@media (max-width: 767.98px) {
+    .cg-breadcrumb { display: none; }
+}
 .cg-breadcrumb .breadcrumb-item a {
     color: rgba(168,196,205,0.75); text-decoration: none;
     transition: color 0.15s;

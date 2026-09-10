@@ -1111,15 +1111,24 @@
     <script>
     (function() {
         function sidebar() { return document.getElementById('resourceSidebar'); }
+        // #content carries a lingering transform from its load-in animation, which traps
+        // the sidebar's z-index inside that stacking context — reparent to <body> while
+        // open so it can actually stack above the backdrop, then restore on close.
+        let originalParent = null, originalNext = null;
         window.cgOpenMobileSidebar = function() {
             const sb = sidebar();
             if (!sb) return;
+            if (!originalParent) { originalParent = sb.parentNode; originalNext = sb.nextSibling; }
+            document.body.appendChild(sb);
             sb.classList.add('mobile-open');
             document.getElementById('cgSidebarMobileBackdrop').classList.add('open');
         };
         window.cgCloseMobileSidebar = function() {
             const sb = sidebar();
-            if (sb) sb.classList.remove('mobile-open');
+            if (sb) {
+                sb.classList.remove('mobile-open');
+                if (originalParent) originalParent.insertBefore(sb, originalNext);
+            }
             document.getElementById('cgSidebarMobileBackdrop').classList.remove('open');
         };
         window.cgToggleMobileSidebar = function() {
