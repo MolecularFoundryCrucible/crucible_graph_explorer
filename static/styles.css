@@ -496,8 +496,8 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
     .cg-sidebar { display: none !important; }
     .cg-sidebar.mobile-open {
         display: flex !important;
-        position: fixed; top: var(--cg-navbar-height); left: 0; bottom: 0;
-        width: min(280px, 85vw); height: auto;
+        position: fixed; top: var(--cg-navbar-height); left: 0;
+        width: min(280px, 85vw); height: calc(100dvh - var(--cg-navbar-height));
         z-index: 1045;
         box-shadow: 4px 0 24px rgba(0,0,0,0.15);
         transform: translateX(0);
@@ -506,7 +506,8 @@ mark { background-color: var(--bs-warning-bg-subtle); color: var(--bs-warning-te
     .cg-sidebar.mobile-open.collapsed .cg-sidebar-content { display: flex; }
     .cg-sidebar.mobile-open .cg-sidebar-icon-rail { opacity: 0; pointer-events: none; }
     .cg-sidebar-mobile-backdrop {
-        position: fixed; inset: var(--cg-navbar-height) 0 0 0;
+        position: fixed; top: var(--cg-navbar-height); left: 0; right: 0;
+        height: calc(100dvh - var(--cg-navbar-height));
         background: rgba(0,0,0,0.3);
         z-index: 1044;
         opacity: 0; pointer-events: none;
