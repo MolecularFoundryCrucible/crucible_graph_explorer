@@ -5,14 +5,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import flask
 from flask import Blueprint, abort, jsonify, render_template, request
 from flask_pyoidc.user_session import UserSession
-from crucible.models import Dataset, Sample
+from werkzeug.exceptions import HTTPException
+from crucible.models import Dataset, Project, Sample
 from pydantic import ValidationError
 
 from utils.auth import get_user_client
 from utils.api_errors import api_error_payload, api_error_response, validation_error_response
 from utils.cache import (
     _project_cache,
-    clear_project_cache, get_project, get_user_projects,
+    clear_project_cache, clear_user_projects_cache, get_project, get_user_projects,
 )
 from utils.helpers import abbrev_name
 from utils.creation_validation import validate_creation_extras, validate_scientific_metadata
@@ -141,6 +142,43 @@ def create_blueprint(auth):
             p['project_lead_name']  = abbrev_name(first, last) or email
 
         return render_template('project_list.html', projects=user_projects, user_name=user_name)
+
+    @bp.route("/api/projects/create", methods=['POST'])
+    @auth.oidc_auth('orcid')
+    def api_project_create():
+        user_session = UserSession(flask.session)
+        orcid = user_session.userinfo['sub']
+        data = request.get_json(silent=True) or {}
+
+        project_id = (data.get('project_id') or '').strip()
+        organization = (data.get('organization') or '').strip()
+        title = (data.get('title') or '').strip() or None
+        if not project_id:
+            return jsonify({'error': 'project_id is required'}), 400
+        if not organization:
+            return jsonify({'error': 'organization is required'}), 400
+
+        try:
+            client = get_user_client()
+            result = client.projects.create(Project(
+                project_id=project_id,
+                organization=organization,
+                title=title,
+                project_lead_orcid=orcid,
+            ))
+        except HTTPException:
+            raise
+        except (TypeError, ValueError) as exc:
+            return jsonify({'error': str(exc)}), 422
+        except Exception as exc:
+            return api_error_response(exc)
+
+        clear_user_projects_cache(orcid)
+        return jsonify({
+            'created': True,
+            'project_id': result.get('project_id', project_id),
+            'url': f'{flask.request.script_root}/{project_id}/',
+        }), 201
 
     @bp.route("/api/dashboard-stats")
     @auth.oidc_auth('orcid')
