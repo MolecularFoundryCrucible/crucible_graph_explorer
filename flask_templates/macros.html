@@ -176,16 +176,28 @@ document.addEventListener('DOMContentLoaded', function() {
 {% macro render_dict_recursive(d) %}
 <div class="metadata-tree">
 {% for key, value in d|dictsort %}
+    {{ render_value(key, value) }}
+{% endfor %}
+</div>
+{% endmacro %}
+
+{# One metadata entry. Lists show as numbered children so lists of dicts expand like dicts. #}
+{% macro render_value(key, value) %}
     {% if value is mapping %}
     <details class="tree-node" open>
         <summary class="tree-summary"><b>{{ key }}</b></summary>
         <div class="tree-children">{{ render_dict_recursive(value) }}</div>
     </details>
+    {% elif value is iterable and value is not string %}
+    <details class="tree-node" open>
+        <summary class="tree-summary"><b>{{ key }}</b> <span class="text-muted">({{ value|length }})</span></summary>
+        <div class="tree-children"><div class="metadata-tree">
+        {% for item in value %}{{ render_value(loop.index, item) }}{% endfor %}
+        </div></div>
+    </details>
     {% else %}
     <div class="tree-leaf"><b>{{ key }}</b>: {{ value if value is not none else "N/A" }}</div>
     {% endif %}
-{% endfor %}
-</div>
 {% endmacro %}
 
 {# ── section_metadata: scientific metadata section + tree-search JS ─────────── #}
