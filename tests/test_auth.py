@@ -34,6 +34,26 @@ def test_get_user_client_aborts_401_when_no_key(app):
         assert '401' in str(exc_info.value) or exc_info.type.__name__ == 'HTTPException'
 
 
+def test_session_cookie_is_isolated(app):
+    assert app.config['SESSION_COOKIE_NAME'] == 'crucible_explorer_session'
+    assert app.config['SESSION_COOKIE_PATH'] == '/'
+    assert app.config['SESSION_COOKIE_HTTPONLY'] is True
+    assert app.config['SESSION_COOKIE_SECURE'] is False
+    assert app.config['SESSION_COOKIE_SAMESITE'] == 'Lax'
+
+
+@pytest.mark.parametrize(('prefix', 'expected'), [
+    ('', ''),
+    ('/', ''),
+    ('explore', '/explore'),
+    ('/explore/', '/explore'),
+])
+def test_url_prefix_normalization(prefix, expected):
+    from crucible_graph_explore_flask_app import _normalize_url_prefix
+
+    assert _normalize_url_prefix(prefix) == expected
+
+
 def test_fetch_user_api_key_stores_in_session(app):
     mock_us = MagicMock()
     mock_us.userinfo = {'sub': '0000-0001-2345-6789'}

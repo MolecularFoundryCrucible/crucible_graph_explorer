@@ -1,156 +1,103 @@
 {% extends "base.html" %}
-{% block title %}Search – {{pc['project_id']}}{% endblock %}
+{% block title %}Search - {{ pc['project_id'] }}{% endblock %}
 
 {% block head %}
-    {{ super() }}
-    <style>
-        .list-row {
-            display: block; padding: 0.5rem 0.75rem;
-            border-bottom: 1px solid var(--bs-border-color);
-            text-decoration: none; color: inherit;
-            transition: background 0.1s;
-        }
-        .list-row:last-child { border-bottom: none; }
-        .list-row:hover { background: var(--cg-hover-bg); color: inherit; }
-        .result-meta { font-size: var(--fs-sm); color: var(--bs-secondary-color); }
-        #results-summary { font-size: var(--fs-md); color: var(--bs-secondary-color); min-height: 1.5rem; }
-    </style>
+{{ super() }}
+<style>
+    .list-row {
+        display: block; padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        text-decoration: none; color: inherit; transition: background 0.1s;
+    }
+    .list-row:last-child { border-bottom: none; }
+    .list-row:hover { background: var(--cg-hover-bg); color: inherit; }
+</style>
 {% endblock %}
 
 {% block breadcrumb %}
-    <li class="breadcrumb-item"><a href="{{ base }}/{{pc['project_id']}}/"><b>Project</b> {{pc['project_id']}}</a></li>
-    <li class="breadcrumb-item active" aria-current="page">Search</li>
+<li class="breadcrumb-item"><a href="{{ base }}/{{ pc['project_id'] }}/"><b>Project</b> {{ pc['project_id'] }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">Search</li>
 {% endblock %}
 
 {% block content %}
+<div style="max-width:960px; margin:0 auto;">
+    <h1 class="fw-semibold mb-3" style="font-size:var(--fs-2xl);">
+        <i class="bi bi-search me-2 text-secondary"></i>Search <span class="mfid">{{ pc['project_id'] }}</span>
+    </h1>
 
-<h1 class="fw-semibold mb-3" style="font-size:var(--fs-2xl);"><i class="bi bi-search me-2 text-secondary"></i>Search <span class="mfid">{{pc['project_id']}}</span></h1>
-
-<div class="mb-3">
-    <input id="search-input" type="text" class="form-control form-control-lg"
-           placeholder="Search samples and datasets…" autofocus autocomplete="off">
-</div>
-<div id="results-summary" class="mb-3"></div>
-
-<div class="row">
-    <div class="col-md-6">
-        <h5><i class="bi bi-flask me-1 text-muted"></i>Samples <span id="sample-count" class="badge bg-secondary ms-1"></span></h5>
-        <div id="sample-results"></div>
-    </div>
-    <div class="col-md-6">
-        <h5><i class="bi bi-database me-1 text-muted"></i>Datasets <span id="dataset-count" class="badge bg-secondary ms-1"></span></h5>
-        <div id="dataset-results"></div>
-    </div>
-</div>
-
-<script>
-const SAMPLES  = {{ samples_index  | tojson }};
-const DATASETS = {{ datasets_index | tojson }};
-
-function highlight(text, query) {
-    if (!query) return escHtml(text);
-    const re = new RegExp(escRegex(query), 'gi');
-    return escHtml(text).replace(re, m => `<mark>${m}</mark>`);
-}
-
-function escHtml(s) {
-    return String(s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function escRegex(s) {
-    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function matches(item, fields, q) {
-    return fields.some(f => (item[f] || '').toLowerCase().includes(q));
-}
-
-function renderSample(s, q) {
-    return `<a href="${s.url}" class="list-row">
-        <div class="fw-medium">${highlight(s.name, q)}</div>
-        <div class="result-meta">
-            ${s.type ? highlight(s.type, q) + ' &nbsp;·&nbsp; ' : ''}
-            <span class="mfid">${s.id}</span>
+    <form method="get" action="{{ base }}/{{ pc['project_id'] }}/search" class="mb-4">
+        <div class="input-group">
+            <input type="search" name="q" class="form-control form-control-lg"
+                   placeholder="Search samples and datasets by name…"
+                   value="{{ q | e }}" minlength="3" autofocus autocomplete="off">
+            <button class="btn btn-primary px-4" type="submit">
+                <i class="bi bi-search"></i>
+            </button>
         </div>
-        ${s.description ? `<div class="result-meta mt-1">${highlight(s.description, q)}</div>` : ''}
-    </a>`;
-}
-
-function renderDataset(d, q) {
-    const ql = q.toLowerCase();
-    const meta = [d.measurement, d.instrument, d.session].filter(Boolean);
-    let metaHtml = '';
-    if (d.metadata_str) {
-        const hits = d.metadata_str.split('\n')
-            .filter(line => line.toLowerCase().includes(ql))
-            .slice(0, 3);
-        metaHtml = hits.map(line => {
-            const sep = line.indexOf(': ');
-            const key = sep === -1 ? line : line.slice(0, sep);
-            const val = sep === -1 ? '' : line.slice(sep + 2);
-            return `<div class="result-meta mt-1" style="font-family:monospace;">
-                <span class="text-secondary">${escHtml(key)}:</span> ${highlight(val, q)}
-            </div>`;
-        }).join('');
-    }
-    return `<a href="${d.url}" class="list-row">
-        <div class="fw-medium">${highlight(d.name, q)}</div>
-        <div class="result-meta">
-            ${meta.map(v => highlight(v, q)).join(' &nbsp;·&nbsp; ')}
-            ${meta.length ? ' &nbsp;·&nbsp; ' : ''}<span class="mfid">${d.id}</span>
+        {% if q %}
+        <div class="text-muted small mt-2">
+            {% set total = sample_results | length + dataset_results | length %}
+            {{ total }} result{{ '' if total == 1 else 's' }}
         </div>
-        ${metaHtml}
-    </a>`;
-}
+        {% endif %}
+    </form>
 
-function search(q) {
-    const sampleEl   = document.getElementById('sample-results');
-    const datasetEl  = document.getElementById('dataset-results');
-    const sampleCnt  = document.getElementById('sample-count');
-    const datasetCnt = document.getElementById('dataset-count');
-    const summary    = document.getElementById('results-summary');
+    {% if search_message %}
+    <div class="alert alert-warning py-2">{{ search_message }}</div>
+    {% endif %}
 
-    if (!q) {
-        sampleEl.innerHTML = datasetEl.innerHTML = '';
-        sampleCnt.textContent = datasetCnt.textContent = '';
-        summary.textContent = '';
-        return;
-    }
+    {% if q and not sample_results and not dataset_results and not search_message %}
+    <div class="text-center text-muted py-5">
+        <i class="bi bi-search fs-2 d-block mb-2 opacity-50"></i>
+        No results for <strong>{{ q | e }}</strong>
+    </div>
+    {% elif sample_results or dataset_results %}
+    <div class="row g-4">
+        <div class="col-md-6">
+            <h5 class="fw-semibold mb-2">
+                <i class="bi bi-flask me-1 text-secondary"></i>Samples
+                <span class="badge bg-secondary rounded-pill ms-1" style="font-size:var(--fs-sm);">{{ sample_results | length }}</span>
+            </h5>
+            {% if sample_results %}
+            <div class="border rounded overflow-hidden">
+                {% for sample in sample_results %}
+                <a href="{{ base }}/{{ pc['project_id'] }}/samples/{{ sample['unique_id'] }}" class="list-row">
+                    <div class="fw-medium text-truncate">{{ sample.get('sample_name') | e }}</div>
+                    <div class="small text-muted d-flex gap-2 flex-wrap mt-1">
+                        {% if sample.get('sample_type') %}<span>{{ sample['sample_type'] | e }}</span>{% endif %}
+                        <span class="mfid">{{ sample['unique_id'] }}</span>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted small">No matching samples.</p>
+            {% endif %}
+        </div>
 
-    const ql = q.toLowerCase();
-    const matchedSamples  = SAMPLES.filter(s  => matches(s,  ['name','description','type','id','owner'], ql));
-    const matchedDatasets = DATASETS.filter(d => matches(d, ['name','measurement','instrument','session','id','owner','metadata_str'], ql));
-
-    sampleEl.innerHTML  = matchedSamples.length
-        ? `<div class="border rounded overflow-hidden">${matchedSamples.map(s => renderSample(s, q)).join('')}</div>`
-        : '<p class="text-muted small">No matches</p>';
-    datasetEl.innerHTML = matchedDatasets.length
-        ? `<div class="border rounded overflow-hidden">${matchedDatasets.map(d => renderDataset(d, q)).join('')}</div>`
-        : '<p class="text-muted small">No matches</p>';
-
-    sampleCnt.textContent  = matchedSamples.length;
-    datasetCnt.textContent = matchedDatasets.length;
-    summary.textContent    = `${matchedSamples.length + matchedDatasets.length} results for "${q}"`;
-}
-
-const searchInput = document.getElementById('search-input');
-
-// Restore query from URL on load
-(function() {
-    const q = new URLSearchParams(window.location.search).get('q') || '';
-    if (q) { searchInput.value = q; search(q); }
-})();
-
-searchInput.addEventListener('input', function() {
-    const q = this.value.trim();
-    const url = new URL(window.location);
-    if (q) url.searchParams.set('q', q);
-    else url.searchParams.delete('q');
-    window.history.replaceState({}, '', url);
-    search(q);
-});
-</script>
-
+        <div class="col-md-6">
+            <h5 class="fw-semibold mb-2">
+                <i class="bi bi-database me-1 text-secondary"></i>Datasets
+                <span class="badge bg-secondary rounded-pill ms-1" style="font-size:var(--fs-sm);">{{ dataset_results | length }}</span>
+            </h5>
+            {% if dataset_results %}
+            <div class="border rounded overflow-hidden">
+                {% for dataset in dataset_results %}
+                <a href="{{ base }}/{{ pc['project_id'] }}/datasets/{{ dataset['unique_id'] }}" class="list-row">
+                    <div class="fw-medium text-truncate">{{ dataset.get('dataset_name') | e }}</div>
+                    <div class="small text-muted d-flex gap-2 flex-wrap mt-1">
+                        {% if dataset.get('measurement') %}<span>{{ dataset['measurement'] | e }}</span>{% endif %}
+                        {% if dataset.get('instrument_name') %}<span>{{ dataset['instrument_name'] | e }}</span>{% endif %}
+                        <span class="mfid">{{ dataset['unique_id'] }}</span>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted small">No matching datasets.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
 {% endblock %}

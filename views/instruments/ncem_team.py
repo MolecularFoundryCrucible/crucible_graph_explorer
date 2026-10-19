@@ -17,7 +17,7 @@ def create_blueprint(auth, helpers):
     @bp.route('/overview')
     @auth.oidc_auth('orcid')
     def overview():
-        instrument = get_user_client().instruments.get(instrument_name='team05')
+        instrument = get_user_client().instruments.get(instrument_id='team05')
         if not instrument:
            abort(404)
         #instrument_name = instrument.get('instrument_name', '')

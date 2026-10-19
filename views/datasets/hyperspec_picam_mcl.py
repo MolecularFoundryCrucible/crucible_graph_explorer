@@ -45,13 +45,13 @@ def _get_h5(dsid, crucible_client):
                 _h5_cache[dsid] = h5py.File(os.path.join(dsid_dir, existing[0]), 'r')
                 return _h5_cache[dsid]
         # Slow path: fetch filename from API and download
-        associated_files = crucible_client.datasets.get_associated_files(dsid)
+        associated_files = crucible_client.datasets.list_files(dsid)
         h5_file = next((f for f in associated_files if f['filename'].endswith('.h5')), None)
         if not h5_file:
             abort(404)
         filename = os.path.basename(h5_file['filename'])
-        crucible_client.download_dataset(dsid, file_name=f'{dsid}/{filename}',
-                                         output_dir=_DOWNLOAD_DIR)
+        crucible_client.datasets.download(dsid, file_name=f'{dsid}/{filename}',
+                                          output_dir=_DOWNLOAD_DIR)
         _h5_cache[dsid] = h5py.File(os.path.join(dsid_dir, filename), 'r')
     return _h5_cache[dsid]
 

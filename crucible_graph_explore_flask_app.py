@@ -15,8 +15,10 @@ from flask_vite import Vite
 from werkzeug.middleware.proxy_fix import ProxyFix
 from crucible import CrucibleClient
 
-from utils.auth import get_user_client
-from utils.cache import clear_project_cache, get_project, is_user_in_project
+from utils.auth import attach_request_logging, get_user_client
+from utils.cache import (
+    clear_project_cache, clear_user_projects_cache, get_project, is_user_in_project,
+)
 from utils.graph import get_entity_graph_nx, get_project_graph
 from utils.helpers import abbrev_name, humanize_size
 
@@ -24,6 +26,11 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__, template_folder="flask_templates")
+
+
+def _normalize_url_prefix(prefix):
+    stripped = prefix.strip("/")
+    return f"/{stripped}" if stripped else ""
 
 
 class PrefixMiddleware:
@@ -36,7 +43,7 @@ class PrefixMiddleware:
 
     def __init__(self, wsgi_app, prefix=""):
         self.wsgi_app = wsgi_app
-        self.prefix = "/" + prefix.strip("/") if prefix.strip("/") else ""
+        self.prefix = _normalize_url_prefix(prefix)
 
     def __call__(self, environ, start_response):
         if not self.prefix:
@@ -64,20 +71,28 @@ class PrefixMiddleware:
 
 
 # Honor X-Forwarded-Proto/Host from Cloud Run; PrefixMiddleware owns the path prefix.
+url_prefix = _normalize_url_prefix(os.getenv("URL_PREFIX", ""))
+oidc_redirect_uri = os.getenv("OIDC_REDIRECT_URI")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
-app.wsgi_app = PrefixMiddleware(app.wsgi_app, os.getenv("URL_PREFIX", ""))
+app.wsgi_app = PrefixMiddleware(app.wsgi_app, url_prefix)
 
 QRcode(app)
 Vite(app)
 
 app.config.update(
-    OIDC_REDIRECT_URI=os.getenv("OIDC_REDIRECT_URI"),
+    OIDC_REDIRECT_URI=oidc_redirect_uri,
     SECRET_KEY=os.getenv("PYOIDC_SECRET"),
+    SESSION_COOKIE_NAME="crucible_explorer_session",
+    SESSION_COOKIE_PATH=url_prefix or "/",
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=(oidc_redirect_uri or "").startswith("https://"),
+    SESSION_COOKIE_SAMESITE="Lax",
 )
 
-crucible_api_url = os.getenv("CRUCIBLE_API_URL", "https://crucible.lbl.gov/api/v2")
+crucible_api_url = os.getenv("CRUCIBLE_API_URL", "https://crucible.lbl.gov/api/v3")
 crucible_api_key = os.getenv("CRUCIBLE_API_KEY")
 app.admin_client = CrucibleClient(api_url=crucible_api_url, api_key=crucible_api_key)
+attach_request_logging(app.admin_client, tag="crucible-admin")
 app.config['CRUCIBLE_API_URL'] = crucible_api_url
 
 PROVIDER_NAME = 'orcid'
@@ -158,6 +173,24 @@ def _fetch_user_api_key() -> None:
                            getattr(e, 'status_code', ''), e)
 
 
+def _sync_user_projects() -> None:
+    """Refresh the user's project memberships from the MF proposal database.
+
+    Best-effort — a proposal-DB outage must never block login.
+    """
+    if not flask.session.get('crucible_apikey'):
+        return  # no Crucible account yet; account creation does the initial sync
+    try:
+        orcid = UserSession(flask.session).userinfo['sub']
+        result = get_user_client().account.sync_projects() or {}
+        added = result.get('projects_added')
+        if added:
+            app.logger.info("Synced %d new project(s) for %s: %s", len(added), orcid, added)
+            clear_user_projects_cache(orcid)
+    except Exception as e:
+        app.logger.warning("Project sync failed: %s", e)
+
+
 def _crucible_user_exists(orcid):
     """Return True if the ORCID has a Crucible account. Result cached in session."""
     if flask.session.get('crucible_user_ok'):
@@ -221,6 +254,7 @@ def login():
 @auth.oidc_auth('orcid')
 def login_go():
     _fetch_user_api_key()
+    _sync_user_projects()
     return redirect(request.script_root + '/')
 
 
@@ -232,7 +266,7 @@ def logout():
     return redirect(url_for('login'))
 
 
-_USERNAME_RE = re.compile(r'^[a-z0-9_-]{3,32}$')
+_USERNAME_RE = re.compile(r'^[a-z][a-z0-9]*(?:[_-][a-z0-9]+)*$')
 
 
 def _suggest_username(admin_client, email: str, first: str, last: str) -> str:
@@ -242,7 +276,10 @@ def _suggest_username(admin_client, email: str, first: str, last: str) -> str:
     else:
         base = f"{first}_{last}".lower() if first or last else ''
     base = re.sub(r'[^a-z0-9_-]', '_', base)
-    base = re.sub(r'_+', '_', base).strip('_')[:28]
+    base = re.sub(r'[_-]+', '_', base).strip('_-')
+    if base and not base[0].isalpha():
+        base = f'user_{base}'
+    base = base[:22].rstrip('_-')
     if len(base) < 3:
         return ''
     for i in range(1, 4):
@@ -278,8 +315,10 @@ def account_setup():
             error = 'First name is required.'
         elif not last_name:
             error = 'Last name is required.'
-        elif username and not _USERNAME_RE.match(username):
-            error = 'Username must be 3–32 characters: lowercase letters, digits, hyphens, underscores.'
+        elif not username:
+            error = 'Username is required.'
+        elif not 3 <= len(username) <= 24 or not _USERNAME_RE.fullmatch(username):
+            error = 'Username must be 3-24 characters, start with a letter, and contain lowercase letters, digits, single hyphens, or single underscores.'
         if not error:
             try:
                 app.admin_client.users.create({
@@ -287,7 +326,7 @@ def account_setup():
                     'first_name': first_name,
                     'last_name':  last_name,
                     'email':      email    or None,
-                    'username':   username or None,
+                    'username':   username,
                 }, project_ids=[])
                 flask.session['crucible_user_ok'] = True
                 return redirect(request.script_root + '/')
@@ -341,7 +380,7 @@ def update_profile():
     email      = request.form.get('email',    '').strip()
     username   = request.form.get('username', '').strip()
 
-    if username and not _USERNAME_RE.match(username):
+    if username and (not 3 <= len(username) <= 24 or not _USERNAME_RE.fullmatch(username)):
         return redirect(f'{request.script_root}/user/{orcid}?update_error=1&error_msg=invalid_username')
 
     updates = {}
@@ -366,7 +405,7 @@ def update_profile():
 @auth.oidc_auth('orcid')
 def check_username():
     q = request.args.get('q', '').strip().lower()
-    if not _USERNAME_RE.match(q):
+    if not 3 <= len(q) <= 24 or not _USERNAME_RE.fullmatch(q):
         return jsonify({'available': False})
     try:
         user_session = UserSession(flask.session)

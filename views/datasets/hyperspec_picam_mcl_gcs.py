@@ -25,7 +25,7 @@ _h5_cache: TTLCache = TTLCache(maxsize=16, ttl=3600)
 def _get_h5(dsid, crucible_client):
     """Return the cached h5py.File for dsid, opening it on first access."""
     if dsid not in _h5_cache:
-        associated_files = crucible_client.datasets.get_associated_files(dsid)
+        associated_files = crucible_client.datasets.list_files(dsid)
         h5_file = next((f for f in associated_files if f['filename'].endswith('.h5')), None)
         if not h5_file:
             abort(404)

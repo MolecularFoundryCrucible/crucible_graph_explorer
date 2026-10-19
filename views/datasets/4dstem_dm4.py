@@ -38,7 +38,7 @@ def _get_dm4(dsid, crucible_client):
             return _open_dm4(dsid, local_path)
 
     # Slow path: ask API for filename then download
-    associated_files = crucible_client.datasets.get_associated_files(dsid)
+    associated_files = crucible_client.datasets.list_files(dsid)
     dm4_file = next(
         (f for f in associated_files if f['filename'].lower().endswith('.dm4')), None
     )
@@ -46,8 +46,8 @@ def _get_dm4(dsid, crucible_client):
         abort(404)
 
     filename = os.path.basename(dm4_file['filename'])
-    crucible_client.download_dataset(dsid, file_name=f'{dsid}/{filename}',
-                                     output_dir=_DOWNLOAD_DIR)
+    crucible_client.datasets.download(dsid, file_name=f'{dsid}/{filename}',
+                                      output_dir=_DOWNLOAD_DIR)
     local_path = os.path.join(dsid_dir, filename)
     return _open_dm4(dsid, local_path)
 

@@ -41,7 +41,7 @@ _cache: dict[str, dict] = {}
 
 
 def _find_h5_url(crucible_client, dsid: str) -> str:
-    associated_files = crucible_client.datasets.get_associated_files(dsid)
+    associated_files = crucible_client.datasets.list_files(dsid)
     match = next((f for f in associated_files if f['filename'].endswith('.h5')), None)
     if not match:
         abort(404)

@@ -62,7 +62,7 @@ def _ensure_meta(dsid, crucible_client):
     entry = _cache.get(dsid)
 
     if entry is None:
-        associated = crucible_client.datasets.get_associated_files(dsid)
+        associated = crucible_client.datasets.list_files(dsid)
         match = next((f for f in associated if f['filename'].endswith('.h5')), None)
         if not match:
             abort(404)

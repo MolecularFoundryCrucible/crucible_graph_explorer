@@ -101,7 +101,7 @@ def _create_annotation_child(admin_client, parent_dsid, creator_orcid, blob):
     # No files_to_upload → metadata-only dataset. Blob lands in scientific_metadata.
     record = admin_client.datasets.create(
         dataset=ds, scientific_metadata={ANNOT_KEY: blob})
-    child_id = record['dsid']
+    child_id = record['dataset_mfid']
     admin_client.datasets.link_parent_child(parent_dsid, child_id)
     # Make the project group's write access explicit so any project member's save
     # (mediated by admin_client) is consistent with the ACL model. Admin-only call.
@@ -114,7 +114,7 @@ def _create_annotation_child(admin_client, parent_dsid, creator_orcid, blob):
     # Propagate the sample(s) so the annotation child sits in the same group as the
     # mosaic. Non-fatal — the parent/child link is what actually matters.
     try:
-        for s in (admin_client.samples.list(dataset_id=parent_dsid) or []):
+        for s in (admin_client.samples.list(dataset_mfid=parent_dsid) or []):
             sid = s.get('unique_id')
             if sid:
                 admin_client.datasets.add_sample(child_id, sid)
@@ -399,7 +399,7 @@ def create_blueprint(auth, helpers):
             abort(403)
         client = get_user_client()
         try:
-            samples = client.samples.list(dataset_id=dsid)
+            samples = client.samples.list(dataset_mfid=dsid)
         except Exception as e:
             return jsonify({'error': str(e)}), 502
 
@@ -409,7 +409,7 @@ def create_blueprint(auth, helpers):
             sid = sample.get('unique_id')
             if not sid:
                 continue
-            for ds in client.datasets.list(sample_id=sid, include_metadata=True):
+            for ds in client.datasets.list(sample_mfid=sid, include_metadata=True):
                 if ds.get('measurement') != MEASUREMENT_TYPES[0]:
                     continue
                 other = ds.get('unique_id')
@@ -443,7 +443,7 @@ def create_blueprint(auth, helpers):
             abort(403)
         client = get_user_client()
         try:
-            samples = client.samples.list(dataset_id=dsid)
+            samples = client.samples.list(dataset_mfid=dsid)
         except Exception as e:
             return jsonify({'error': str(e)}), 502
 
@@ -455,7 +455,7 @@ def create_blueprint(auth, helpers):
                 continue
             sname = sample.get('sample_name')
             try:
-                members = client.datasets.list(sample_id=sid)
+                members = client.datasets.list(sample_mfid=sid)
             except Exception:
                 continue
             for ds in members or []:

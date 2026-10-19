@@ -112,6 +112,9 @@
             <span class="text-muted small" id="projectCount"></span>
         </div>
         <div class="d-flex flex-wrap gap-2 align-items-center">
+            <button class="btn btn-sm btn-primary" onclick="cgOpenProjectPanel()">
+                <i class="bi bi-plus-lg me-1"></i>New Project
+            </button>
             <input type="search" class="form-control form-control-sm" id="filterInput"
                    placeholder="Filter… (or press /)" oninput="applyFilter()" style="width:15rem; max-width:100%;">
             <div class="d-none d-md-flex gap-2 align-items-center" id="desktopControls">
@@ -563,6 +566,93 @@
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(render, 150);
         }, { passive: true });
+
+        // ── New Project panel ────────────────────────────────────────────
+        function cgOpenProjectPanel() {
+            document.getElementById('pp-id').value = '';
+            document.getElementById('pp-title').value = '';
+            document.getElementById('pp-org').value = '';
+            document.getElementById('pp-error').style.display = 'none';
+            document.getElementById('cgProjectPanelBackdrop').classList.add('open');
+            document.getElementById('cgProjectPanel').classList.add('open');
+            setTimeout(() => document.getElementById('pp-id').focus(), 260);
+        }
+        function cgCloseProjectPanel() {
+            document.getElementById('cgProjectPanelBackdrop').classList.remove('open');
+            document.getElementById('cgProjectPanel').classList.remove('open');
+        }
+        async function cgSubmitProject() {
+            const project_id = document.getElementById('pp-id').value.trim();
+            const title = document.getElementById('pp-title').value.trim();
+            const organization = document.getElementById('pp-org').value.trim();
+            const errEl = document.getElementById('pp-error');
+            errEl.style.display = 'none';
+            if (!project_id) { errEl.textContent = 'Project ID is required.'; errEl.style.display = ''; return; }
+            if (!organization) { errEl.textContent = 'Organization is required.'; errEl.style.display = ''; return; }
+
+            const btn = document.getElementById('pp-submit');
+            btn.disabled = true;
+            const resetLabel = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creating…';
+
+            let resp, data;
+            try {
+                resp = await fetch(`{{ base }}/api/projects/create`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ project_id, title, organization }),
+                });
+                data = await resp.json();
+            } catch (err) {
+                btn.disabled = false; btn.innerHTML = resetLabel;
+                errEl.textContent = 'Network error: ' + err.message;
+                errEl.style.display = '';
+                return;
+            }
+            if (!resp.ok || data.error) {
+                btn.disabled = false; btn.innerHTML = resetLabel;
+                errEl.textContent = data.error || `HTTP ${resp.status}`;
+                errEl.style.display = '';
+                return;
+            }
+            window.location.href = data.url;
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') cgCloseProjectPanel();
+        });
     </script>
 
+{% endblock %}
+
+{% block panels %}
+<div id="cgProjectPanelBackdrop" class="cg-create-panel-backdrop" onclick="cgCloseProjectPanel()"></div>
+<div id="cgProjectPanel" class="cg-create-panel" role="dialog" aria-modal="true" aria-label="New Project">
+  <div class="cg-create-panel-header">
+    <i class="bi bi-collection" style="font-size:var(--fs-xl); color:var(--cg-accent-mid);"></i>
+    <span class="cg-create-panel-title">New Project</span>
+    <button class="btn-close" onclick="cgCloseProjectPanel()" aria-label="Close"></button>
+  </div>
+  <div class="cg-create-panel-body">
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="pp-id">Project ID <span class="text-danger">*</span></label>
+      <input type="text" id="pp-id" class="form-control" autocomplete="off" placeholder="e.g. my-project">
+      <div class="form-text">Lowercase letters, numbers, hyphens/underscores. 3-25 characters.</div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="pp-title">Title</label>
+      <input type="text" id="pp-title" class="form-control" autocomplete="off">
+    </div>
+    <div class="mb-1">
+      <label class="form-label fw-semibold" for="pp-org">Organization <span class="text-danger">*</span></label>
+      <input type="text" id="pp-org" class="form-control" autocomplete="off">
+    </div>
+  </div>
+  <div class="cg-create-panel-footer">
+    <button class="btn btn-primary" onclick="cgSubmitProject()" id="pp-submit">
+      <i class="bi bi-plus-circle me-1"></i>Create Project
+    </button>
+    <button class="btn btn-outline-secondary" onclick="cgCloseProjectPanel()">Cancel</button>
+    <span id="pp-error" class="text-danger small ms-auto align-self-center" style="display:none;"></span>
+  </div>
+</div>
 {% endblock %}

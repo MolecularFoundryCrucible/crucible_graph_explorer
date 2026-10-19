@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Project settings - {{ project_id }}{% endblock %}
+
+{% block sidebar %}{% endblock %}
+{% block main_col_class %}col-12{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ base }}/{{ project_id }}/"><b>Project</b> {{ project_id }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">Settings</li>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:900px; margin:0 auto;">
+    {% set active_settings_tab = 'general' %}
+    {% include "_project_settings_header.html" %}
+
+    <form id="project-settings-form" class="rounded border overflow-hidden">
+        <div class="px-3 py-2 border-bottom" style="background:var(--bs-tertiary-bg);">
+            <h2 class="fw-semibold mb-0" style="font-size:var(--fs-lg);">Project details</h2>
+        </div>
+        <div class="p-3">
+            <div class="row g-3">
+                <div class="col-md-7">
+                    <label for="project-title" class="form-label">Display name</label>
+                    <input id="project-title" name="title" class="form-control" value="{{ project.get('title') or '' }}" placeholder="Optional project title">
+                    <div class="form-text">Shown as the project name throughout the explorer.</div>
+                </div>
+                <div class="col-md-5">
+                    <label for="project-status" class="form-label">Status</label>
+                    <input id="project-status" name="status" class="form-control" value="{{ project.get('status') or '' }}" placeholder="For example, active">
+                </div>
+                <div class="col-md-7">
+                    <label for="project-id" class="form-label">Project slug</label>
+                    <input id="project-id" name="project_id" class="form-control font-monospace" value="{{ project.get('project_id') or project_id }}" required minlength="3" maxlength="25" pattern="[A-Za-z0-9][A-Za-z0-9_-]{2,24}">
+                    <div class="form-text">Changing the slug changes project URLs. The immutable project MFID and linked resources remain unchanged.</div>
+                </div>
+                <div class="col-md-5">
+                    <label for="project-organization" class="form-label">Organization</label>
+                    <input id="project-organization" name="organization" class="form-control" value="{{ project.get('organization') or '' }}" required>
+                </div>
+                <div class="col-12">
+                    <label for="project-mfid" class="form-label d-flex align-items-center gap-2">
+                        Project MFID
+                        <span class="badge fw-normal text-bg-secondary">Read only</span>
+                    </label>
+                    <div class="input-group">
+                        <input id="project-mfid" class="form-control font-monospace bg-body-secondary text-body-secondary" value="{{ project.get('unique_id') or '' }}" readonly aria-describedby="project-mfid-lock project-mfid-help">
+                        <span id="project-mfid-lock" class="input-group-text bg-body-secondary text-body-secondary" title="This identifier cannot be changed">
+                            <i class="bi bi-lock-fill" aria-hidden="true"></i>
+                            <span class="visually-hidden">Read only</span>
+                        </span>
+                    </div>
+                    <div id="project-mfid-help" class="form-text">Permanent identifier used by project relationships and access control. It cannot be changed.</div>
+                </div>
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-3 px-3 py-2 border-top" style="background:var(--bs-tertiary-bg);">
+            <button id="save-project-settings" class="btn btn-primary" type="submit" disabled>Save changes</button>
+            <span id="project-settings-status" class="small text-muted" role="status"></span>
+        </div>
+    </form>
+</div>
+
+<script>
+const projectSettingsApiUrl = {{ (base ~ '/' ~ project_id ~ '/api/settings') | tojson }};
+const projectSettingsForm = document.getElementById('project-settings-form');
+const projectSettingsSave = document.getElementById('save-project-settings');
+const projectSettingsStatus = document.getElementById('project-settings-status');
+const initialProjectSettings = new FormData(projectSettingsForm);
+
+function projectSettingsPayload() {
+    const data = new FormData(projectSettingsForm);
+    return Object.fromEntries(['title', 'status', 'project_id', 'organization'].map(field => [field, data.get(field)]));
+}
+
+function projectSettingsChanged() {
+    const current = new FormData(projectSettingsForm);
+    return ['title', 'status', 'project_id', 'organization'].some(field => current.get(field) !== initialProjectSettings.get(field));
+}
+
+projectSettingsForm.addEventListener('input', () => {
+    projectSettingsSave.disabled = !projectSettingsChanged();
+    projectSettingsStatus.textContent = '';
+    projectSettingsStatus.className = 'small text-muted';
+});
+
+projectSettingsForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!projectSettingsForm.reportValidity() || !projectSettingsChanged()) return;
+    projectSettingsSave.disabled = true;
+    projectSettingsStatus.textContent = 'Saving...';
+    projectSettingsStatus.className = 'small text-muted';
+    try {
+        const response = await fetch(projectSettingsApiUrl, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(projectSettingsPayload()),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `Save failed (${response.status})`);
+        if (data.redirect_url) {
+            window.location.assign(data.redirect_url);
+            return;
+        }
+        projectSettingsStatus.textContent = data.changed ? 'Saved' : 'No changes';
+        projectSettingsStatus.className = 'small text-success';
+        projectSettingsForm.querySelectorAll('input[name]').forEach(input => initialProjectSettings.set(input.name, input.value));
+    } catch (error) {
+        projectSettingsStatus.textContent = error.message;
+        projectSettingsStatus.className = 'small text-danger';
+        projectSettingsSave.disabled = false;
+    }
+});
+</script>
+{% endblock %}

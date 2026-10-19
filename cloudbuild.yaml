@@ -37,7 +37,8 @@ steps:
         CHAT_MODEL=${_CHAT_MODEL},
         VERTEX_PROJECT_ID=${PROJECT_ID},
         VERTEX_REGION=${_REGION},
-        CRUCIBLE_DOWNLOAD_DIR=/tmp/crucible-downloads
+        CRUCIBLE_DOWNLOAD_DIR=/tmp/crucible-downloads,
+        CRUCIBLE_MCP_NO_AMBIENT_AUTH=true
       - '--set-secrets'
       - >-
         CRUCIBLE_API_KEY=crucible_admin_apikey:latest,

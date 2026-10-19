@@ -32,7 +32,7 @@ def create_blueprint(auth, helpers):
 
     def _fetch_context(dsid):
         ds = get_user_client().datasets.get(dsid)
-        associated_files = get_user_client().datasets.get_associated_files(dsid)
+        associated_files = get_user_client().datasets.list_files(dsid)
         try:
             download_links = get_user_client().datasets.get_download_links(dsid)
         except Exception:
