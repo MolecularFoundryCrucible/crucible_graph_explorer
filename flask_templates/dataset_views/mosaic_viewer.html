@@ -62,16 +62,105 @@
                     font-size:var(--fs-xs); line-height:1.4;">
             <div><span class="text-muted d-inline-block" style="width:2.2rem;">px</span><span id="ro-px" class="mfid"></span></div>
             <div id="ro-mm-row"><span class="text-muted d-inline-block" style="width:2.2rem;">mm</span><span id="ro-mm" class="mfid"></span></div>
+            <!-- Cross-layer probe: one row per visible overlay under the cursor. -->
+            <div id="ro-ovl" style="margin-top:.1rem;"></div>
             <div class="text-muted" style="font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:.07em; margin-top:.15rem;"><span id="ro-ref">origin</span></div>
         </div>
 
         <!-- Right-click context menu (tools); items built in JS from MENU_ITEMS -->
         <div id="mosaic-menu" class="mosaic-menu d-none"></div>
+
+        <!-- Registration inset: dual-view click-pair alignment. The overlay is
+             drawn here as a heatmap; the user alternately clicks a feature on the
+             main mosaic (base px) then the matching feature here (overlay px). -->
+        <div id="reg-inset" class="position-absolute d-none"
+             style="right:.5rem; top:.5rem; z-index:20; width:14rem;
+                    background:var(--bs-body-bg); border:1px solid var(--bs-border-color);
+                    border-radius:.5rem; box-shadow:var(--cg-shadow); overflow:hidden;">
+            <div class="d-flex align-items-center justify-content-between px-2 py-1 border-bottom"
+                 style="background:var(--bs-tertiary-bg);">
+                <span style="font-size:var(--fs-xs); font-weight:600;">
+                    <i class="bi bi-pin-map me-1"></i>Register overlay</span>
+                <button id="reg-close" type="button" class="btn-close btn-close-sm"
+                        style="font-size:.6rem;" aria-label="Cancel"></button>
+            </div>
+            <div class="px-2 pt-1" style="font-size:var(--fs-2xs); line-height:1.35;">
+                <span id="reg-hint" class="text-muted"></span>
+            </div>
+            <div class="p-2 pt-1">
+                <div style="position:relative; width:100%;">
+                    <canvas id="reg-canvas" style="width:100%; display:block;
+                            image-rendering:pixelated; border:1px solid var(--bs-border-color);
+                            border-radius:.25rem; cursor:crosshair; background:#000;"></canvas>
+                    <svg id="reg-canvas-pts" style="position:absolute; inset:0; width:100%;
+                         height:100%; pointer-events:none;"></svg>
+                </div>
+                <div class="d-flex align-items-center gap-2 mt-1" style="font-size:var(--fs-2xs);">
+                    <label class="text-muted mb-0 d-flex align-items-center gap-1">
+                        <input type="checkbox" id="reg-flipx"> flip-X</label>
+                    <label class="text-muted mb-0 d-flex align-items-center gap-1">
+                        <input type="checkbox" id="reg-flipy"> flip-Y</label>
+                    <span id="reg-rms" class="ms-auto mfid text-muted"></span>
+                </div>
+                <div id="reg-pairs" class="mt-1" style="max-height:6rem; overflow-y:auto;
+                     font-size:var(--fs-2xs);"></div>
+                <div class="d-flex gap-1 mt-1">
+                    <button id="reg-done" type="button"
+                            class="btn btn-sm btn-primary py-0 flex-grow-1"
+                            style="font-size:var(--fs-xs);">Done</button>
+                    <button id="reg-clear" type="button"
+                            class="btn btn-sm btn-outline-secondary py-0"
+                            style="font-size:var(--fs-xs);" title="Clear all pairs">
+                        <i class="bi bi-eraser"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cross-layer spectrum popover: shown when an overlay pixel is clicked. -->
+        <div id="probe-pop" class="position-absolute d-none"
+             style="z-index:21; width:17rem; background:var(--bs-body-bg);
+                    border:1px solid var(--bs-border-color); border-radius:.5rem;
+                    box-shadow:var(--cg-shadow); overflow:hidden;">
+            <div class="d-flex align-items-center justify-content-between px-2 py-1 border-bottom"
+                 style="background:var(--bs-tertiary-bg);">
+                <span id="probe-title" class="text-truncate"
+                      style="font-size:var(--fs-xs); font-weight:600;">Spectrum</span>
+                <button id="probe-close" type="button" class="btn-close btn-close-sm"
+                        style="font-size:.6rem;" aria-label="Close"></button>
+            </div>
+            <div class="p-2">
+                <canvas id="probe-canvas" width="260" height="120"
+                        style="width:100%; display:block;"></canvas>
+                <div id="probe-sub" class="text-muted mt-1"
+                     style="font-size:var(--fs-2xs);"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right side column: Layers (correlative overlays) stacked above Markers. -->
+    <div id="side-panel" class="d-flex flex-column flex-shrink-0"
+         style="width:16rem; border-left:1px solid var(--bs-border-color); background:var(--bs-body-bg);">
+
+    <!-- Layers panel: the base mosaic + any toggleable correlative overlays
+         (hyperspec, …). Revealed by JS once the viewer opens. Google-Maps-style
+         stack: eye toggle, opacity, colormap, legend, z-order per overlay. -->
+    <div id="layers-panel" class="d-flex flex-column flex-shrink-0 d-none"
+         style="max-height:48%; border-bottom:2px solid var(--bs-border-color);">
+        <div class="d-flex align-items-center justify-content-between px-2 py-2 border-bottom">
+            <span style="font-size:var(--fs-sm); font-weight:600;">
+                <i class="bi bi-stack me-1"></i>Layers</span>
+            <button id="overlay-add-btn" type="button"
+                    class="btn btn-sm btn-outline-primary py-0 flex-shrink-0"
+                    style="font-size:var(--fs-xs);"
+                    title="Overlay another dataset (e.g. hyperspec) on this mosaic">
+                <i class="bi bi-plus-lg me-1"></i>Add overlay
+            </button>
+        </div>
+        <div id="layer-list" class="flex-grow-1 p-1" style="overflow-y:auto; min-height:3rem;"></div>
     </div>
 
     <!-- Marker side panel -->
-    <div id="marker-panel" class="d-flex flex-column flex-shrink-0"
-         style="width:15rem; border-left:1px solid var(--bs-border-color); background:var(--bs-body-bg);">
+    <div id="marker-panel" class="d-flex flex-column flex-grow-1" style="min-height:0;">
         <div class="d-flex align-items-center justify-content-between px-2 py-2 border-bottom">
             <span style="font-size:var(--fs-sm); font-weight:600;">
                 <i class="bi bi-geo-alt-fill me-1"></i>Markers</span>
@@ -105,6 +194,7 @@
              style="font-size:var(--fs-2xs); text-transform:uppercase; letter-spacing:.07em;">
             Hover a marker + Delete to remove
         </div>
+    </div>
     </div>
 </div>
 
@@ -204,8 +294,21 @@
     }
     .mosaic-marker-chip.area { border-radius: .25rem; }   /* square-ish chip for areas */
 
-    /* Tool armed (marker or area): crosshair cursor over the image. */
-    #mosaic-viewport.tool-active, #mosaic-viewport.tool-active canvas { cursor: crosshair !important; }
+    /* Tool armed (marker or area) or registering an overlay: crosshair cursor. */
+    #mosaic-viewport.tool-active, #mosaic-viewport.tool-active canvas,
+    #mosaic-viewport.reg-active, #mosaic-viewport.reg-active canvas { cursor: crosshair !important; }
+
+    /* Registration: numbered base-point pins dropped on the mosaic while pairing. */
+    .reg-base-marker {
+        width: 1.1rem; height: 1.1rem; border-radius: 50%;
+        background: var(--cg-accent, #3b82f6); color: #fff;
+        font-size: var(--fs-2xs); font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5);
+        pointer-events: none;
+    }
+    .reg-base-marker.pending { background: #f59e0b; animation: reg-pulse 1s infinite; }
+    @keyframes reg-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.35); } }
 
     /* Detail region: a higher-mag mosaic's footprint on this map. Dashed +
        amber so it reads as derived/read-only and distinct from area annotations.
@@ -296,6 +399,9 @@ const CURRENT_DSID  = {{ ds['unique_id'] | tojson }};
 const VIEWER_ORCID  = {{ viewer_orcid | tojson }};
 const HAS_SERVER    = {{ has_server | tojson }};
 const IS_LOCAL      = {{ (project_id is none) | tojson }};
+// Measurement types that have a registered server-side overlay adapter. Drives the
+// "Add overlay" picker (only adapter-backed siblings are overlay-able) — see §3/§8.
+const OVERLAY_MEASUREMENTS = {{ overlay_measurements | tojson }};
 
 const OSD_IMAGE_PREFIX =
     'https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/images/';
@@ -331,6 +437,22 @@ let pendingFit = null;                   // region rect to fitBounds after the n
 let hoveredDetail = null;                // detail region under the cursor (click = activate)
 let uiWired = false;                     // one-time listener wiring guard (open fires again on activate)
 let mosaicsLoaded = false;               // sample mosaic set fetched once
+
+// ── Correlative overlays ──────────────────────────────────────────────────────
+// Other-modality datasets (hyperspec, …) registered onto THIS mosaic as OSD tiled
+// images. Like markers, `overlays` holds only the active map's overlays, rebuilt
+// from the annotation blob on each open. Each entry:
+//   { id, dataset_id, kind, name,
+//     registration:{ type:'similarity', points:[{overlay:{x,y},base:{x,y}}],
+//                    matrix:[a,b,c,d,e,f], rms },
+//     render:{ colormap, vmin, vmax, opacity, z, flipX, flipY },
+//     reduction:{ id, x_axis, spec_min, spec_max },
+//     visible, updated, author, deleted,
+//     descriptor, mapData, dataVmin, dataVmax,   // client-held (not persisted)
+//     tiledImage, canvas }                        // live OSD handles (not persisted)
+const overlays = [];
+let regMode = null;    // active click-pair registration session (see registration §5)
+const OVERLAY_TIMEOUT_MS = 20000;
 
 const stageEl   = document.getElementById('mosaic-stage');
 const loadingEl = document.getElementById('mosaic-loading');
@@ -548,6 +670,7 @@ function setupHoverReadout() {
             document.getElementById('ro-mm-row').style.display = c ? '' : 'none';
             if (c) roMm.textContent = `${c.x.toFixed(3)}, ${c.y.toFixed(3)}`;
             document.getElementById('ro-ref').textContent = frame.label;
+            updateOverlayReadout(p.x, p.y);   // each visible overlay's scalar here
         },
         leaveHandler: () => { box.classList.add('d-none'); setHoveredMarker(null); },
     }).setTracking(true);
@@ -757,7 +880,8 @@ function addMarker(x, y) {
     const el = document.createElement('div');
     el.className = 'mosaic-marker';
     const m = { id: uuid(), type: 'point', x, y, el, row: null, body: null, chev: null,
-                name: null, description: '', links: [], fiducial: null, expanded: false };
+                name: null, description: '', links: [], fiducial: null, expanded: false,
+                updated: new Date().toISOString(), author: VIEWER_ORCID || null };
     // No DOM mouse listeners on the glyph: OSD overlays don't reliably receive
     // them. Hover + click are resolved by markerHitTest on the container.
     mosaicViewer.addOverlay({ element: el, location: imgToViewport(x, y),
@@ -781,7 +905,8 @@ function addArea(x, y, w, h) {
     mosaicViewer.addOverlay({ element: el,
         location: item.imageToViewportRectangle(imgRect(x, y, w, h)) });
     const a = { id: uuid(), type: 'area', x, y, w, h, el, row: null, body: null, chev: null,
-                name: null, description: '', links: [], expanded: false };
+                name: null, description: '', links: [], expanded: false,
+                updated: new Date().toISOString(), author: VIEWER_ORCID || null };
     markers.push(a);
     renderMarkerPanel();
     return a;
@@ -849,6 +974,9 @@ function removeMarker(m) {
     }
     mosaicViewer.removeOverlay(m.el);
     markers.splice(i, 1);
+    // Tombstone so the delete survives an item-level merge (§7).
+    annotTombstones.set(m.id, { id: m.id, deleted: true,
+        updated: new Date().toISOString(), author: VIEWER_ORCID || null });
     if (hoveredMarker === m) hoveredMarker = null;
     if (activeFrameId === m.id) activeFrameId = 'current';   // its frame is gone
     renderMarkerPanel();   // renumbers the remaining markers
@@ -947,7 +1075,7 @@ function renderMarkerPanel() {
         desc.style.fontSize = 'var(--fs-sm)';
         desc.placeholder = 'Add a description…';
         desc.value = m.description || '';
-        desc.addEventListener('input', () => { m.description = desc.value; markAnnotationsDirty(); });
+        desc.addEventListener('input', () => { m.description = desc.value; touchItem(m); markAnnotationsDirty(); });
         desc.addEventListener('click', (e) => e.stopPropagation());   // don't toggle
         body.appendChild(desc);
 
@@ -994,6 +1122,7 @@ function renderMarkerPanel() {
             m.name = (v && v !== defaultName(m)) ? v : null;
             name.textContent = markerName(m);
             m.el.title = markerName(m);
+            touchItem(m);
             markAnnotationsDirty();
         });
 
@@ -1117,7 +1246,7 @@ function buildFiducialSection(m) {
     inst.addEventListener('keydown', stop);
     inst.addEventListener('change', () => {
         f.instrument = inst.value.trim();
-        markAnnotationsDirty(); renderMarkerPanel(); rebuildFrameSelect();
+        touchItem(m); markAnnotationsDirty(); renderMarkerPanel(); rebuildFrameSelect();
     });
     wrap.appendChild(inst);
 
@@ -1133,7 +1262,7 @@ function buildFiducialSection(m) {
         i.addEventListener('keydown', stop);
         i.addEventListener('change', () => {
             set(parseFloat(i.value) || 0);
-            markAnnotationsDirty(); renderMarkerPanel();
+            touchItem(m); markAnnotationsDirty(); renderMarkerPanel();
         });
         return i;
     };
@@ -1155,7 +1284,7 @@ function buildFiducialSection(m) {
         cb.addEventListener('click', stop);
         cb.addEventListener('change', () => {
             set(cb.checked ? -1 : 1);
-            markAnnotationsDirty(); renderMarkerPanel();
+            touchItem(m); markAnnotationsDirty(); renderMarkerPanel();
         });
         lb.addEventListener('click', stop);
         lb.append(cb, document.createTextNode(label));
@@ -1183,6 +1312,7 @@ function promoteFiducial(m) {
     if (m.type !== 'point') return;
     m.fiducial = { instrument: '', stage: { x: 0, y: 0 }, flipX: 1, flipY: 1 };
     m.expanded = true;
+    touchItem(m);
     markAnnotationsDirty();
     renderMarkerPanel();
     rebuildFrameSelect();
@@ -1197,6 +1327,7 @@ function promoteFiducial(m) {
 function demoteFiducial(m) {
     m.fiducial = null;
     if (activeFrameId === m.id) activeFrameId = 'current';   // it backed the active frame
+    touchItem(m);
     markAnnotationsDirty();
     renderMarkerPanel();
     rebuildFrameSelect();
@@ -1249,6 +1380,7 @@ function attachLink(m, d) {
     }
     link.added = new Date().toISOString();
     m.links.push(link);
+    touchItem(m);
     markAnnotationsDirty();
     m.expanded = true;          // keep the submenu open so the new link is visible
     renderMarkerPanel();
@@ -1257,6 +1389,7 @@ function attachLink(m, d) {
 
 function removeLink(m, link) {
     m.links = (m.links || []).filter((l) => l !== link);
+    touchItem(m);
     markAnnotationsDirty();
     renderMarkerPanel();
 }
@@ -1601,6 +1734,8 @@ function teardownOverlays() {
     for (const m of markers) mosaicViewer.removeOverlay(m.el);
     markers.length = 0;
     clearDetailRegions();
+    clearOverlays();             // drop correlative layers; rebuilt for the new map
+    cancelRegistration();        // exit any pairing session tied to the old map
 }
 
 async function swapTo(dsid, region) {
@@ -1794,29 +1929,53 @@ function serializeLinks(links) {
     return (links || []).map(normalizeLink).filter((l) => l.dataset_id);
 }
 
+// Persist an overlay's durable state (registration + render + reduction), never
+// the live OSD handles or the fetched map array — those are rebuilt on load.
+function serializeOverlay(ov) {
+    return {
+        id: ov.id, dataset_id: ov.dataset_id, kind: ov.kind, name: ov.name || '',
+        registration: ov.registration || null,
+        render: {
+            colormap: ov.render.colormap, vmin: ov.render.vmin, vmax: ov.render.vmax,
+            opacity: ov.render.opacity, z: ov.render.z,
+            flipX: !!ov.render.flipX, flipY: !!ov.render.flipY,
+        },
+        reduction: ov.reduction || null,
+        visible: ov.visible !== false,
+        updated: ov.updated, author: ov.author || null, deleted: false,
+    };
+}
+
 // Snapshot the current mosaic's annotations as the portable blob (image px).
 function serializeAnnotations() {
     return {
         schema: 'cg-mosaic-annotations',
         // v2 adds per-annotation `links` (cross-microscope dataset references).
         // v3 adds per-point `fiducial` (a coordinate-frame anchor for another
-        // microscope). v1/v2 blobs load unchanged (links default to [], fiducial
-        // to null).
-        version: 3,
+        // microscope). v4 adds per-item `updated`/`author`/`deleted` (tombstones)
+        // for item-level merge, plus a top-level `overlays[]` (correlative layers).
+        // v1/v2/v3 blobs load unchanged (overlays default [], deleted ⇒ false).
+        version: 4,
         dataset_id: activeDsid,
         origin: { x: originPixel.x, y: originPixel.y },
         // Only a deliberately-placed origin is restored on load; without this flag a
         // stale autosaved default would clobber the geometry-derived default origin.
         origin_user_set: originUserSet,
-        annotations: markers.map((m) => m.type === 'area'
-            ? { id: m.id, type: 'area', x: m.x, y: m.y, w: m.w, h: m.h,
-                name: m.name || '', description: m.description || '',
-                links: serializeLinks(m.links) }
-            : { id: m.id, type: 'point', x: m.x, y: m.y,
-                name: m.name || '', description: m.description || '',
-                // `links` kept for compatibility even on fiducials (it'll be []).
-                links: serializeLinks(m.links),
-                fiducial: m.fiducial || null }),
+        annotations: markers.map((m) => Object.assign(
+            m.type === 'area'
+                ? { id: m.id, type: 'area', x: m.x, y: m.y, w: m.w, h: m.h,
+                    name: m.name || '', description: m.description || '',
+                    links: serializeLinks(m.links) }
+                : { id: m.id, type: 'point', x: m.x, y: m.y,
+                    name: m.name || '', description: m.description || '',
+                    // `links` kept for compatibility even on fiducials (it'll be []).
+                    links: serializeLinks(m.links),
+                    fiducial: m.fiducial || null },
+            { updated: m.updated || null, author: m.author || null, deleted: false }))
+            // Retained tombstones so a merge never resurrects a deleted marker.
+            .concat([...annotTombstones.values()]),
+        overlays: overlays.map(serializeOverlay)
+            .concat([...overlayTombstones.values()]),
         // Fold in the detail-region nudges for this map so corrections travel with
         // the blob too (Part E). The legacy per-map key is still read as a fallback.
         detail_overrides: overridesFor(activeDsid),
@@ -1839,6 +1998,8 @@ function applyAnnotations(blob) {
     applyingAnnotations = true;
     try {
         clearAnnotations();
+        annotTombstones.clear();     // rebuilt from this blob's tombstones below
+        overlayTombstones.clear();
         if (blob) {
             // Restore the origin only if the user deliberately placed it; otherwise
             // leave the geometry default the open handler already set. Legacy blobs
@@ -1846,6 +2007,13 @@ function applyAnnotations(blob) {
             if (blob.origin && blob.origin_user_set)
                 setOrigin(blob.origin.x, blob.origin.y, true);
             for (const a of (blob.annotations || [])) {
+                if (!a) continue;
+                if (a.deleted) {          // v4 tombstone — retain, don't materialize
+                    if (a.id) annotTombstones.set(a.id, {
+                        id: a.id, deleted: true, updated: a.updated || null,
+                        author: a.author || null });
+                    continue;
+                }
                 const m = (a.type === 'area')
                     ? addArea(a.x, a.y, a.w, a.h)
                     : addMarker(a.x, a.y);
@@ -1855,7 +2023,12 @@ function applyAnnotations(blob) {
                 m.links = Array.isArray(a.links) ? a.links.map(normalizeLink) : [];
                 // v3: coordinate-frame anchor (only meaningful on points).
                 m.fiducial = (a.type !== 'area' && a.fiducial) ? a.fiducial : null;
+                // v4 provenance (tolerated missing on v1–v3 blobs).
+                m.updated = a.updated || m.updated;
+                m.author = a.author || m.author;
             }
+            // v4: correlative overlays (default [] for older blobs).
+            applyOverlays(blob.overlays || []);
             // Merge any nudges carried in the blob into this map's override cache
             // (Part E) so re-projected detail regions pick them up. The blob's
             // values win over the legacy per-map localStorage key.
@@ -1913,6 +2086,49 @@ function markAnnotationsDirty() {
     annotSaveTimer = setTimeout(() => { annotSaveTimer = null; saveAnnotationsLocal(); }, 500);
 }
 
+// ── Schema v4: item-level provenance + tombstones ─────────────────────────────
+// Each annotation/overlay carries `updated`/`author`; deletes leave a retained
+// tombstone (`deleted:true`) so a merge never resurrects a removed item and a
+// stale draft can't clobber a newer edit (mirrors the server's _merge_blobs). The
+// tombstone stores hold removed items for the ACTIVE map only; rebuilt per open.
+const annotTombstones = new Map();     // id -> { id, deleted:true, updated, author }
+const overlayTombstones = new Map();   // id -> { id, deleted:true, updated, author }
+
+// Stamp an item as freshly edited (bump its `updated`, own the `author`). Skipped
+// while applyAnnotations is rebuilding, so a rehydrate keeps the stored timestamp.
+function touchItem(m) {
+    if (applyingAnnotations || !m) return;
+    m.updated = new Date().toISOString();
+    if (!m.author) m.author = VIEWER_ORCID || null;
+}
+
+const _ts = (s) => Date.parse(s || '') || 0;
+
+// Merge two item lists by `id`: newest `updated` wins; a `deleted:true` item is a
+// tombstone (kept, removed from the active set). Absence never deletes (union).
+function mergeItemLists(base, incoming) {
+    const by = new Map();
+    for (const it of (base || [])) if (it && it.id) by.set(it.id, it);
+    for (const it of (incoming || [])) {
+        if (!it || !it.id) continue;
+        const cur = by.get(it.id);
+        if (!cur || _ts(it.updated) >= _ts(cur.updated)) by.set(it.id, it);
+    }
+    return [...by.values()];
+}
+
+// Merge two whole blobs item-wise (annotations + overlays); scalar top-level
+// fields (origin, detail_overrides, …) come from whichever blob is newer.
+function mergeBlobs(base, incoming) {
+    if (!base) return incoming;
+    if (!incoming) return base;
+    const newer = _ts(incoming.updated) >= _ts(base.updated) ? incoming : base;
+    const out = Object.assign({}, base, newer);
+    out.annotations = mergeItemLists(base.annotations, incoming.annotations);
+    out.overlays = mergeItemLists(base.overlays, incoming.overlays);
+    return out;
+}
+
 // Load annotations for the currently-displayed mosaic and reconcile the two tiers
 // (last-writer-wins by 'updated' timestamp, per Part C):
 //   • no server blob        → use localStorage (if any); mark dirty (never saved)
@@ -1946,13 +2162,17 @@ async function loadAnnotationsForCurrent() {
     annotationDsid = serverDsid;
     serverAnnotBlob = server;
 
+    // v4: reconcile the two tiers by ITEM (not whole-blob). Merging the local draft
+    // into the server blob means a stale tab can't resurrect a deleted marker or
+    // clobber a newer edit — and different-item edits are preserved from both.
     let chosen = server, dirty = false;
     if (!server) {
         chosen = local; dirty = !!local;                    // local exists, never uploaded
     } else if (local) {
-        const ls = Date.parse(local.updated || '') || 0;
-        const ss = Date.parse(server.updated || '') || 0;
-        if (ls > ss) { chosen = local; dirty = true; }      // unsaved local edits win
+        chosen = mergeBlobs(server, local);
+        // Dirty only if the local draft actually contributed something not yet on
+        // the server (so we don't churn a save on every plain load).
+        dirty = JSON.stringify(chosen) !== JSON.stringify(server);
     }
     applyAnnotations(chosen);
     if (chosen) {                             // write-through cache, verbatim
@@ -1992,7 +2212,16 @@ async function saveAnnotationsServer() {
         if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
         if (targetDsid === activeDsid) {
             annotationDsid = j.annotation_dsid || annotationDsid;
-            serverAnnotBlob = blob;
+            // The server returns the MERGED blob (another author's items folded in).
+            // Reconcile the client to it so we don't overwrite their work on the next
+            // save — but only if nothing changed locally while the POST was in flight.
+            const merged = j.annotations || blob;
+            serverAnnotBlob = merged;
+            if (!annotDirty && JSON.stringify(merged) !== JSON.stringify(blob)) {
+                applyAnnotations(merged);
+                try { localStorage.setItem(annotKey(activeDsid), JSON.stringify(merged)); }
+                catch (e) { /* quota / disabled */ }
+            }
             annotDirty = false;
             setSaveState('saved');
         }
@@ -2169,6 +2398,16 @@ function setupInteractions() {
         const item = mosaicViewer.world.getItemAt(0);
         if (!item) return;
 
+        // Registration pairing: a click on the mosaic captures the base-frame point
+        // of the current pair (the matching overlay point comes from the inset).
+        if (regMode) {
+            event.preventDefaultAction = true;
+            const p = item.viewportToImageCoordinates(
+                mosaicViewer.viewport.pointFromPixel(event.position));
+            regCaptureBase(p.x, p.y);
+            return;
+        }
+
         if (toolMode === 'marker') {
             const p = item.viewportToImageCoordinates(
                 mosaicViewer.viewport.pointFromPixel(event.position));
@@ -2185,7 +2424,10 @@ function setupInteractions() {
         const hit = markerHitTest(event.position);
         if (hit) { selectMarker(hit); return; }    // a marker wins over a region below it
         const region = detailRegionHitTest(event.position);
-        if (region) activateMosaic(region);        // click a detail box → open that mosaic
+        if (region) { activateMosaic(region); return; }   // click a detail box → open it
+        // Click on a visible overlay → fetch + show its spectrum (cross-layer probe).
+        const ph = overlayProbeHitTest(event.position);
+        if (ph) showOverlayProbe(ph.ov, ph.xi, ph.yi, event.position);
     });
 
     // Area tool: click-drag draws a rectangle (pan is suppressed while drawing).
@@ -2251,7 +2493,12 @@ function setupInteractions() {
     // Keyboard: Esc cancels the menu/armed tool; Delete removes the hovered marker
     // (ignored while editing a name or description).
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') { hideMenu(); exitToolMode(); return; }
+        if (event.key === 'Escape') {
+            hideMenu(); exitToolMode();
+            if (regMode) cancelRegistration();
+            document.getElementById('probe-pop').classList.add('d-none');
+            return;
+        }
         if (event.key !== 'Delete' || !hoveredMarker) return;
         const ae = document.activeElement;
         if (ae && (ae.isContentEditable || ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return;
@@ -2271,9 +2518,918 @@ window.addEventListener('pagehide', () => {
     if (HAS_SERVER && annotDirty) beaconSaveAnnotations();
 });
 
+// ══════════════════════════════════════════════════════════════════════════════
+// Correlative overlays (§4–7): render pipeline, click-pair registration, Layers
+// panel, cross-layer probe. Overlays are other-modality datasets (hyperspec, …)
+// reduced server-side to a small scalar field, colormapped client-side, and placed
+// on the mosaic via an OSD tiled image using a similarity transform.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Colormaps ─────────────────────────────────────────────────────────────────
+// Compact anchor stops interpolated to a 256-entry LUT. viridis/inferno/magma/gray
+// per the plan, plus plasma/hot. Values are 0–255 RGB.
+const _CMAP_STOPS = {
+    viridis: [[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],
+              [31,158,137],[53,183,121],[110,206,88],[181,222,43],[253,231,37]],
+    plasma:  [[13,8,135],[75,3,161],[125,3,168],[168,34,150],[203,70,121],
+              [229,107,93],[248,148,65],[253,195,40],[240,249,33]],
+    inferno: [[0,0,4],[31,12,72],[85,15,109],[136,34,106],[186,54,85],
+              [227,89,51],[249,140,10],[249,201,50],[252,255,164]],
+    magma:   [[0,0,4],[28,16,68],[79,18,123],[129,37,129],[181,54,122],
+              [229,80,100],[251,135,97],[254,194,135],[252,253,191]],
+    gray:    [[0,0,0],[255,255,255]],
+    hot:     [[0,0,0],[128,0,0],[255,0,0],[255,128,0],[255,255,0],[255,255,255]],
+};
+const COLORMAP_NAMES = Object.keys(_CMAP_STOPS);
+const _cmapCache = {};
+function colormapLUT(name) {
+    if (_cmapCache[name]) return _cmapCache[name];
+    const stops = _CMAP_STOPS[name] || _CMAP_STOPS.viridis;
+    const lut = new Uint8Array(256 * 3);
+    for (let i = 0; i < 256; i++) {
+        const t = i / 255 * (stops.length - 1);
+        const a = Math.floor(t), b = Math.min(a + 1, stops.length - 1), f = t - a;
+        for (let k = 0; k < 3; k++)
+            lut[i * 3 + k] = Math.round(stops[a][k] + (stops[b][k] - stops[a][k]) * f);
+    }
+    _cmapCache[name] = lut;
+    return lut;
+}
+
+// ── URLs ──────────────────────────────────────────────────────────────────────
+// Mirror sampleDatasetsUrl(): ANNOT_BASE + activeDsid resolves to the current map's
+// blueprint prefix under both the dataset and /local routes.
+function overlayUrl(target, sub, qs) {
+    return ANNOT_BASE + encodeURIComponent(activeDsid) + '/overlay/'
+         + encodeURIComponent(target) + '/' + sub + (qs ? ('?' + qs) : '');
+}
+
+// ── Similarity transform (§5) ─────────────────────────────────────────────────
+// solveSimilarity(pairs) with pairs = [{p:{x,y}(overlay, flip-applied), q:{x,y}(base)}].
+// Closed-form 2D least-squares via complex arithmetic (no reflection): find complex
+// c = s·e^{iθ} and translation t minimising Σ|c·p + t − q|². Exact for N=2; LSQ for
+// N≥3 with an RMS residual; translation-only for N=1.
+function solveSimilarity(pairs) {
+    const n = pairs.length;
+    if (!n) return null;
+    let mpx = 0, mpy = 0, mqx = 0, mqy = 0;
+    for (const { p, q } of pairs) { mpx += p.x; mpy += p.y; mqx += q.x; mqy += q.y; }
+    mpx /= n; mpy /= n; mqx /= n; mqy /= n;
+    if (n === 1) return { s: 1, theta: 0, tx: mqx - mpx, ty: mqy - mpy, rms: 0, n: 1 };
+    let numRe = 0, numIm = 0, den = 0;
+    for (const { p, q } of pairs) {
+        const ax = p.x - mpx, ay = p.y - mpy, bx = q.x - mqx, by = q.y - mqy;
+        numRe += bx * ax + by * ay;      // Re[(q−mq)·conj(p−mp)]
+        numIm += by * ax - bx * ay;      // Im[(q−mq)·conj(p−mp)]
+        den   += ax * ax + ay * ay;
+    }
+    if (den < 1e-9) return { s: 1, theta: 0, tx: mqx - mpx, ty: mqy - mpy, rms: 0, n };
+    const cRe = numRe / den, cIm = numIm / den;
+    const s = Math.hypot(cRe, cIm), theta = Math.atan2(cIm, cRe);
+    const tx = mqx - (cRe * mpx - cIm * mpy);
+    const ty = mqy - (cIm * mpx + cRe * mpy);
+    let se = 0;
+    for (const { p, q } of pairs) {
+        const ex = (cRe * p.x - cIm * p.y) + tx - q.x;
+        const ey = (cIm * p.x + cRe * p.y) + ty - q.y;
+        se += ex * ex + ey * ey;
+    }
+    return { s, theta, tx, ty, rms: Math.sqrt(se / n), n };
+}
+function simApply(sim, x, y) {
+    const cr = sim.s * Math.cos(sim.theta), ci = sim.s * Math.sin(sim.theta);
+    return { x: cr * x - ci * y + sim.tx, y: ci * x + cr * y + sim.ty };
+}
+function simInvert(sim, X, Y) {           // base px → overlay (flip-applied) px
+    const cr = sim.s * Math.cos(sim.theta), ci = sim.s * Math.sin(sim.theta);
+    const det = cr * cr + ci * ci || 1e-9, dx = X - sim.tx, dy = Y - sim.ty;
+    return { x: (cr * dx + ci * dy) / det, y: (-ci * dx + cr * dy) / det };
+}
+// Native overlay px ↔ flip-applied ("display") px (flip is its own inverse).
+function applyFlip(ov, x, y) {
+    return { x: ov.render.flipX ? (ov.Nh - 1 - x) : x,
+             y: ov.render.flipY ? (ov.Nv - 1 - y) : y };
+}
+
+// ── Overlay state helpers ─────────────────────────────────────────────────────
+function overlayById(id) { return overlays.find((o) => o.id === id); }
+
+function defaultRender() {
+    return { colormap: 'viridis', vmin: null, vmax: null, opacity: 0.75, z: 0,
+             flipX: false, flipY: false };
+}
+
+function clearOverlays() {
+    for (const ov of overlays) if (ov.tiledImage) {
+        try { mosaicViewer.world.removeItem(ov.tiledImage); } catch (e) { /* gone */ }
+        ov.tiledImage = null;
+    }
+    overlays.length = 0;
+    const panel = document.getElementById('layers-panel');
+    if (panel) panel.classList.add('d-none');
+}
+
+// Rebuild overlays from a v4 blob's overlays[] (tombstones retained separately).
+function applyOverlays(records) {
+    clearOverlays();
+    for (const r of (records || [])) {
+        if (!r) continue;
+        if (r.deleted) {
+            if (r.id) overlayTombstones.set(r.id, { id: r.id, deleted: true,
+                updated: r.updated || null, author: r.author || null });
+            continue;
+        }
+        const ov = {
+            id: r.id || uuid(), dataset_id: r.dataset_id, kind: r.kind || null,
+            name: r.name || r.dataset_id,
+            registration: r.registration || { type: 'similarity', points: [], matrix: null, rms: null },
+            render: Object.assign(defaultRender(), r.render || {}),
+            reduction: r.reduction || null,
+            visible: r.visible !== false,
+            updated: r.updated || null, author: r.author || null,
+            descriptor: null, mapData: null, Nh: 0, Nv: 0,
+            dataVmin: null, dataVmax: null, tiledImage: null, canvas: null,
+            _sim: null,
+        };
+        overlays.push(ov);
+        initOverlay(ov);              // async: descriptor → reduce → render → place
+    }
+    renderLayerPanel();
+}
+
+// Full (re)hydration of one overlay's data + placement from the server.
+async function initOverlay(ov) {
+    try {
+        if (!ov.descriptor) {
+            const rd = await fetch(overlayUrl(ov.dataset_id, 'descriptor'));
+            if (!rd.ok) throw new Error('descriptor ' + rd.status);
+            ov.descriptor = await rd.json();
+        }
+        const g = ov.descriptor.grid || {};
+        ov.Nh = g.Nh || 0; ov.Nv = g.Nv || 0;
+        if (!ov.reduction) {
+            const red = (ov.descriptor.reductions || [])[0] || { id: 'band_sum' };
+            const ax = (red.axes || ['wls'])[0];
+            ov.reduction = { id: red.id, x_axis: ax, spec_min: null, spec_max: null };
+        }
+        await refreshOverlayData(ov);        // fills mapData + data range
+        recomputeRegistration(ov);           // solve + place if it has pairs
+        renderLayerPanel();
+    } catch (e) {
+        cgToast('Overlay load failed: ' + e.message, 'bi-exclamation-triangle');
+    }
+}
+
+// Fetch the reduced scalar field for the overlay's current reduction params.
+async function refreshOverlayData(ov) {
+    const rd = ov.reduction || {};
+    const qs = new URLSearchParams();
+    if (rd.x_axis) qs.set('x_axis', rd.x_axis);
+    if (rd.spec_min != null && rd.spec_min !== '') qs.set('spec_min', rd.spec_min);
+    if (rd.spec_max != null && rd.spec_max !== '') qs.set('spec_max', rd.spec_max);
+    const r = await fetch(overlayUrl(ov.dataset_id, 'reduce', qs.toString()));
+    if (!r.ok) throw new Error('reduce ' + r.status);
+    const j = await r.json();
+    ov.mapData = j.map_data;
+    ov.Nh = j.Nh != null ? j.Nh : ((j.map_data && j.map_data[0]) ? j.map_data[0].length : ov.Nh);
+    ov.Nv = j.Nv != null ? j.Nv : (j.map_data ? j.map_data.length : ov.Nv);
+    ov.dataVmin = j.vmin; ov.dataVmax = j.vmax;
+    if (ov.render.vmin == null) ov.render.vmin = j.vmin;
+    if (ov.render.vmax == null) ov.render.vmax = j.vmax;
+    renderOverlayCanvas(ov);
+}
+
+// Colormap the scalar field into an Nh×Nv canvas (flip baked in for placement).
+function renderOverlayCanvas(ov) {
+    if (!ov.mapData || !ov.Nh || !ov.Nv) return;
+    const lut = colormapLUT(ov.render.colormap);
+    const vmin = ov.render.vmin, vmax = ov.render.vmax;
+    const span = (vmax - vmin) || 1;
+    const nat = document.createElement('canvas');
+    nat.width = ov.Nh; nat.height = ov.Nv;
+    const nctx = nat.getContext('2d');
+    const img = nctx.createImageData(ov.Nh, ov.Nv);
+    const d = img.data;
+    for (let j = 0; j < ov.Nv; j++) {
+        const row = ov.mapData[j] || [];
+        for (let i = 0; i < ov.Nh; i++) {
+            const o = (j * ov.Nh + i) * 4, v = row[i];
+            if (v == null || Number.isNaN(v)) { d[o + 3] = 0; continue; }
+            let t = (v - vmin) / span;
+            t = t < 0 ? 0 : (t > 1 ? 1 : t);
+            const li = (t * 255) | 0;
+            d[o] = lut[li * 3]; d[o + 1] = lut[li * 3 + 1]; d[o + 2] = lut[li * 3 + 2];
+            d[o + 3] = 255;
+        }
+    }
+    nctx.putImageData(img, 0, 0);
+    // Bake flips: the tiled canvas index space becomes the flip-applied space the
+    // similarity solve works in, so placement stays a pure rotate+scale+translate.
+    const c = document.createElement('canvas');
+    c.width = ov.Nh; c.height = ov.Nv;
+    const ctx = c.getContext('2d');
+    ctx.save();
+    ctx.translate(ov.render.flipX ? ov.Nh : 0, ov.render.flipY ? ov.Nv : 0);
+    ctx.scale(ov.render.flipX ? -1 : 1, ov.render.flipY ? -1 : 1);
+    ctx.drawImage(nat, 0, 0);
+    ctx.restore();
+    ov.canvas = c;
+    if (ov.tiledImage) placeOverlay(ov);     // refresh the tile source in place
+}
+
+// Place / re-place the overlay as an OSD tiled image from its similarity fit.
+function placeOverlay(ov) {
+    if (ov.tiledImage) {
+        try { mosaicViewer.world.removeItem(ov.tiledImage); } catch (e) { /* gone */ }
+        ov.tiledImage = null;
+    }
+    // addTiledImage assigns ov.tiledImage only in its async success callback. If
+    // placeOverlay is called again before that fires (rapid pairing, flips), the
+    // earlier pending image would leak as an untracked orphan. Tag each placement
+    // with a sequence number; a late success that has been superseded removes its
+    // own item instead of becoming an orphan.
+    const seq = (ov._placeSeq = (ov._placeSeq || 0) + 1);
+    if (!ov._sim || !ov.canvas || !imageWidthPx) return;
+    const baseW = imageWidthPx, sim = ov._sim;
+    const cx = ov.Nh / 2, cy = ov.Nv / 2;
+    const qc = simApply(sim, cx, cy);            // base-px location of overlay centre
+    const wVp = (sim.s * ov.Nh) / baseW, hVp = (sim.s * ov.Nv) / baseW;
+    const degrees = sim.theta * 180 / Math.PI;
+    mosaicViewer.addTiledImage({          // addTiledImage lives on the Viewer, not world
+        tileSource: { type: 'image', url: ov.canvas.toDataURL() },
+        x: qc.x / baseW - wVp / 2,               // OSD rotates about the image centre,
+        y: qc.y / baseW - hVp / 2,               // so position the *unrotated* top-left
+        width: wVp,
+        degrees,
+        opacity: ov.visible !== false ? ov.render.opacity : 0,
+        success: (e) => {
+            if (seq !== ov._placeSeq) {          // superseded by a newer placement
+                try { mosaicViewer.world.removeItem(e.item); } catch (err) { /* gone */ }
+                return;
+            }
+            ov.tiledImage = e.item; applyOverlayZOrder();
+        },
+    });
+}
+
+// Re-solve the similarity from stored native point pairs (+ current flips), place.
+function recomputeRegistration(ov) {
+    const pts = (ov.registration && ov.registration.points) || [];
+    if (!pts.length) { ov._sim = null; placeOverlay(ov); return; }
+    const pairs = pts.map((pt) => ({ p: applyFlip(ov, pt.overlay.x, pt.overlay.y), q: pt.base }));
+    const sim = solveSimilarity(pairs);
+    ov._sim = sim;
+    const cr = sim.s * Math.cos(sim.theta), ci = sim.s * Math.sin(sim.theta);
+    ov.registration.type = 'similarity';
+    ov.registration.matrix = [cr, ci, -ci, cr, sim.tx, sim.ty];
+    ov.registration.rms = sim.rms;
+    placeOverlay(ov);
+}
+
+function applyOverlayZOrder() {
+    // Base image stays at index 0; overlays stack above it by ascending z.
+    const ordered = overlays.filter((o) => o.tiledImage)
+        .sort((a, b) => (a.render.z - b.render.z));
+    ordered.forEach((o, k) => {
+        try { mosaicViewer.world.setItemIndex(o.tiledImage, 1 + k); } catch (e) { /* race */ }
+    });
+}
+
+function setOverlayVisible(ov, vis) {
+    ov.visible = vis;
+    if (ov.tiledImage) ov.tiledImage.setOpacity(vis ? ov.render.opacity : 0);
+    touchItem(ov); markAnnotationsDirty(); renderLayerPanel();
+}
+
+function removeOverlay(ov) {
+    if (ov.tiledImage) { try { mosaicViewer.world.removeItem(ov.tiledImage); } catch (e) {} }
+    const i = overlays.indexOf(ov);
+    if (i >= 0) overlays.splice(i, 1);
+    overlayTombstones.set(ov.id, { id: ov.id, deleted: true,
+        updated: new Date().toISOString(), author: VIEWER_ORCID || null });
+    if (regMode && regMode.ov === ov) cancelRegistration();
+    markAnnotationsDirty(); renderLayerPanel();
+    cgToast('Overlay removed', 'bi-trash');
+}
+
+// Create a brand-new overlay from a picked sibling dataset, then register it.
+function addOverlay(datasetId, measurement, name) {
+    const ov = {
+        id: uuid(), dataset_id: datasetId, kind: measurement, name: name || datasetId,
+        registration: { type: 'similarity', points: [], matrix: null, rms: null },
+        render: defaultRender(), reduction: null, visible: true,
+        updated: new Date().toISOString(), author: VIEWER_ORCID || null,
+        descriptor: null, mapData: null, Nh: 0, Nv: 0,
+        dataVmin: null, dataVmax: null, tiledImage: null, canvas: null, _sim: null,
+    };
+    overlays.push(ov);
+    markAnnotationsDirty();
+    renderLayerPanel();
+    initOverlay(ov).then(() => startRegistration(ov));
+}
+
+// ── "Add overlay" picker (adapter-filtered sibling datasets) ───────────────────
+async function openOverlayPicker() {
+    let cands = [];
+    try {
+        const r = await fetch(sampleDatasetsUrl(activeDsid));
+        const j = await r.json();
+        cands = (j.datasets || []).filter((d) =>
+            d.dsid !== activeDsid && OVERLAY_MEASUREMENTS.includes(d.measurement));
+    } catch (e) { cgToast('Could not list datasets: ' + e.message, 'bi-exclamation-triangle'); return; }
+    if (!cands.length) { cgToast('No overlay-able datasets found for this mosaic.', 'bi-info-circle'); return; }
+
+    const back = document.createElement('div');
+    back.className = 'position-fixed top-0 start-0 w-100 h-100';
+    back.style.cssText = 'background:rgba(0,0,0,.35); z-index:1080; display:flex;'
+                       + 'align-items:center; justify-content:center;';
+    const box = document.createElement('div');
+    box.style.cssText = 'width:min(28rem,92vw); max-height:80vh; overflow:auto;'
+        + 'background:var(--bs-body-bg); border:1px solid var(--bs-border-color);'
+        + 'border-radius:.5rem; box-shadow:var(--cg-shadow);';
+    box.innerHTML = '<div class="d-flex align-items-center justify-content-between'
+        + ' px-3 py-2 border-bottom"><span style="font-weight:600;">'
+        + '<i class="bi bi-stack me-1"></i>Add overlay</span></div>';
+    const list = document.createElement('div'); list.className = 'p-2';
+    cands.forEach((d) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn btn-sm btn-outline-secondary w-100 text-start mb-1';
+        b.style.fontSize = 'var(--fs-sm)';
+        b.innerHTML = `<i class="bi bi-diagram-3 me-1"></i>${escapeHtml(d.name || d.dsid)}`
+            + `<span class="text-muted ms-1" style="font-size:var(--fs-2xs);">${escapeHtml(d.measurement)}</span>`;
+        b.addEventListener('click', () => {
+            document.body.removeChild(back);
+            addOverlay(d.dsid, d.measurement, d.name || d.dsid);
+        });
+        list.appendChild(b);
+    });
+    box.appendChild(list);
+    back.appendChild(box);
+    back.addEventListener('click', (e) => { if (e.target === back) document.body.removeChild(back); });
+    document.body.appendChild(back);
+}
+
+// ── Layers panel (§6) ─────────────────────────────────────────────────────────
+function renderLayerPanel() {
+    const panel = document.getElementById('layers-panel');
+    const list = document.getElementById('layer-list');
+    if (!panel || !list) return;
+    panel.classList.remove('d-none');
+    list.innerHTML = '';
+
+    // Base mosaic row (always present, non-removable).
+    const baseRow = document.createElement('div');
+    baseRow.className = 'd-flex align-items-center gap-1 px-1 py-1 border-bottom';
+    baseRow.style.fontSize = 'var(--fs-sm)';
+    baseRow.innerHTML = '<i class="bi bi-image text-muted"></i>'
+        + '<span class="flex-grow-1 text-truncate">Base mosaic</span>';
+    list.appendChild(baseRow);
+
+    overlays.forEach((ov) => list.appendChild(buildLayerRow(ov)));
+}
+
+function buildLayerRow(ov) {
+    const wrap = document.createElement('div');
+    wrap.className = 'border-bottom py-1 px-1';
+    wrap.style.fontSize = 'var(--fs-sm)';
+
+    // Header line: eye + name + gear (expand) + remove.
+    const head = document.createElement('div');
+    head.className = 'd-flex align-items-center gap-1';
+    const eye = document.createElement('button');
+    eye.type = 'button'; eye.className = 'btn btn-sm p-0 border-0 flex-shrink-0';
+    eye.style.width = '1.2rem';
+    eye.innerHTML = `<i class="bi ${ov.visible !== false ? 'bi-eye' : 'bi-eye-slash text-muted'}"></i>`;
+    eye.title = 'Show / hide';
+    eye.addEventListener('click', () => setOverlayVisible(ov, ov.visible === false));
+    const nm = document.createElement('span');
+    nm.className = 'flex-grow-1 text-truncate';
+    nm.textContent = ov.name || ov.dataset_id;
+    nm.title = (ov.name || ov.dataset_id)
+        + (ov.registration && ov.registration.rms != null
+            ? `  ·  RMS ${ov.registration.rms.toFixed(1)} px` : '')
+        + (ov.author ? `  ·  ${ov.author}` : '');
+    const gear = document.createElement('button');
+    gear.type = 'button'; gear.className = 'btn btn-sm p-0 border-0 flex-shrink-0 text-muted';
+    gear.style.width = '1.2rem'; gear.innerHTML = '<i class="bi bi-sliders"></i>';
+    gear.title = 'Layer settings';
+    const rm = document.createElement('button');
+    rm.type = 'button'; rm.className = 'btn btn-sm p-0 border-0 flex-shrink-0 text-danger';
+    rm.style.width = '1.2rem'; rm.innerHTML = '<i class="bi bi-x-lg"></i>';
+    rm.title = 'Remove overlay';
+    rm.addEventListener('click', () => removeOverlay(ov));
+    head.append(eye, nm, gear, rm);
+    wrap.appendChild(head);
+
+    // Registration status: a persistent line so the placed state is always visible
+    // (a transient toast is easy to miss).
+    const status = document.createElement('div');
+    status.style.fontSize = 'var(--fs-2xs)';
+    if (!ov._sim) {
+        status.className = 'text-warning';
+        status.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>Not placed — register it';
+    } else {
+        const npts = (ov.registration && ov.registration.points) ? ov.registration.points.length : 0;
+        status.className = 'text-success';
+        status.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Registered'
+            + (ov.registration && ov.registration.rms != null
+                ? `  ·  RMS ${ov.registration.rms.toFixed(1)} px`
+                : (npts ? `  ·  ${npts} pt${npts === 1 ? '' : 's'}` : ''));
+    }
+    wrap.appendChild(status);
+
+    // Collapsible controls.
+    const body = document.createElement('div');
+    body.className = 'mt-1' + (ov._expanded ? '' : ' d-none');
+    gear.addEventListener('click', () => {
+        ov._expanded = !ov._expanded;
+        body.classList.toggle('d-none', !ov._expanded);
+    });
+
+    // Opacity.
+    body.appendChild(labeledRange('Opacity', 0, 1, 0.05, ov.render.opacity, (v) => {
+        ov.render.opacity = v;
+        if (ov.tiledImage && ov.visible !== false) ov.tiledImage.setOpacity(v);
+        touchItem(ov); markAnnotationsDirty();
+    }));
+
+    // Colormap.
+    const cmRow = document.createElement('div');
+    cmRow.className = 'd-flex align-items-center gap-1 mt-1';
+    cmRow.innerHTML = '<span class="text-muted" style="width:3.5rem; font-size:var(--fs-2xs);">Colour</span>';
+    const cmSel = document.createElement('select');
+    cmSel.className = 'form-select form-select-sm py-0'; cmSel.style.fontSize = 'var(--fs-2xs)';
+    COLORMAP_NAMES.forEach((n) => {
+        const o = document.createElement('option'); o.value = n; o.textContent = n;
+        if (n === ov.render.colormap) o.selected = true; cmSel.appendChild(o);
+    });
+    cmSel.addEventListener('change', () => {
+        ov.render.colormap = cmSel.value; renderOverlayCanvas(ov);
+        touchItem(ov); markAnnotationsDirty(); renderLayerPanel();
+    });
+    cmRow.appendChild(cmSel);
+    body.appendChild(cmRow);
+
+    // vmin / vmax.
+    const rng = document.createElement('div');
+    rng.className = 'd-flex align-items-center gap-1 mt-1';
+    const vmin = numInput(ov.render.vmin, 'min');
+    const vmax = numInput(ov.render.vmax, 'max');
+    const onRange = () => {
+        const lo = parseFloat(vmin.value), hi = parseFloat(vmax.value);
+        if (!Number.isNaN(lo)) ov.render.vmin = lo;
+        if (!Number.isNaN(hi)) ov.render.vmax = hi;
+        renderOverlayCanvas(ov); touchItem(ov); markAnnotationsDirty();
+    };
+    vmin.addEventListener('change', onRange); vmax.addEventListener('change', onRange);
+    const auto = document.createElement('button');
+    auto.type = 'button'; auto.className = 'btn btn-sm btn-outline-secondary py-0';
+    auto.style.fontSize = 'var(--fs-2xs)'; auto.textContent = 'auto'; auto.title = 'Reset to data range';
+    auto.addEventListener('click', () => {
+        ov.render.vmin = ov.dataVmin; ov.render.vmax = ov.dataVmax;
+        vmin.value = fmtNum(ov.dataVmin); vmax.value = fmtNum(ov.dataVmax);
+        renderOverlayCanvas(ov); touchItem(ov); markAnnotationsDirty();
+    });
+    rng.append(vmin, vmax, auto);
+    body.appendChild(rng);
+
+    // Colorbar legend.
+    body.appendChild(buildColorbar(ov));
+
+    // Band / reduction selector (spectral min/max for band_sum).
+    if (ov.descriptor && ov.descriptor.spectral_axis) {
+        const bandRow = document.createElement('div');
+        bandRow.className = 'd-flex align-items-center gap-1 mt-1';
+        const ax = (ov.reduction && ov.reduction.x_axis) || 'wls';
+        bandRow.innerHTML = `<span class="text-muted" style="width:3.5rem; font-size:var(--fs-2xs);">Band</span>`;
+        const bmin = numInput(ov.reduction && ov.reduction.spec_min, 'from');
+        const bmax = numInput(ov.reduction && ov.reduction.spec_max, 'to');
+        const apply = document.createElement('button');
+        apply.type = 'button'; apply.className = 'btn btn-sm btn-outline-primary py-0';
+        apply.style.fontSize = 'var(--fs-2xs)'; apply.innerHTML = '<i class="bi bi-arrow-repeat"></i>';
+        apply.title = `Re-reduce over this ${ax} band (blank = full range)`;
+        apply.addEventListener('click', async () => {
+            ov.reduction = ov.reduction || { id: 'band_sum', x_axis: ax };
+            ov.reduction.spec_min = bmin.value === '' ? null : parseFloat(bmin.value);
+            ov.reduction.spec_max = bmax.value === '' ? null : parseFloat(bmax.value);
+            ov.render.vmin = ov.render.vmax = null;     // let the new range drive display
+            try { await refreshOverlayData(ov); } catch (e) {
+                cgToast('Reduce failed: ' + e.message, 'bi-exclamation-triangle'); return;
+            }
+            touchItem(ov); markAnnotationsDirty(); renderLayerPanel();
+        });
+        bandRow.append(bmin, bmax, apply);
+        body.appendChild(bandRow);
+    }
+
+    // Actions: register / z-order.
+    const acts = document.createElement('div');
+    acts.className = 'd-flex align-items-center gap-1 mt-1';
+    const reg = document.createElement('button');
+    reg.type = 'button'; reg.className = 'btn btn-sm btn-outline-primary py-0 flex-grow-1';
+    reg.style.fontSize = 'var(--fs-2xs)';
+    reg.innerHTML = '<i class="bi bi-pin-map me-1"></i>' + (ov._sim ? 'Re-register' : 'Register');
+    reg.addEventListener('click', () => startRegistration(ov));
+    const up = zButton('bi-arrow-up', 'Bring forward', () => { ov.render.z += 1; applyOverlayZOrder(); touchItem(ov); markAnnotationsDirty(); });
+    const dn = zButton('bi-arrow-down', 'Send backward', () => { ov.render.z -= 1; applyOverlayZOrder(); touchItem(ov); markAnnotationsDirty(); });
+    acts.append(reg, dn, up);
+    body.appendChild(acts);
+
+    wrap.appendChild(body);
+    return wrap;
+}
+
+// Small UI builders.
+function labeledRange(label, min, max, step, val, oninput) {
+    const row = document.createElement('div');
+    row.className = 'd-flex align-items-center gap-1';
+    row.innerHTML = `<span class="text-muted" style="width:3.5rem; font-size:var(--fs-2xs);">${label}</span>`;
+    const r = document.createElement('input');
+    r.type = 'range'; r.className = 'form-range'; r.min = min; r.max = max; r.step = step;
+    r.value = val; r.style.flex = '1';
+    r.addEventListener('input', () => oninput(parseFloat(r.value)));
+    row.appendChild(r);
+    return row;
+}
+function numInput(val, ph) {
+    const i = document.createElement('input');
+    i.type = 'number'; i.className = 'form-control form-control-sm py-0';
+    i.style.fontSize = 'var(--fs-2xs)'; i.placeholder = ph;
+    i.value = (val == null ? '' : fmtNum(val));
+    return i;
+}
+function zButton(icon, title, fn) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'btn btn-sm btn-outline-secondary py-0';
+    b.style.fontSize = 'var(--fs-2xs)'; b.title = title;
+    b.innerHTML = `<i class="bi ${icon}"></i>`;
+    b.addEventListener('click', fn);
+    return b;
+}
+function fmtNum(v) {
+    if (v == null || Number.isNaN(v)) return '';
+    const a = Math.abs(v);
+    if (a !== 0 && (a < 0.01 || a >= 1e5)) return v.toExponential(2);
+    return (Math.round(v * 100) / 100).toString();
+}
+function buildColorbar(ov) {
+    const bar = document.createElement('div');
+    bar.className = 'd-flex align-items-center gap-1 mt-1';
+    const cv = document.createElement('canvas');
+    cv.width = 100; cv.height = 8; cv.style.cssText = 'flex:1; height:8px; border-radius:2px;';
+    const ctx = cv.getContext('2d');
+    const lut = colormapLUT(ov.render.colormap);
+    const img = ctx.createImageData(100, 1);
+    for (let i = 0; i < 100; i++) {
+        const li = Math.round(i / 99 * 255) * 3, o = i * 4;
+        img.data[o] = lut[li]; img.data[o + 1] = lut[li + 1];
+        img.data[o + 2] = lut[li + 2]; img.data[o + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    ctx.drawImage(cv, 0, 0, 100, 1, 0, 0, 100, 8);
+    const lo = document.createElement('span'), hi = document.createElement('span');
+    lo.className = hi.className = 'text-muted mfid'; lo.style.fontSize = hi.style.fontSize = 'var(--fs-2xs)';
+    lo.textContent = fmtNum(ov.render.vmin); hi.textContent = fmtNum(ov.render.vmax);
+    bar.append(lo, cv, hi);
+    return bar;
+}
+
+// ── Click-pair registration UI (§5) ───────────────────────────────────────────
+const regEls = {};
+function regInit() {
+    regEls.inset = document.getElementById('reg-inset');
+    regEls.canvas = document.getElementById('reg-canvas');
+    regEls.pts = document.getElementById('reg-canvas-pts');
+    regEls.hint = document.getElementById('reg-hint');
+    regEls.pairs = document.getElementById('reg-pairs');
+    regEls.rms = document.getElementById('reg-rms');
+    regEls.flipx = document.getElementById('reg-flipx');
+    regEls.flipy = document.getElementById('reg-flipy');
+    document.getElementById('reg-close').addEventListener('click', cancelRegistration);
+    document.getElementById('reg-done').addEventListener('click', finishRegistration);
+    document.getElementById('reg-clear').addEventListener('click', () => {
+        if (!regMode) return;
+        regMode.pairs = []; regMode.pendingBase = null; regMode.pendingOverlay = null;
+        syncRegToOverlay(); drawRegCanvas(); renderRegPairs(); updateRegHint(); renderRegBaseMarkers();
+    });
+    regEls.canvas.addEventListener('click', onRegCanvasClick);
+    const onFlip = () => {
+        if (!regMode) return;
+        regMode.ov.render.flipX = regEls.flipx.checked;
+        regMode.ov.render.flipY = regEls.flipy.checked;
+        renderOverlayCanvas(regMode.ov);
+        syncRegToOverlay(); drawRegCanvas(); renderRegPairs();
+    };
+    regEls.flipx.addEventListener('change', onFlip);
+    regEls.flipy.addEventListener('change', onFlip);
+    document.getElementById('overlay-add-btn').addEventListener('click', openOverlayPicker);
+}
+
+function startRegistration(ov) {
+    if (!ov.descriptor || !ov.Nh) { cgToast('Overlay still loading…', 'bi-hourglass'); return; }
+    regMode = { ov, pairs: (ov.registration.points || []).map(
+        (p) => ({ overlay: { x: p.overlay.x, y: p.overlay.y }, base: { x: p.base.x, y: p.base.y } })),
+        pendingBase: null, pendingOverlay: null };
+    regEls.flipx.checked = !!ov.render.flipX;
+    regEls.flipy.checked = !!ov.render.flipY;
+    regEls.inset.classList.remove('d-none');
+    document.getElementById('mosaic-viewport').classList.add('reg-active');   // crosshair
+    drawRegCanvas(); renderRegPairs(); updateRegHint(); renderRegBaseMarkers();
+}
+
+function cancelRegistration() {
+    regMode = null;
+    clearRegBaseMarkers();
+    document.getElementById('mosaic-viewport').classList.remove('reg-active');
+    if (regEls.inset) regEls.inset.classList.add('d-none');
+}
+
+// Numbered pins on the mosaic for each captured base point (+ the pending one), so
+// clicks on the main canvas are visibly registered during pairing.
+let regBaseEls = [];
+function clearRegBaseMarkers() {
+    for (const el of regBaseEls) { try { mosaicViewer.removeOverlay(el); } catch (e) {} }
+    regBaseEls = [];
+}
+function renderRegBaseMarkers() {
+    clearRegBaseMarkers();
+    if (!regMode) return;
+    regMode.pairs.forEach((p, k) => addRegBaseMarker(p.base.x, p.base.y, String(k + 1), false));
+    if (regMode.pendingBase) addRegBaseMarker(regMode.pendingBase.x, regMode.pendingBase.y, '?', true);
+}
+function addRegBaseMarker(x, y, label, pending) {
+    const el = document.createElement('div');
+    el.className = 'reg-base-marker' + (pending ? ' pending' : '');
+    el.textContent = label;
+    mosaicViewer.addOverlay({ element: el, location: imgToViewport(x, y),
+        placement: OpenSeadragon.Placement.CENTER, checkResize: false });
+    regBaseEls.push(el);
+}
+
+function finishRegistration() {
+    if (!regMode) { cgToast('No registration in progress', 'bi-exclamation-triangle'); return; }
+    const ov = regMode.ov;
+    if (!regMode.pairs.length) {
+        cgToast('Add at least one matched pair first', 'bi-exclamation-triangle');
+        return;
+    }
+    try {
+        syncRegToOverlay();
+        touchItem(ov); markAnnotationsDirty();
+    } catch (e) {
+        console.error('finishRegistration failed', e);
+        cgToast('Registration failed: ' + (e && e.message ? e.message : e), 'bi-x-octagon', 5000);
+        return;
+    }
+    cancelRegistration();
+    renderLayerPanel();
+    cgToast(ov._sim ? 'Overlay registered' : 'Overlay saved (not placed)',
+            ov._sim ? 'bi-check2' : 'bi-exclamation-triangle');
+}
+
+// Push the working pairs onto the overlay + re-solve/place live.
+function syncRegToOverlay() {
+    const ov = regMode.ov;
+    ov.registration = ov.registration || { type: 'similarity' };
+    ov.registration.points = regMode.pairs.map(
+        (p) => ({ overlay: { x: p.overlay.x, y: p.overlay.y }, base: { x: p.base.x, y: p.base.y } }));
+    recomputeRegistration(ov);
+    regEls.rms.textContent = (ov.registration.rms != null && regMode.pairs.length >= 3)
+        ? ('RMS ' + ov.registration.rms.toFixed(1) + ' px') : '';
+}
+
+function regCaptureBase(x, y) {
+    if (!regMode) return;
+    regMode.pendingBase = { x, y };
+    maybeFormPair();
+    updateRegHint(); renderRegBaseMarkers();
+}
+
+// A pair is complete once BOTH a mosaic point and an inset point are pending —
+// clicked in EITHER order. Until then each click leaves a pending marker so the
+// user always gets immediate feedback about where they clicked.
+function maybeFormPair() {
+    if (!regMode || !regMode.pendingBase || !regMode.pendingOverlay) return;
+    regMode.pairs.push({ overlay: regMode.pendingOverlay, base: regMode.pendingBase });
+    regMode.pendingBase = null;
+    regMode.pendingOverlay = null;
+    // Repaint the inset marker + panels in THIS frame so the click's feedback is
+    // instant. The live overlay (re)placement is deferred: syncRegToOverlay mutates
+    // the OSD world (addTiledImage), and doing that inline BEFORE the redraw made
+    // the browser coalesce the inset's repaint into a later frame — so a completed
+    // marker only appeared after the next user action. Guarded so a placement snag
+    // can never swallow the visual feedback.
+    drawRegCanvas(); renderRegPairs(); renderRegBaseMarkers();
+    requestAnimationFrame(() => {
+        if (!regMode) return;
+        try { syncRegToOverlay(); }
+        catch (e) { console.error('overlay placement failed', e); }
+    });
+}
+
+function onRegCanvasClick(ev) {
+    if (!regMode) return;
+    const ov = regMode.ov;
+    const rect = regEls.canvas.getBoundingClientRect();
+    // Canvas is drawn at Nh×Nv and CSS-scaled to its box → map back to native px.
+    const nx = (ev.clientX - rect.left) / rect.width * ov.Nh;
+    const ny = (ev.clientY - rect.top) / rect.height * ov.Nv;
+    const xi = Math.max(0, Math.min(ov.Nh - 1, Math.round(nx)));
+    const yi = Math.max(0, Math.min(ov.Nv - 1, Math.round(ny)));
+    regMode.pendingOverlay = { x: xi, y: yi };
+    maybeFormPair();
+    drawRegCanvas(); updateRegHint();
+}
+
+function updateRegHint() {
+    if (!regEls.hint) return;
+    const n = regMode ? regMode.pairs.length : 0;
+    if (regMode && regMode.pendingBase && !regMode.pendingOverlay)
+        regEls.hint.innerHTML = '<span class="text-primary">Now click the same feature in the inset ↓</span>';
+    else if (regMode && regMode.pendingOverlay && !regMode.pendingBase)
+        regEls.hint.innerHTML = '<span class="text-primary">Now click the same feature on the mosaic ↑</span>';
+    else
+        regEls.hint.textContent = n < 2
+            ? `Click matching features on the mosaic and the inset (either order). (${n}/2 pairs)`
+            : `${n} pairs — add more to refine, or Done.`;
+}
+
+function drawRegCanvas() {
+    if (!regMode) return;
+    const ov = regMode.ov, cv = regEls.canvas;
+    // Draw the NATIVE heatmap (independent of flips; clicks map to native px).
+    const lut = colormapLUT(ov.render.colormap);
+    const vmin = ov.render.vmin, vmax = ov.render.vmax, span = (vmax - vmin) || 1;
+    cv.width = ov.Nh; cv.height = ov.Nv;
+    const ctx = cv.getContext('2d');
+    if (ov.mapData) {
+        const img = ctx.createImageData(ov.Nh, ov.Nv), d = img.data;
+        for (let j = 0; j < ov.Nv; j++) {
+            const row = ov.mapData[j] || [];
+            for (let i = 0; i < ov.Nh; i++) {
+                const o = (j * ov.Nh + i) * 4, v = row[i];
+                if (v == null || Number.isNaN(v)) { d[o + 3] = 255; continue; }
+                let t = (v - vmin) / span; t = t < 0 ? 0 : (t > 1 ? 1 : t);
+                const li = (t * 255) | 0;
+                d[o] = lut[li * 3]; d[o + 1] = lut[li * 3 + 1]; d[o + 2] = lut[li * 3 + 2]; d[o + 3] = 255;
+            }
+        }
+        ctx.putImageData(img, 0, 0);
+    }
+    // Point overlay (SVG) at native px scaled to the canvas box. Built via
+    // createElementNS — setting .innerHTML on an SVG element does not reliably
+    // parse child markup into the SVG namespace across browsers, so markers
+    // silently failed to appear.
+    const svg = regEls.pts, NS = 'http://www.w3.org/2000/svg';
+    svg.setAttribute('viewBox', `0 0 ${ov.Nh} ${ov.Nv}`);
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    // Markers are sized in native-pixel (viewBox) units so they scale with the inset.
+    const r = Math.max(1, ov.Nh / 60), sw = Math.max(0.5, ov.Nh / 120);
+    const mk = (name, attrs, text) => {
+        const el = document.createElementNS(NS, name);
+        for (const k in attrs) el.setAttribute(k, attrs[k]);
+        if (text != null) el.textContent = text;
+        svg.appendChild(el);
+        return el;
+    };
+    regMode.pairs.forEach((p, k) => {
+        mk('circle', { cx: p.overlay.x, cy: p.overlay.y, r, fill: 'none',
+                       stroke: '#fff', 'stroke-width': sw });
+        mk('text', { x: p.overlay.x + 2, y: p.overlay.y - 1, fill: '#fff',
+                     'font-size': Math.max(3, ov.Nh / 20) }, k + 1);
+    });
+    if (regMode.pendingOverlay) {          // the not-yet-paired inset click
+        mk('circle', { cx: regMode.pendingOverlay.x, cy: regMode.pendingOverlay.y,
+                       r: r * 1.3, fill: 'none', stroke: '#f59e0b',
+                       'stroke-width': sw * 1.6 });
+    }
+}
+
+function renderRegPairs() {
+    if (!regEls.pairs || !regMode) return;
+    if (!regMode.pairs.length) { regEls.pairs.innerHTML = '<span class="text-muted">No pairs yet.</span>'; return; }
+    regEls.pairs.innerHTML = '';
+    regMode.pairs.forEach((p, k) => {
+        const row = document.createElement('div');
+        row.className = 'd-flex align-items-center gap-1';
+        row.innerHTML = `<span class="mfid text-muted">#${k + 1}</span>`
+            + `<span class="mfid flex-grow-1">ov(${p.overlay.x},${p.overlay.y}) → `
+            + `base(${Math.round(p.base.x)},${Math.round(p.base.y)})</span>`;
+        const del = document.createElement('button');
+        del.type = 'button'; del.className = 'btn btn-sm p-0 border-0 text-danger';
+        del.style.width = '1rem'; del.innerHTML = '<i class="bi bi-x"></i>';
+        del.addEventListener('click', () => {
+            regMode.pairs.splice(k, 1);
+            syncRegToOverlay(); drawRegCanvas(); renderRegPairs(); updateRegHint(); renderRegBaseMarkers();
+        });
+        row.appendChild(del);
+        regEls.pairs.appendChild(row);
+    });
+}
+
+// ── Cross-layer probe (§7) ────────────────────────────────────────────────────
+function overlayLocalAt(ov, baseX, baseY) {
+    if (!ov._sim || !ov.mapData) return null;
+    const pf = simInvert(ov._sim, baseX, baseY);              // flip-applied space
+    const nx = ov.render.flipX ? (ov.Nh - 1 - pf.x) : pf.x;
+    const ny = ov.render.flipY ? (ov.Nv - 1 - pf.y) : pf.y;
+    const xi = Math.round(nx), yi = Math.round(ny);
+    if (xi < 0 || yi < 0 || xi >= ov.Nh || yi >= ov.Nv) return null;
+    return { xi, yi };
+}
+
+function updateOverlayReadout(baseX, baseY) {
+    const box = document.getElementById('ro-ovl');
+    if (!box) return;
+    let html = '';
+    for (const ov of overlays) {
+        if (ov.visible === false || !ov._sim || !ov.mapData) continue;
+        const loc = overlayLocalAt(ov, baseX, baseY);
+        if (!loc) continue;
+        const row = ov.mapData[loc.yi] || [];
+        const v = row[loc.xi];
+        if (v == null || Number.isNaN(v)) continue;
+        html += `<div class="text-truncate"><span class="text-muted d-inline-block"`
+            + ` style="width:2.2rem;">${escapeHtml((ov.name || 'ovl').slice(0, 4))}</span>`
+            + `<span class="mfid">${fmtNum(v)}</span></div>`;
+    }
+    box.innerHTML = html;
+}
+
+function overlayProbeHitTest(pixelPos) {
+    const item = mosaicViewer.world.getItemAt(0);
+    if (!item) return null;
+    const p = item.viewportToImageCoordinates(mosaicViewer.viewport.pointFromPixel(pixelPos));
+    // Top-most (highest z) visible overlay under the cursor wins.
+    const ordered = overlays.filter((o) => o.visible !== false && o._sim && o.mapData)
+        .sort((a, b) => b.render.z - a.render.z);
+    for (const ov of ordered) {
+        const loc = overlayLocalAt(ov, p.x, p.y);
+        if (loc) return { ov, xi: loc.xi, yi: loc.yi };
+    }
+    return null;
+}
+
+async function showOverlayProbe(ov, xi, yi, pixelPos) {
+    const pop = document.getElementById('probe-pop');
+    const title = document.getElementById('probe-title');
+    const sub = document.getElementById('probe-sub');
+    title.textContent = `${ov.name || 'Overlay'} @ (${xi}, ${yi})`;
+    sub.textContent = 'Loading spectrum…';
+    // Position within the OSD viewport (the popover's offset parent), clamped.
+    const vpRect = document.getElementById('mosaic-viewport').getBoundingClientRect();
+    pop.style.left = Math.max(4, Math.min(pixelPos.x + 12, vpRect.width - 280)) + 'px';
+    pop.style.top = Math.max(4, Math.min(pixelPos.y + 12, vpRect.height - 200)) + 'px';
+    pop.classList.remove('d-none');
+    let j;
+    try {
+        const r = await fetch(overlayUrl(ov.dataset_id, 'probe',
+            new URLSearchParams({ xi, yi }).toString()));
+        if (!r.ok) throw new Error('probe ' + r.status);
+        j = await r.json();
+    } catch (e) { sub.textContent = 'Probe failed: ' + e.message; return; }
+    const yv = j.intensity || [];
+    const axes = j.spectral_axis || {};
+    const xkey = (ov.reduction && ov.reduction.x_axis && axes[ov.reduction.x_axis])
+        ? ov.reduction.x_axis : Object.keys(axes)[0];
+    const xv = axes[xkey] || yv.map((_, i) => i);
+    drawProbePlot(yv, xv);
+    sub.textContent = `${yv.length} pts · x = ${xkey || 'index'}`;
+}
+
+function drawProbePlot(yv, xv) {
+    const cv = document.getElementById('probe-canvas');
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height, pad = 4;
+    ctx.clearRect(0, 0, W, H);
+    if (!yv.length) return;
+    let lo = Infinity, hi = -Infinity;
+    for (const v of yv) { if (v < lo) lo = v; if (v > hi) hi = v; }
+    const span = (hi - lo) || 1;
+    ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--cg-accent') || '#3b82f6';
+    ctx.lineWidth = 1; ctx.beginPath();
+    for (let i = 0; i < yv.length; i++) {
+        const x = pad + (i / (yv.length - 1)) * (W - 2 * pad);
+        const y = H - pad - ((yv[i] - lo) / span) * (H - 2 * pad);
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.stroke();
+}
+
+document.getElementById('probe-close').addEventListener('click',
+    () => document.getElementById('probe-pop').classList.add('d-none'));
+
+// Small HTML escaper reused by the picker / readout (mirrors marker-panel usage).
+function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g,
+        (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 sizeStage();
 window.addEventListener('resize', sizeStage);
 setupSaveBar();
+regInit();
 initViewer();
 </script>
 {% endblock %}
