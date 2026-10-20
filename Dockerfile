@@ -1,7 +1,7 @@
 FROM python:3.11-trixie
 
 # Install Node.js for building Vite assets
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
@@ -23,7 +23,7 @@ RUN uv sync --locked
 
 # Build Vite assets for production
 WORKDIR /app/vite
-RUN npm install && npm run build
+RUN npm ci && npm run build
 
 # Return to app directory
 WORKDIR /app
